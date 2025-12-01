@@ -21,6 +21,10 @@
 - `app/config/` — configuration and database setup.
 - `app/models/` — SQLAlchemy models (placeholders for now).
 - `app/services/` — business logic and integrations.
+- `app/tasks/` — standalone maintenance commands (e.g., call expiration cleanup).
 - `.env.example` — sample configuration.
 - `Makefile` — helper commands (`make run`, `make test`).
 - `requirements.txt` — dependency list for the service runtime.
+
+## Maintenance jobs
+- Auto-expire stale calls by running `python -m app.tasks.expire_calls` (suitable for cron/beat). This marks overdue calls as `expired` and notifies connected participants with a `call_ended` WebSocket event.

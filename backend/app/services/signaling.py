@@ -65,6 +65,10 @@ class CallRoomManager:
                 self._rooms[call_id] = room
             return room
 
+    async def get_existing_room(self, call_id: str) -> CallRoom | None:
+        async with self._lock:
+            return self._rooms.get(call_id)
+
     async def cleanup_room(self, call_id: str) -> None:
         async with self._lock:
             room = self._rooms.get(call_id)
@@ -73,3 +77,12 @@ class CallRoomManager:
 
 
 call_room_manager = CallRoomManager()
+
+
+async def notify_call_ended(call_id: str, *, reason: str) -> None:
+    """Broadcast call termination to participants and cleanup rooms."""
+
+    room = await call_room_manager.get_existing_room(call_id)
+    if room:
+        await room.broadcast({"type": "call_ended", "reason": reason})
+        await call_room_manager.cleanup_room(call_id)
