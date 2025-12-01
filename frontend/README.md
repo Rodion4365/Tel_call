@@ -1,0 +1,14 @@
+# Frontend
+
+## Stack
+- React 18
+- TypeScript
+- Vite for build/dev server
+
+## Local development
+1. Install dependencies: `npm install` (run from the `frontend/` directory).
+2. Start dev server: `npm run dev` (defaults to port 5173).
+3. Build for production: `npm run build`.
+
+## Notes
+The app currently renders a placeholder screen. Replace `src/App.tsx` with real UI once ready.
