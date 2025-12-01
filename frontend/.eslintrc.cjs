@@ -6,7 +6,6 @@ module.exports = {
     "eslint:recommended",
     "plugin:react-hooks/recommended",
     "plugin:@typescript-eslint/recommended",
-    "plugin:react-refresh/recommended",
   ],
   parser: "@typescript-eslint/parser",
   plugins: ["react-refresh"],
