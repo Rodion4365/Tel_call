@@ -1,23 +1,103 @@
 version: "3.9"
 
 services:
+  reverse-proxy:
+    image: traefik:v3.0
+    restart: unless-stopped
+    command:
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker=true
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./traefik/certs:/certs:ro
+    env_file:
+      - .env
+    networks:
+      - web
+
   backend:
     build:
       context: ../backend
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
     environment:
       - UVICORN_HOST=0.0.0.0
       - UVICORN_PORT=8000
+      - STUN_SERVERS=${STUN_SERVERS:-}
+      - TURN_SERVERS=${TURN_SERVERS:-}
     command: uvicorn app.main:app --host ${UVICORN_HOST:-0.0.0.0} --port ${UVICORN_PORT:-8000}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.backend.rule=Host(`${BACKEND_HOST}`)
+      - traefik.http.routers.backend.entrypoints=websecure
+      - traefik.http.routers.backend.tls=true
+      - traefik.http.routers.backend.middlewares=secure-headers@file
+      - traefik.http.services.backend.loadbalancer.server.port=8000
+    env_file:
+      - ../backend/.env
+      - .env
+    networks:
+      - web
 
   frontend:
     build:
       context: ../frontend
       dockerfile: Dockerfile
-    ports:
-      - "5173:5173"
     environment:
-      - VITE_BACKEND_URL=http://localhost:8000
-    command: npm run dev -- --host
+      - VITE_BACKEND_URL=https://${BACKEND_HOST}
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.frontend.rule=Host(`${FRONTEND_HOST}`)
+      - traefik.http.routers.frontend.entrypoints=websecure
+      - traefik.http.routers.frontend.tls=true
+      - traefik.http.routers.frontend.middlewares=secure-headers@file
+      - traefik.http.services.frontend.loadbalancer.server.port=5173
+    env_file:
+      - .env
+    networks:
+      - web
+
+  turn:
+    image: coturn/coturn:4.6.3
+    restart: unless-stopped
+    command: >-
+      turnserver -n --log-file=stdout
+      --realm=${TURN_REALM}
+      --server-name=${TURN_SERVER_NAME:-${TURN_REALM}}
+      --listening-port=3478
+      --tls-listening-port=5349
+      --fingerprint
+      --lt-cred-mech
+      --user=${TURN_USERNAME}:${TURN_PASSWORD}
+      --cert=/etc/turn/certs/turn.crt
+      --pkey=/etc/turn/certs/turn.key
+      --no-cli
+      --no-loopback-peers
+      --no-multicast-peers
+      --min-port=49160
+      --max-port=49200
+      ${TURN_EXTRA_OPTS:-}
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "5349:5349/udp"
+      - "5349:5349/tcp"
+    volumes:
+      - ./turn/certs:/etc/turn/certs:ro
+    env_file:
+      - .env
+    networks:
+      - web
+
+networks:
+  web:
+    driver: bridge

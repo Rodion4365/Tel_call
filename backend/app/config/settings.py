@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Optional
 
-from pydantic import AnyUrl, Field
+from pydantic import AnyUrl, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,6 +17,21 @@ class Settings(BaseSettings):
     bot_username: Optional[str] = Field(None, validation_alias="BOT_USERNAME")
     secret_key: Optional[str] = Field(None, validation_alias="SECRET_KEY")
     access_token_expire_minutes: int = Field(15, validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES")
+    stun_servers: list[str] = Field(default_factory=list, validation_alias="STUN_SERVERS")
+    turn_servers: list[str] = Field(default_factory=list, validation_alias="TURN_SERVERS")
+
+    @field_validator("stun_servers", "turn_servers", mode="before")
+    @classmethod
+    def _split_csv(cls, value: str | list[str] | None) -> list[str]:
+        """Allow comma-separated env values in addition to JSON arrays."""
+
+        if value is None:
+            return []
+
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(",") if item.strip()]
+
+        return value
 
 
 @lru_cache

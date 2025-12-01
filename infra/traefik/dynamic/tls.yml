@@ -1,0 +1,20 @@
+tls:
+  certificates:
+    - certFile: /certs/tls.crt
+      keyFile: /certs/tls.key
+  options:
+    default:
+      minVersion: VersionTLS12
+      sniStrict: true
+
+http:
+  middlewares:
+    secure-headers:
+      headers:
+        sslRedirect: true
+        forceSTSHeader: true
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        referrerPolicy: strict-origin-when-cross-origin
+        contentTypeNosniff: true
