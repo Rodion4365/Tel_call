@@ -21,4 +21,22 @@ export const apiClient = {
 
     return (await response.json()) as T;
   },
+
+  async post<T>(path: string, body: unknown, options: ApiRequestOptions = {}): Promise<T> {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
+        ...options.headers,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Request failed with status ${response.status}`);
+    }
+
+    return (await response.json()) as T;
+  },
 };
