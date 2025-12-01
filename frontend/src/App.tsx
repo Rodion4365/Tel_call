@@ -1,14 +1,33 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import Layout from "./components/Layout";
+import Call from "./pages/Call";
+import CreateCall from "./pages/CreateCall";
+import JoinCall from "./pages/JoinCall";
+import Main from "./pages/Main";
+import Settings from "./pages/Settings";
+import { initTelegramWebApp } from "./services/telegram";
 
 function App(): JSX.Element {
+  const [isTelegramReady, setTelegramReady] = useState(false);
+
+  useEffect(() => {
+    const webApp = initTelegramWebApp();
+    setTelegramReady(Boolean(webApp));
+  }, []);
+
   return (
-    <main style={{ fontFamily: "system-ui, sans-serif", padding: "2rem" }}>
-      <h1>Tel Call</h1>
-      <p>
-        Frontend scaffold created with Vite + React + TypeScript. Replace this content with
-        the real application UI.
-      </p>
-    </main>
+    <BrowserRouter>
+      <Layout isTelegramReady={isTelegramReady}>
+        <Routes>
+          <Route path="/" element={<Main />} />
+          <Route path="/create-call" element={<CreateCall />} />
+          <Route path="/join-call" element={<JoinCall />} />
+          <Route path="/call/:id" element={<Call />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
+      </Layout>
+    </BrowserRouter>
   );
 }
 
