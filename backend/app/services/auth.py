@@ -120,6 +120,34 @@ def authenticate_user_from_init_data(init_data: str) -> dict[str, Any]:
     return validate_init_data(init_data, bot_token=settings.bot_token)
 
 
+def _decode_user_id_from_token(token: str, secret_key: str) -> int:
+    try:
+        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+        user_id = payload.get("sub")
+    except jwt.ExpiredSignatureError as exc:  # pragma: no cover - expiry path
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired") from exc
+    except jwt.InvalidTokenError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
+
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
+
+    return int(user_id)
+
+
+async def _get_user_by_id(session: AsyncSession, user_id: int) -> User:
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    return user
+
+
+async def _resolve_user_from_token(token: str, session: AsyncSession, secret_key: str) -> User:
+    user_id = _decode_user_id_from_token(token, secret_key)
+    return await _get_user_by_id(session, user_id)
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
     session: AsyncSession = Depends(get_session),
@@ -133,21 +161,14 @@ async def get_current_user(
     if not settings.secret_key:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="SECRET_KEY is not configured")
 
-    token = credentials.credentials
-    try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
-        user_id = payload.get("sub")
-    except jwt.ExpiredSignatureError as exc:  # pragma: no cover - expiry path
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired") from exc
-    except jwt.InvalidTokenError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
+    return await _resolve_user_from_token(credentials.credentials, session, settings.secret_key)
 
-    if not user_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
 
-    result = await session.execute(select(User).where(User.id == int(user_id)))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+async def get_user_from_token(token: str, session: AsyncSession) -> User:
+    """Validate a raw bearer token and return the associated user."""
 
-    return user
+    settings = get_settings()
+    if not settings.secret_key:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="SECRET_KEY is not configured")
+
+    return await _resolve_user_from_token(token, session, settings.secret_key)
