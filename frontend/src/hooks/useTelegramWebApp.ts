@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { authorizeTelegram } from "../services/auth";
+import { getTelegramWebApp } from "../services/telegram";
 import type { TelegramWebApp, TelegramWebAppUser } from "../types/telegram";
 
 interface UseTelegramWebAppResult {
@@ -21,7 +22,7 @@ export const useTelegramWebApp = (): UseTelegramWebAppResult => {
   const hasNavigated = useRef(false);
 
   useEffect(() => {
-    const telegramApp = (window as any).Telegram?.WebApp as TelegramWebApp | undefined;
+    const telegramApp = getTelegramWebApp();
 
     if (!telegramApp) {
       return;

@@ -1,7 +1,14 @@
 import type { TelegramWebApp } from "../types/telegram";
 
-const getTelegramWebApp = (): TelegramWebApp | undefined => {
-  return (window as any).Telegram?.WebApp as TelegramWebApp | undefined;
+interface TelegramWindow extends Window {
+  Telegram?: {
+    WebApp?: TelegramWebApp;
+  };
+}
+
+export const getTelegramWebApp = (): TelegramWebApp | undefined => {
+  const telegramWindow = window as TelegramWindow;
+  return telegramWindow.Telegram?.WebApp;
 };
 
 export const initTelegramWebApp = (): TelegramWebApp | undefined => {
