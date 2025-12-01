@@ -35,21 +35,23 @@ def _serialize_user(user: User) -> dict[str, Any]:
     }
 
 
-async def _ensure_active_call(call_id: str) -> Call | None:
+async def _ensure_active_call(call_id: str) -> tuple[Call | None, str | None]:
     async with get_session() as session:
         result = await session.execute(select(Call).where(Call.call_id == call_id))
         call = result.scalar_one_or_none()
 
     if not call:
-        return None
+        return None, "Call not found. Please create a new call."
 
     if call.expires_at and call.expires_at < datetime.utcnow():
-        return None
+        return None, "Call has expired. Please create a new call."
 
     if call.status != CallStatus.ACTIVE:
-        return None
+        if call.status == CallStatus.ENDED:
+            return None, "Call has ended. Please create a new call."
+        return None, "Call is not available. Please create a new call."
 
-    return call
+    return call, None
 
 
 @router.websocket("/ws/calls/{call_id}")
@@ -72,9 +74,9 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
             await websocket.close(code=1011, reason="Authentication failed")
             return
 
-    call = await _ensure_active_call(call_id)
+    call, reason = await _ensure_active_call(call_id)
     if call is None:
-        await websocket.close(code=4404, reason="Call is not available")
+        await websocket.close(code=4404, reason=reason or "Call is not available")
         return
 
     await websocket.accept()
