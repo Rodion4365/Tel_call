@@ -18,3 +18,7 @@ yarn-error.log*
 .vscode/
 .idea/
 .DS_Store
+
+# Infrastructure secrets
+infra/traefik/certs/
+infra/turn/certs/
