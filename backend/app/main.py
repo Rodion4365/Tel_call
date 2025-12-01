@@ -1,9 +1,25 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
+from sqlalchemy import text
 
-app = FastAPI(title="Tel Call Backend")
+from app.api import get_api_router
+from app.config.database import engine
+from app.config.settings import get_settings
 
 
-@app.get("/health")
-async def health_check() -> dict[str, str]:
-    """Simple health check endpoint."""
-    return {"status": "ok"}
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Verify dependencies before serving requests."""
+
+    # Validate database connectivity during startup.
+    async with engine.begin() as connection:
+        await connection.execute(text("SELECT 1"))
+    yield
+
+
+settings = get_settings()
+app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
+
+# Routers
+app.include_router(get_api_router())
