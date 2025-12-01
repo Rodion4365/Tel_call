@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     database_url: AnyUrl = Field(..., validation_alias="DATABASE_URL", description="PostgreSQL connection string")
     bot_token: Optional[str] = Field(None, validation_alias="BOT_TOKEN")
     secret_key: Optional[str] = Field(None, validation_alias="SECRET_KEY")
+    access_token_expire_minutes: int = Field(15, validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES")
 
 
 @lru_cache
