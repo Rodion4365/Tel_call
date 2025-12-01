@@ -10,5 +10,7 @@ export interface TelegramWebApp {
   expand?: () => void;
   initDataUnsafe?: {
     user?: TelegramWebAppUser;
+    start_param?: string;
   };
+  initData?: string;
 }
