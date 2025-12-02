@@ -37,7 +37,6 @@ const Settings: React.FC = () => {
               Профиль
             </p>
             <h2 className="settings__section-title">Данные аккаунта</h2>
-            <p className="muted">Информация передаётся из Telegram initData.</p>
           </div>
         </div>
         <div className="settings__rows">
@@ -64,19 +63,9 @@ const Settings: React.FC = () => {
               Настройки по умолчанию
             </p>
             <h2 className="settings__section-title">Параметры звонка</h2>
-            <p className="muted">Управляйте поведением звонков по умолчанию.</p>
           </div>
         </div>
         <div className="settings__rows">
-          <div className="settings__row">
-            <div>
-              <p className="settings__label">Видео</p>
-              <p className="muted">Выключено всегда</p>
-            </div>
-            <button type="button" className="toggle toggle--disabled" disabled>
-              <span className="toggle__thumb" />
-            </button>
-          </div>
           <div className="settings__row">
             <div>
               <p className="settings__label">Микрофон</p>
