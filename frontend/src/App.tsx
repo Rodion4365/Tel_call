@@ -29,7 +29,7 @@ function App(): JSX.Element {
         <Route path="/create-call" element={<CreateCall />} />
         <Route path="/join-call" element={<JoinCall />} />
         <Route path="/call-created/:call_id" element={<CallCreated />} />
-        <Route path="/call/:id" element={<Call />} />
+        <Route path="/call/:call_id" element={<Call />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
     </Layout>
