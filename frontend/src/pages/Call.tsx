@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 interface LocationState {
@@ -23,8 +23,107 @@ const Call: React.FC = () => {
   const joinUrl =
     searchParams.get("join_url") ?? (location.state as LocationState | null)?.join_url ?? "";
 
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  const [audioTrack, setAudioTrack] = useState<MediaStreamTrack | null>(null);
+  const [videoTrack, setVideoTrack] = useState<MediaStreamTrack | null>(null);
   const [isMicOn, setMicOn] = useState(true);
+  const [isCameraOn, setCameraOn] = useState(false);
+  const [isRequestingMic, setIsRequestingMic] = useState(false);
+  const [isRequestingCamera, setIsRequestingCamera] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
   const [isToastVisible, setToastVisible] = useState(false);
+
+  const stopMediaStream = useCallback((stream: MediaStream | null) => {
+    stream?.getTracks().forEach((track) => track.stop());
+  }, []);
+
+  const requestMicrophone = useCallback(async () => {
+    setIsRequestingMic(true);
+    setMediaError(null);
+
+    if (audioTrack) {
+      audioTrack.stop();
+    }
+
+    stopMediaStream(mediaStream);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const [track] = stream.getAudioTracks();
+
+      if (!track) {
+        throw new Error("No audio track available");
+      }
+
+      track.enabled = true;
+      setMediaStream(stream);
+      setAudioTrack(track);
+      setMicOn(true);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to get microphone access", error);
+      setMediaError("Нет доступа к микрофону");
+      setMicOn(false);
+    } finally {
+      setIsRequestingMic(false);
+    }
+  }, [audioTrack, mediaStream, stopMediaStream]);
+
+  const toggleMicrophone = () => {
+    if (!audioTrack && !isRequestingMic) {
+      requestMicrophone();
+      return;
+    }
+
+    setMicOn((prev) => !prev);
+  };
+
+  const toggleCamera = async () => {
+    if (isCameraOn) {
+      videoTrack?.stop();
+      setVideoTrack(null);
+      setCameraOn(false);
+      return;
+    }
+
+    setIsRequestingCamera(true);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+      const [track] = stream.getVideoTracks();
+
+      if (!track) {
+        stopMediaStream(stream);
+        return;
+      }
+
+      setVideoTrack(track);
+      setCameraOn(true);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to get camera access", error);
+    } finally {
+      setIsRequestingCamera(false);
+    }
+  };
+
+  useEffect(() => {
+    requestMicrophone();
+  }, [requestMicrophone]);
+
+  useEffect(() => {
+    if (audioTrack) {
+      audioTrack.enabled = isMicOn;
+    }
+  }, [audioTrack, isMicOn]);
+
+  useEffect(() => {
+    return () => {
+      audioTrack?.stop();
+      videoTrack?.stop();
+      stopMediaStream(mediaStream);
+    };
+  }, [audioTrack, mediaStream, stopMediaStream, videoTrack]);
 
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
@@ -49,7 +148,7 @@ const Call: React.FC = () => {
         color: "linear-gradient(135deg, #1d4ed8, #60a5fa)",
         isCurrentUser: true,
         isSpeaking: isMicOn,
-        hasVideo: false,
+        hasVideo: isCameraOn,
       },
       {
         id: "sofia",
@@ -76,7 +175,7 @@ const Call: React.FC = () => {
         hasVideo: false,
       },
     ],
-    [isMicOn],
+    [isCameraOn, isMicOn],
   );
 
   const copyLink = async () => {
@@ -161,7 +260,8 @@ const Call: React.FC = () => {
         <button
           type="button"
           className={`call-control ${isMicOn ? "call-control--active" : "call-control--muted"}`}
-          onClick={() => setMicOn((prev) => !prev)}
+          onClick={toggleMicrophone}
+          disabled={isRequestingMic}
         >
           <span className="call-control__icon" aria-hidden>
             {isMicOn ? "🎤" : "🔇"}
@@ -169,11 +269,16 @@ const Call: React.FC = () => {
           <span>{isMicOn ? "Микрофон включен" : "Микрофон выключен"}</span>
         </button>
 
-        <button type="button" className="call-control call-control--disabled" disabled>
+        <button
+          type="button"
+          className={`call-control ${isCameraOn ? "call-control--active" : "call-control--ghost"}`}
+          onClick={toggleCamera}
+          disabled={isRequestingCamera}
+        >
           <span className="call-control__icon" aria-hidden>
-            🔒
+            {isCameraOn ? "🎥" : "📷"}
           </span>
-          <span>Камера недоступна</span>
+          <span>{isCameraOn ? "Камера включена" : "Камера выключена"}</span>
         </button>
 
         <button
@@ -195,6 +300,16 @@ const Call: React.FC = () => {
           <span>Выйти</span>
         </button>
       </div>
+
+      {mediaError ? (
+        <div className="alert" role="alert">
+          <p className="alert__title">{mediaError}</p>
+          <p className="alert__description">Предоставьте доступ, чтобы мы включили микрофон.</p>
+          <button type="button" className="outline" onClick={requestMicrophone} disabled={isRequestingMic}>
+            Разрешить микрофон
+          </button>
+        </div>
+      ) : null}
 
       {isToastVisible && <div className="toast">Ссылка скопирована</div>}
     </div>
