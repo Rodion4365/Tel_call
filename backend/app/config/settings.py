@@ -12,7 +12,11 @@ class Settings(BaseSettings):
 
     app_name: str = Field("Tel Call Backend", validation_alias="APP_NAME")
     debug: bool = Field(False, validation_alias="DEBUG")
-    database_url: AnyUrl = Field(..., validation_alias="DATABASE_URL", description="PostgreSQL connection string")
+    database_url: AnyUrl = Field(
+        "sqlite+aiosqlite:///./app.db",
+        validation_alias="DATABASE_URL",
+        description="Database connection string. Defaults to a local SQLite DB.",
+    )
     bot_token: Optional[str] = Field(None, validation_alias="BOT_TOKEN")
     bot_username: Optional[str] = Field(None, validation_alias="BOT_USERNAME")
     secret_key: Optional[str] = Field(None, validation_alias="SECRET_KEY")
@@ -30,6 +34,19 @@ class Settings(BaseSettings):
 
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
+
+        return value
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _ensure_asyncpg_scheme(cls, value: str | AnyUrl | None) -> str | AnyUrl:
+        """Default to SQLite and ensure PostgreSQL URLs use asyncpg."""
+
+        if value in (None, ""):
+            return "sqlite+aiosqlite:///./app.db"
+
+        if isinstance(value, str) and value.startswith("postgresql://"):
+            return value.replace("postgresql://", "postgresql+asyncpg://", 1)
 
         return value
 
