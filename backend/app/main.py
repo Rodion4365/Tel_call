@@ -3,6 +3,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.api import get_api_router
@@ -50,6 +51,16 @@ async def lifespan(app: FastAPI):
 settings = get_settings()
 settings.log_status(logger)
 app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
+
+# CORS
+allowed_origins = settings.allowed_origins or ["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Routers
 app.include_router(get_api_router())

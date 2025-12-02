@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(15, validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES")
     stun_servers: list[str] = Field(default_factory=list, validation_alias="STUN_SERVERS")
     turn_servers: list[str] = Field(default_factory=list, validation_alias="TURN_SERVERS")
+    allowed_origins: list[str] = Field(default_factory=list, validation_alias="CORS_ALLOW_ORIGINS")
 
     def _mask_secret(self, value: Optional[str]) -> str:
         """Return a masked representation of sensitive values for logging."""
@@ -81,7 +82,10 @@ class Settings(BaseSettings):
                 "Missing required environment variables: " + ", ".join(sorted(missing))
             )
 
-    @field_validator("stun_servers", "turn_servers", mode="before")
+        allowed = ", ".join(self.allowed_origins) if self.allowed_origins else "*"
+        logger.info("CORS allowed origins: %s", allowed)
+
+    @field_validator("stun_servers", "turn_servers", "allowed_origins", mode="before")
     @classmethod
     def _split_csv(cls, value: str | list[str] | None) -> list[str]:
         """Allow comma-separated env values in addition to JSON arrays."""
