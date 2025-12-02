@@ -6,6 +6,8 @@ export interface TelegramWebAppUser {
 }
 
 export interface TelegramWebApp {
+  version?: string;
+  isVersionAtLeast?: (version: string) => boolean;
   ready: () => void;
   expand?: () => void;
   BackButton?: {
