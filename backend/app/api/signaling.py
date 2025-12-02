@@ -15,13 +15,26 @@ router = APIRouter()
 
 
 def _extract_token(websocket: WebSocket) -> str | None:
-    token = websocket.query_params.get("token")
-    if token:
-        return token
+    protocol_header = websocket.headers.get("sec-websocket-protocol")
+    if protocol_header:
+        protocol_values = [value.strip() for value in protocol_header.split(",") if value.strip()]
+        if protocol_values:
+            token_candidate = protocol_values[-1]
+            if token_candidate.lower().startswith("bearer "):
+                token_candidate = token_candidate.split(" ", 1)[1]
+            elif token_candidate.lower().startswith("token."):
+                token_candidate = token_candidate.split(".", 1)[1]
+
+            if token_candidate:
+                return token_candidate
 
     auth_header = websocket.headers.get("authorization") or websocket.headers.get("Authorization")
     if auth_header and auth_header.lower().startswith("bearer "):
         return auth_header.split(" ", 1)[1]
+
+    token = websocket.query_params.get("token")
+    if token:
+        return token
 
     return None
 

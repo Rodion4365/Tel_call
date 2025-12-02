@@ -620,8 +620,9 @@ const Call: React.FC = () => {
       return;
     }
 
-    const url = `${baseUrl}/ws/calls/${call_id}?token=${encodeURIComponent(token)}`;
-    const socket = new WebSocket(url);
+    const url = `${baseUrl}/ws/calls/${call_id}`;
+    const protocols = token ? [`token.${token}`] : undefined;
+    const socket = protocols ? new WebSocket(url, protocols) : new WebSocket(url);
 
     websocketRef.current = socket;
 

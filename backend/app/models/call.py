@@ -37,7 +37,7 @@ class Call(Base):
     call_id: Mapped[str] = mapped_column(String(20), unique=True, index=True, default=generate_call_id)
     creator_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    is_video_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_video_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[CallStatus] = mapped_column(SQLEnum(CallStatus), default=CallStatus.ACTIVE)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.utcnow)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
