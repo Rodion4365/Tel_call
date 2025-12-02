@@ -239,6 +239,12 @@ p {
   margin-top: 12px;
 }
 
+.form-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .form-field {
   display: flex;
   flex-direction: column;
