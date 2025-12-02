@@ -69,10 +69,43 @@ const Call: React.FC = () => {
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
   const websocketRef = useRef<WebSocket | null>(null);
+  const homeRedirectTimeoutRef = useRef<number | null>(null);
 
   const stopMediaStream = useCallback((stream: MediaStream | null) => {
     stream?.getTracks().forEach((track) => track.stop());
   }, []);
+
+  const clearConnections = useCallback(() => {
+    peersRef.current.forEach((peer) => peer.close());
+    peersRef.current.clear();
+
+    remoteStreamsRef.current.forEach((stream) => {
+      stream.getTracks().forEach((track) => track.stop());
+    });
+    remoteStreamsRef.current.clear();
+
+    setParticipants((current) => current.filter((participant) => participant.isCurrentUser));
+  }, []);
+
+  const scheduleNavigateHome = useCallback(() => {
+    if (homeRedirectTimeoutRef.current) {
+      clearTimeout(homeRedirectTimeoutRef.current);
+    }
+
+    homeRedirectTimeoutRef.current = window.setTimeout(() => navigate("/"), 1500);
+  }, [navigate]);
+
+  const handleConnectionError = useCallback(
+    (message: string, navigateHome = false, preserveExistingMessage = false) => {
+      setCallError((current) => (preserveExistingMessage && current ? current : message));
+      clearConnections();
+
+      if (navigateHome) {
+        scheduleNavigateHome();
+      }
+    },
+    [clearConnections, scheduleNavigateHome],
+  );
 
   const requestMicrophone = useCallback(async () => {
     setIsRequestingMic(true);
@@ -175,6 +208,14 @@ const Call: React.FC = () => {
       }
     };
   }, [isToastVisible]);
+
+  useEffect(() => {
+    return () => {
+      if (homeRedirectTimeoutRef.current) {
+        clearTimeout(homeRedirectTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     fetchIceServers().then(setIceServers);
@@ -383,8 +424,11 @@ const Call: React.FC = () => {
       };
 
       peer.onconnectionstatechange = () => {
-        if (peer.connectionState === "failed" || peer.connectionState === "disconnected") {
-          cleanupPeer(participantId);
+        if (peer.connectionState === "failed") {
+          websocketRef.current?.close();
+          handleConnectionError("Ошибка WebRTC соединения", true);
+        } else if (peer.connectionState === "disconnected") {
+          handleConnectionError("WebRTC соединение потеряно", true);
         }
       };
 
@@ -404,7 +448,7 @@ const Call: React.FC = () => {
 
       return peer;
     },
-    [attachLocalTracks, cleanupPeer, getParticipantColor, iceServers, localStream, sendSignalingMessage, updateParticipant],
+    [attachLocalTracks, getParticipantColor, handleConnectionError, iceServers, localStream, sendSignalingMessage, updateParticipant],
   );
 
   const handleOffer = useCallback(
@@ -513,11 +557,8 @@ const Call: React.FC = () => {
       }
 
       if (message.type === "call_ended") {
-        setCallError(message.reason);
         websocketRef.current?.close();
-        peersRef.current.forEach((peer) => peer.close());
-        peersRef.current.clear();
-        setParticipants((current) => current.filter((participant) => participant.isCurrentUser));
+        handleConnectionError(message.reason, true);
         return;
       }
 
@@ -540,7 +581,7 @@ const Call: React.FC = () => {
         await handleIceCandidate(sender, message.payload);
       }
     },
-    [cleanupPeer, handleAnswer, handleIceCandidate, handleOffer, startOfferFlow],
+    [cleanupPeer, handleAnswer, handleConnectionError, handleIceCandidate, handleOffer, startOfferFlow],
   );
 
   useEffect(() => {
@@ -595,26 +636,16 @@ const Call: React.FC = () => {
     };
 
     socket.onerror = () => {
-      setCallError("Ошибка соединения с сервером");
-    };
-
-    const peers = peersRef.current;
-    const remoteStreams = remoteStreamsRef.current;
-
-    const clearConnections = () => {
-      peers.forEach((peer) => peer.close());
-      peers.clear();
-
-      remoteStreams.forEach((stream) => {
-        stream.getTracks().forEach((track) => track.stop());
-      });
-      remoteStreams.clear();
-      setParticipants((current) => current.filter((participant) => participant.isCurrentUser));
+      socket.close();
+      handleConnectionError("Ошибка соединения с сервером", true);
     };
 
     socket.onclose = (event) => {
+      websocketRef.current = null;
+
       if (!event.wasClean) {
-        setCallError("Соединение с сервером закрыто");
+        handleConnectionError("Соединение с сервером закрыто", true, true);
+        return;
       }
 
       clearConnections();
@@ -626,7 +657,7 @@ const Call: React.FC = () => {
 
       clearConnections();
     };
-  }, [call_id, handleSignalingMessage, token]);
+  }, [call_id, clearConnections, handleConnectionError, handleSignalingMessage, token]);
 
   const copyLink = async () => {
     if (!joinUrl) {
@@ -645,13 +676,7 @@ const Call: React.FC = () => {
 
   const leaveCall = () => {
     websocketRef.current?.close();
-    peersRef.current.forEach((peer) => peer.close());
-    peersRef.current.clear();
-
-    remoteStreamsRef.current.forEach((stream) => {
-      stream.getTracks().forEach((track) => track.stop());
-    });
-    remoteStreamsRef.current.clear();
+    clearConnections();
 
     navigate("/");
   };
