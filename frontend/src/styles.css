@@ -406,6 +406,26 @@ button:disabled {
   z-index: 10;
 }
 
+.alert {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 12px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+  display: grid;
+  gap: 6px;
+}
+
+.alert__title {
+  font-weight: 700;
+}
+
+.alert__description {
+  margin: 0;
+  color: #b91c1c;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
