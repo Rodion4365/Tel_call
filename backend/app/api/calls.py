@@ -17,7 +17,9 @@ router = APIRouter(prefix="/api/calls", tags=["Calls"])
 
 class CallCreateRequest(BaseModel):
     title: str | None = Field(default=None, max_length=255)
-    is_video_enabled: bool = True
+    is_video_enabled: bool = False
+
+    model_config = {"extra": "ignore"}
 
 
 class CallResponse(BaseModel):
@@ -30,6 +32,10 @@ class CallResponse(BaseModel):
     join_url: str
 
     model_config = {"from_attributes": True}
+
+
+class JoinCallRequest(BaseModel):
+    call_code: str = Field(..., min_length=1, max_length=255)
 
 
 def _build_join_url(call_id: str) -> str:
@@ -118,6 +124,58 @@ async def end_call(
 
     await session.refresh(call)
     await notify_call_ended(call.call_id, reason=call.status.value)
+
+    join_url = _build_join_url(call.call_id)
+    return CallResponse(
+        call_id=call.call_id,
+        title=call.title,
+        is_video_enabled=call.is_video_enabled,
+        status=call.status,
+        created_at=call.created_at,
+        expires_at=call.expires_at,
+        join_url=join_url,
+    )
+
+
+@router.post("/join_by_code", response_model=CallResponse)
+async def join_call_by_code(
+    payload: JoinCallRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> CallResponse:
+    """Validate that the call exists and is available for joining."""
+
+    call_code = payload.call_code.strip()
+
+    if not call_code:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Call code is required")
+
+    result = await session.execute(select(Call).where(Call.call_id == call_code))
+    call = result.scalar_one_or_none()
+
+    if not call:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Call not found")
+
+    if call.expires_at and call.expires_at < datetime.utcnow():
+        call.status = CallStatus.EXPIRED
+        error_detail = "Call has expired"
+    elif call.status != CallStatus.ACTIVE:
+        error_detail = "Call is not available"
+    else:
+        error_detail = None
+
+    try:
+        await session.commit()
+    except SQLAlchemyError as exc:  # pragma: no cover - runtime safety
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database unavailable"
+        ) from exc
+
+    await session.refresh(call)
+
+    if error_detail:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_detail)
 
     join_url = _build_join_url(call.call_id)
     return CallResponse(

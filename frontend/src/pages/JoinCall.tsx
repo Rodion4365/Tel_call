@@ -30,7 +30,7 @@ const JoinCall: React.FC = () => {
 
     try {
       const response = await joinCallByCode(normalizedCode, token);
-      navigate(`/call/${response.call_id}`);
+      navigate(`/call/${response.call_id}`, { state: { join_url: response.join_url } });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error("Failed to join call", error);

@@ -5,7 +5,7 @@ from fastapi import APIRouter
 from app.config.settings import get_settings
 
 
-router = APIRouter(prefix="/config", tags=["config"])
+router = APIRouter(prefix="/api/config", tags=["config"])
 
 
 @router.get("/webrtc")
