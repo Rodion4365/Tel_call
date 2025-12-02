@@ -1,5 +1,7 @@
+import logging
 from functools import lru_cache
 from typing import Optional
+from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import AnyUrl, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,6 +25,61 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(15, validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES")
     stun_servers: list[str] = Field(default_factory=list, validation_alias="STUN_SERVERS")
     turn_servers: list[str] = Field(default_factory=list, validation_alias="TURN_SERVERS")
+
+    def _mask_secret(self, value: Optional[str]) -> str:
+        """Return a masked representation of sensitive values for logging."""
+
+        if not value:
+            return "<empty>"
+
+        if len(value) <= 4:
+            return "*" * len(value)
+
+        return f"{value[:2]}***{value[-2:]}"
+
+    def masked_database_url(self) -> str:
+        """Return database URL without credentials for safe logging."""
+
+        parsed = urlsplit(str(self.database_url))
+        user = f"{parsed.username}:***@" if parsed.username else ""
+        host = parsed.hostname or ""
+
+        if parsed.port:
+            host = f"{host}:{parsed.port}"
+
+        netloc = f"{user}{host}"
+        return urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
+
+    def log_status(self, logger: logging.Logger) -> None:
+        """Log expected environment variables and fail fast when missing."""
+
+        required_mapping = {
+            "database_url": "DATABASE_URL",
+            "secret_key": "SECRET_KEY",
+            "bot_token": "BOT_TOKEN",
+            "bot_username": "BOT_USERNAME",
+        }
+
+        missing: list[str] = []
+
+        for attribute, env_name in required_mapping.items():
+            value = getattr(self, attribute)
+            if value in (None, ""):
+                missing.append(env_name)
+                logger.error("Environment variable %s is missing", env_name)
+            elif env_name == "DATABASE_URL":
+                logger.info("Environment variable %s loaded: %s", env_name, self.masked_database_url())
+            else:
+                logger.info(
+                    "Environment variable %s loaded: %s",
+                    env_name,
+                    self._mask_secret(str(value)),
+                )
+
+        if missing:
+            raise RuntimeError(
+                "Missing required environment variables: " + ", ".join(sorted(missing))
+            )
 
     @field_validator("stun_servers", "turn_servers", mode="before")
     @classmethod
