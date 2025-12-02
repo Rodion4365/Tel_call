@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -33,8 +34,17 @@ async def lifespan(app: FastAPI):
             logger.info("Database connectivity check succeeded; migrations are in sync")
     except Exception:
         logger.exception("Database connectivity check failed")
+        await engine.dispose()
         raise
-    yield
+
+    try:
+        yield
+    except asyncio.CancelledError:
+        logger.info("Application lifespan cancelled during shutdown; exiting gracefully")
+        return
+    finally:
+        await engine.dispose()
+        logger.info("Database engine disposed")
 
 
 settings = get_settings()
