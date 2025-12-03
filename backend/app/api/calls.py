@@ -87,6 +87,53 @@ async def create_call(
     )
 
 
+@router.get("/{call_id}", response_model=CallResponse)
+async def get_call(
+    call_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> CallResponse:
+    """Retrieve call details ensuring the call is still available."""
+
+    result = await session.execute(select(Call).where(Call.call_id == call_id))
+    call = result.scalar_one_or_none()
+
+    if not call:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Call not found")
+
+    error_detail = None
+
+    if call.expires_at and call.expires_at < datetime.utcnow():
+        call.status = CallStatus.EXPIRED
+        error_detail = "Call has expired"
+    elif call.status != CallStatus.ACTIVE:
+        error_detail = "Call is not available"
+
+    try:
+        await session.commit()
+    except SQLAlchemyError as exc:  # pragma: no cover - runtime safety
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database unavailable"
+        ) from exc
+
+    await session.refresh(call)
+
+    if error_detail:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_detail)
+
+    join_url = _build_join_url(call.call_id)
+    return CallResponse(
+        call_id=call.call_id,
+        title=call.title,
+        is_video_enabled=call.is_video_enabled,
+        status=call.status,
+        created_at=call.created_at,
+        expires_at=call.expires_at,
+        join_url=join_url,
+    )
+
+
 @router.post("/{call_id}/end", response_model=CallResponse)
 async def end_call(
     call_id: str,

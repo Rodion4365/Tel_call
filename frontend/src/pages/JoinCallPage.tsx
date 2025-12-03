@@ -1,7 +1,45 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { joinCallByCode } from "../services/calls";
+import { getCallById } from "../services/calls";
+
+const CALL_ID_PATTERN = /^[A-Za-z0-9_-]{6,64}$/;
+
+const extractCallId = (rawValue: string): string | null => {
+  const trimmedValue = rawValue.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  try {
+    const url = new URL(trimmedValue);
+
+    const possibleKeys = ["startapp", "callId", "call_id", "id"];
+
+    for (const key of possibleKeys) {
+      const value = url.searchParams.get(key);
+      if (value) {
+        return value;
+      }
+    }
+
+    const firstParamValue = url.searchParams.entries().next().value?.[1];
+    if (firstParamValue) {
+      return firstParamValue;
+    }
+
+    if (url.hash) {
+      return url.hash.replace(/^#/, "");
+    }
+
+    return null;
+  } catch (error) {
+    // Not a URL — treat as a raw call ID
+  }
+
+  return trimmedValue;
+};
 
 const JoinCallPage: React.FC = () => {
   const navigate = useNavigate();
@@ -10,6 +48,11 @@ const JoinCallPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setSubmitting] = useState(false);
 
+  const isSubmitDisabled = useMemo(
+    () => !callCode.trim() || !token || isSubmitting,
+    [callCode, isSubmitting, token],
+  );
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMessage("");
@@ -17,7 +60,7 @@ const JoinCallPage: React.FC = () => {
     const normalizedCode = callCode.trim();
 
     if (!normalizedCode) {
-      setErrorMessage("Введите ID звонка");
+      setErrorMessage("Введите ссылку или ID звонка");
       return;
     }
 
@@ -26,15 +69,27 @@ const JoinCallPage: React.FC = () => {
       return;
     }
 
+    const extractedCallId = extractCallId(normalizedCode);
+
+    if (!extractedCallId || !CALL_ID_PATTERN.test(extractedCallId)) {
+      setErrorMessage("Некорректный идентификатор звонка");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
-      const response = await joinCallByCode(normalizedCode, token);
+      const response = await getCallById(extractedCallId, token);
       navigate(`/call/${response.call_id}`, { state: { join_url: response.join_url } });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error("Failed to join call", error);
-      setErrorMessage("Звонок не найден или недоступен");
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("status 404")) {
+        setErrorMessage("Звонок не найден или завершён");
+      } else {
+        setErrorMessage("Звонок не найден или завершён");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -43,13 +98,13 @@ const JoinCallPage: React.FC = () => {
   return (
     <div className="panel">
       <h1>Присоединиться к звонку</h1>
-      <p>Введите ID звонка, чтобы подключиться вручную.</p>
+      <p>Вставьте ссылку или ID звонка, чтобы подключиться вручную.</p>
       <form className="form" onSubmit={handleSubmit}>
         <label className="form-field">
-          <span>Введите ID звонка</span>
+          <span>Ссылка или ID звонка</span>
           <input
             type="text"
-            placeholder="Например, abc-123"
+            placeholder="Например, https://t.me/bot?startapp=abcd1234"
             value={callCode}
             onChange={(event) => setCallCode(event.target.value)}
             autoComplete="off"
@@ -63,11 +118,7 @@ const JoinCallPage: React.FC = () => {
         ) : null}
 
         <div className="form-actions">
-          <button
-            type="submit"
-            className="primary"
-            disabled={!callCode.trim() || !token || isSubmitting}
-          >
+          <button type="submit" className="primary" disabled={isSubmitDisabled}>
             Подключиться
           </button>
           <button type="button" className="outline" onClick={() => navigate(-1)}>
