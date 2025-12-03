@@ -5,6 +5,11 @@ export interface JoinCallResponse {
   join_url: string;
 }
 
+export interface GetCallResponse {
+  call_id: string;
+  join_url: string;
+}
+
 export interface CreateCallResponse {
   call_id: string;
   join_url: string;
@@ -31,4 +36,8 @@ export const createCall = async (
   token: string,
 ): Promise<CreateCallResponse> => {
   return apiClient.post<CreateCallResponse>("/api/calls", payload, { token });
+};
+
+export const getCallById = async (callId: string, token: string): Promise<GetCallResponse> => {
+  return apiClient.get<GetCallResponse>(`/api/calls/${callId}`, { token });
 };
