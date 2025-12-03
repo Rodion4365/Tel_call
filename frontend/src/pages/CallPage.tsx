@@ -626,29 +626,26 @@ const CallPage: React.FC = () => {
       };
 
       peer.ontrack = (event) => {
-        const [stream] = event.streams;
-
-        if (!stream) {
-          return;
-        }
+        const stream = event.streams[0] ?? new MediaStream([event.track]);
 
         remoteStreamsRef.current.set(participantId, stream);
 
         const audioTracks = stream.getAudioTracks();
-        const audioTrack = audioTracks[0];
+        const remoteAudioTrack =
+          audioTracks[0] ?? (event.track.kind === "audio" ? event.track : undefined);
         const audioElement = ensureRemoteAudioElement(participantId);
 
         if (audioElement && stream !== audioElement.srcObject) {
           audioElement.srcObject = stream;
         }
 
-        if (audioElement && audioTrack && userInteractedRef.current) {
+        if (audioElement && remoteAudioTrack) {
           attemptPlayAudio(audioElement);
         }
 
-        if (audioTrack) {
-          audioTrack.onmute = () => updateParticipant({ id: participantId, isSpeaking: false });
-          audioTrack.onunmute = () => {
+        if (remoteAudioTrack) {
+          remoteAudioTrack.onmute = () => updateParticipant({ id: participantId, isSpeaking: false });
+          remoteAudioTrack.onunmute = () => {
             updateParticipant({ id: participantId, isSpeaking: true });
             if (audioElement) {
               attemptPlayAudio(audioElement);
