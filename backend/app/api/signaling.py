@@ -96,8 +96,14 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
 
     await websocket.accept(subprotocol=subprotocol)
     room = await call_room_manager.get_room(call_id)
-    await room.add_participant(user.id, websocket)
-    await room.broadcast({"type": "user_joined", "user": _serialize_user(user)}, sender_id=user.id)
+    serialized_user = _serialize_user(user)
+    await room.add_participant(user.id, websocket, serialized_user)
+
+    existing_participants = await room.list_participants(exclude_user_id=user.id)
+    if existing_participants:
+        await websocket.send_json({"type": "participants_snapshot", "participants": existing_participants})
+
+    await room.broadcast({"type": "user_joined", "user": serialized_user}, sender_id=user.id)
 
     try:
         while True:
@@ -105,6 +111,18 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
             message_type = message.get("type")
 
             if message_type in {"offer", "answer", "ice_candidate"}:
+                try:
+                    target_user_id = int(message.get("to_user_id"))
+                except (TypeError, ValueError):
+                    await websocket.send_json(
+                        {"type": "error", "detail": "Invalid or missing to_user_id"}
+                    )
+                    continue
+
+                if not await room.has_participant(target_user_id):
+                    await websocket.send_json({"type": "error", "detail": "Target user is offline"})
+                    continue
+
                 await room.broadcast(
                     {
                         "type": message_type,
@@ -112,6 +130,7 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
                         "from_user": _serialize_user(user),
                     },
                     sender_id=user.id,
+                    target_id=target_user_id,
                 )
             else:
                 await websocket.send_json({"type": "error", "detail": "Unsupported message type"})
