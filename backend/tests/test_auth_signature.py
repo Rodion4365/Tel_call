@@ -19,7 +19,7 @@ def build_init_data(bot_token: str, user_payload: dict[str, str], auth_date: int
     }
 
     data_check_string = "\n".join(f"{key}={value}" for key, value in sorted(data.items()))
-    secret_key = hmac.new(bot_token.encode(), b"WebAppData", hashlib.sha256).digest()
+    secret_key = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
     data["hash"] = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
 
     return urllib.parse.urlencode(data)
