@@ -14,11 +14,13 @@ from app.services.signaling import call_room_manager
 router = APIRouter()
 
 
-def _extract_token(websocket: WebSocket) -> str | None:
+def _extract_token(websocket: WebSocket) -> tuple[str | None, str | None]:
     protocol_header = websocket.headers.get("sec-websocket-protocol")
+    selected_protocol: str | None = None
     if protocol_header:
         protocol_values = [value.strip() for value in protocol_header.split(",") if value.strip()]
         if protocol_values:
+            selected_protocol = protocol_values[0]
             token_candidate = protocol_values[-1]
             if token_candidate.lower().startswith("bearer "):
                 token_candidate = token_candidate.split(" ", 1)[1]
@@ -26,17 +28,17 @@ def _extract_token(websocket: WebSocket) -> str | None:
                 token_candidate = token_candidate.split(".", 1)[1]
 
             if token_candidate:
-                return token_candidate
+                return token_candidate, selected_protocol
 
     auth_header = websocket.headers.get("authorization") or websocket.headers.get("Authorization")
     if auth_header and auth_header.lower().startswith("bearer "):
-        return auth_header.split(" ", 1)[1]
+        return auth_header.split(" ", 1)[1], selected_protocol
 
     token = websocket.query_params.get("token")
     if token:
-        return token
+        return token, selected_protocol
 
-    return None
+    return None, selected_protocol
 
 
 def _serialize_user(user: User) -> dict[str, Any]:
@@ -71,7 +73,7 @@ async def _ensure_active_call(call_id: str) -> tuple[Call | None, str | None]:
 async def call_signaling(websocket: WebSocket, call_id: str) -> None:
     """WebSocket endpoint for relaying WebRTC signaling messages."""
 
-    token = _extract_token(websocket)
+    token, subprotocol = _extract_token(websocket)
     if not token:
         await websocket.close(code=4401, reason="Missing authentication token")
         return
@@ -92,7 +94,7 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
         await websocket.close(code=4404, reason=reason or "Call is not available")
         return
 
-    await websocket.accept()
+    await websocket.accept(subprotocol=subprotocol)
     room = await call_room_manager.get_room(call_id)
     await room.add_participant(user.id, websocket)
     await room.broadcast({"type": "user_joined", "user": _serialize_user(user)}, sender_id=user.id)
