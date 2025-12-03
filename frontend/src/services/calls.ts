@@ -10,6 +10,11 @@ export interface CreateCallResponse {
   join_url: string;
 }
 
+export interface CreateCallRequest {
+  title?: string | null;
+  is_video_enabled?: boolean;
+}
+
 export const joinCallByCode = async (
   callCode: string,
   token: string,
@@ -21,6 +26,9 @@ export const joinCallByCode = async (
   );
 };
 
-export const createCall = async (token: string): Promise<CreateCallResponse> => {
-  return apiClient.post<CreateCallResponse>("/api/calls", {}, { token });
+export const createCall = async (
+  payload: CreateCallRequest,
+  token: string,
+): Promise<CreateCallResponse> => {
+  return apiClient.post<CreateCallResponse>("/api/calls", payload, { token });
 };

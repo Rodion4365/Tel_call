@@ -11,7 +11,7 @@ import { authorizeTelegram } from "../services/auth";
 import { getTelegramWebApp } from "../services/telegram";
 import type { AuthUser } from "../types/auth";
 
-const AUTH_STORAGE_KEY = "telegram-auth";
+export const AUTH_STORAGE_KEY = "telegram-auth";
 
 export interface AuthContextValue {
   token: string | null;
