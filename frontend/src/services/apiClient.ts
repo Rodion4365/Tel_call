@@ -10,7 +10,7 @@ const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.trim() || DEFAULT_API_BASE_URL;
 
 // eslint-disable-next-line no-console
-console.log("[API] BASE_URL =", API_BASE_URL);
+console.log("[apiClient] API_BASE_URL =", API_BASE_URL);
 
 export const apiClient = {
   async get<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {

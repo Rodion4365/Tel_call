@@ -65,6 +65,8 @@ const JoinCallPage: React.FC = () => {
     }
 
     if (!token) {
+      // eslint-disable-next-line no-console
+      console.error("[JoinCall] missing auth token");
       setErrorMessage("Авторизация не выполнена");
       return;
     }
@@ -79,16 +81,23 @@ const JoinCallPage: React.FC = () => {
     setSubmitting(true);
 
     try {
+      // eslint-disable-next-line no-console
+      console.log("[JoinCall] resolving call", extractedCallId);
+
       const response = await getCallById(extractedCallId, token);
+
+      // eslint-disable-next-line no-console
+      console.log("[JoinCall] success", response);
+
       navigate(`/call/${response.call_id}`, { state: { join_url: response.join_url } });
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error("Failed to join call", error);
+      console.error("[JoinCall] failed", error);
       const message = error instanceof Error ? error.message : "";
       if (message.includes("status 404")) {
         setErrorMessage("Звонок не найден или завершён");
       } else {
-        setErrorMessage("Звонок не найден или завершён");
+        setErrorMessage("Не удалось подключиться к звонку. Попробуйте снова.");
       }
     } finally {
       setSubmitting(false);
