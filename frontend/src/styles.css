@@ -62,6 +62,8 @@ a:hover {
 .status-row {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .status-pill {
@@ -84,6 +86,12 @@ a:hover {
   background: #fff7ed;
   color: #c2410c;
   border-color: #fed7aa;
+}
+
+.status-pending {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
 }
 
 .app-content {
