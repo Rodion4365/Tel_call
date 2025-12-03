@@ -646,6 +646,13 @@ const CallPage: React.FC = () => {
     };
 
     socket.onclose = (event) => {
+      // eslint-disable-next-line no-console
+      console.log("[Call] socket closed", {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+      });
+
       websocketRef.current = null;
 
       if (!event.wasClean) {
