@@ -64,6 +64,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setToken(newToken);
     setUser(newUser);
     setHasTriedAuth(true);
+    // eslint-disable-next-line no-console
+    console.log("[Auth] storing backend access token", newToken);
     localStorage.setItem(
       AUTH_STORAGE_KEY,
       JSON.stringify({ token: newToken, user: newUser } satisfies StoredAuthData),
