@@ -21,4 +21,5 @@ export interface TelegramWebApp {
     start_param?: string;
   };
   initData?: string;
+  openTelegramLink?: (url: string) => void;
 }
