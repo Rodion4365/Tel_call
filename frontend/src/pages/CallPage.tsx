@@ -73,6 +73,8 @@ const CallPage: React.FC = () => {
   const websocketRef = useRef<WebSocket | null>(null);
   const homeRedirectTimeoutRef = useRef<number | null>(null);
   const userInteractedRef = useRef(false);
+  const toggleSoundContextRef = useRef<AudioContext | null>(null);
+  const micChangeByUserRef = useRef(false);
   const handleSignalingMessageRef = useRef<(message: SignalingMessage) => Promise<void>>();
   const handleConnectionErrorRef = useRef<
     ((message: string, navigateHome?: boolean, preserveExistingMessage?: boolean) => void) | undefined
@@ -249,7 +251,8 @@ const CallPage: React.FC = () => {
     [clearConnections, scheduleNavigateHome],
   );
 
-  const requestMicrophone = useCallback(async () => {
+  const requestMicrophone = useCallback(async (userInitiated = false) => {
+    micChangeByUserRef.current = userInitiated;
     setIsRequestingMic(true);
     setMediaError(null);
 
@@ -276,6 +279,9 @@ const CallPage: React.FC = () => {
       // eslint-disable-next-line no-console
       console.error("Failed to get microphone access", error);
       setMediaError("Нет доступа к микрофону");
+      setAudioTrack(null);
+      setMediaStream(null);
+      rebuildLocalStream(null, videoTrack);
       setMicOn(false);
     } finally {
       setIsRequestingMic(false);
@@ -284,10 +290,12 @@ const CallPage: React.FC = () => {
 
   const toggleMicrophone = () => {
     if (!audioTrack && !isRequestingMic) {
-      requestMicrophone();
+      micChangeByUserRef.current = true;
+      requestMicrophone(true);
       return;
     }
 
+    micChangeByUserRef.current = true;
     setMicOn((prev) => !prev);
   };
 
@@ -347,6 +355,48 @@ const CallPage: React.FC = () => {
     }
   }, [audioTrack, isMicOn]);
 
+  const playToggleSound = useCallback(() => {
+    try {
+      if (!toggleSoundContextRef.current) {
+        toggleSoundContextRef.current = new AudioContext();
+      }
+
+      const context = toggleSoundContextRef.current;
+
+      void context.resume();
+
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+
+      oscillator.type = "sine";
+      oscillator.frequency.value = 880;
+      gain.gain.value = 0.05;
+
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+
+      const now = context.currentTime;
+      const duration = 0.15;
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      oscillator.start(now);
+      oscillator.stop(now + duration);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn("Failed to play toggle sound", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!micChangeByUserRef.current) {
+      return;
+    }
+
+    micChangeByUserRef.current = false;
+    playToggleSound();
+  }, [isMicOn, playToggleSound]);
+
   useEffect(() => {
     const remoteAudioElements = remoteAudioElementsRef.current;
 
@@ -360,6 +410,11 @@ const CallPage: React.FC = () => {
         audio.remove();
       });
       remoteAudioElements.clear();
+
+      if (toggleSoundContextRef.current?.state !== "closed") {
+        void toggleSoundContextRef.current?.close();
+      }
+      toggleSoundContextRef.current = null;
     };
   }, [audioTrack, mediaStream, stopMediaStream, videoTrack]);
 
@@ -1040,7 +1095,12 @@ const CallPage: React.FC = () => {
         <div className="alert" role="alert">
           <p className="alert__title">{mediaError}</p>
           <p className="alert__description">Предоставьте доступ, чтобы мы включили микрофон.</p>
-          <button type="button" className="outline" onClick={requestMicrophone} disabled={isRequestingMic}>
+          <button
+            type="button"
+            className="outline"
+            onClick={() => requestMicrophone(true)}
+            disabled={isRequestingMic}
+          >
             Разрешить микрофон
           </button>
         </div>
