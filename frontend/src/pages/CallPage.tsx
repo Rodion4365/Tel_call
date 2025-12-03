@@ -160,6 +160,7 @@ const CallPage: React.FC = () => {
       track.enabled = true;
       setMediaStream(stream);
       setAudioTrack(track);
+      setLocalStream(new MediaStream([track, ...(videoTrack ? [videoTrack] : [])]));
       setMicOn(true);
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -169,7 +170,7 @@ const CallPage: React.FC = () => {
     } finally {
       setIsRequestingMic(false);
     }
-  }, [audioTrack, mediaStream, stopMediaStream]);
+  }, [audioTrack, mediaStream, stopMediaStream, videoTrack]);
 
   const toggleMicrophone = () => {
     if (!audioTrack && !isRequestingMic) {
@@ -220,6 +221,24 @@ const CallPage: React.FC = () => {
   }, [audioTrack, isMicOn]);
 
   useEffect(() => {
+    if (!audioTrack) {
+      return;
+    }
+
+    const handleTrackEnded = () => {
+      // eslint-disable-next-line no-console
+      console.warn("[Call] audio track ended, requesting new stream");
+      void requestMicrophone();
+    };
+
+    audioTrack.addEventListener("ended", handleTrackEnded);
+
+    return () => {
+      audioTrack.removeEventListener("ended", handleTrackEnded);
+    };
+  }, [audioTrack, requestMicrophone]);
+
+  useEffect(() => {
     return () => {
       audioTrack?.stop();
       videoTrack?.stop();
@@ -266,7 +285,23 @@ const CallPage: React.FC = () => {
       return;
     }
 
-    setLocalStream(new MediaStream(tracks));
+    setLocalStream((current) => {
+      const nextStream = current ? new MediaStream(current.getTracks()) : new MediaStream();
+
+      nextStream.getTracks().forEach((track) => {
+        if (!tracks.includes(track)) {
+          nextStream.removeTrack(track);
+        }
+      });
+
+      tracks.forEach((track) => {
+        if (!nextStream.getTracks().includes(track)) {
+          nextStream.addTrack(track);
+        }
+      });
+
+      return nextStream.getTracks().length ? nextStream : null;
+    });
   }, [audioTrack, videoTrack]);
 
   useEffect(() => {
@@ -579,10 +614,16 @@ const CallPage: React.FC = () => {
       }
 
       if (message.type === "offer") {
+        // eslint-disable-next-line no-console
+        console.log("[Call] received offer", { from: sender });
         await handleOffer(sender, message.payload);
       } else if (message.type === "answer") {
+        // eslint-disable-next-line no-console
+        console.log("[Call] received answer", { from: sender });
         await handleAnswer(sender, message.payload);
       } else if (message.type === "ice_candidate") {
+        // eslint-disable-next-line no-console
+        console.log("[Call] received ICE candidate", { from: sender });
         await handleIceCandidate(sender, message.payload);
       }
     },
@@ -790,7 +831,11 @@ const CallPage: React.FC = () => {
                 playsInline
                 ref={(element) => {
                   if (element && participant.stream) {
-                    element.srcObject = participant.stream;
+                    if (element.srcObject !== participant.stream) {
+                      element.srcObject = participant.stream;
+                    }
+
+                    void element.play().catch(() => undefined);
                   }
                 }}
               />
