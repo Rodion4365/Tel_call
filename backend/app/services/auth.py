@@ -32,7 +32,9 @@ def _validate_signature(init_data: str, bot_token: str) -> dict[str, str]:
     if not hash_from_client:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing hash in initData")
 
-    secret_key = hashlib.sha256(bot_token.encode()).digest()
+    # https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
+    # secret_key = HMAC_SHA256(<bot_token>, "WebAppData")
+    secret_key = hmac.new(bot_token.encode(), b"WebAppData", hashlib.sha256).digest()
     data_check_string = _build_data_check_string(data)
     calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
 
