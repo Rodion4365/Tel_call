@@ -37,6 +37,8 @@ const CreateCallPage: React.FC = () => {
       }
 
       if (!authToken) {
+        // eslint-disable-next-line no-console
+        console.error("[CreateCall] missing auth token");
         setError("Не удалось авторизоваться. Попробуйте снова.");
         return;
       }
@@ -45,6 +47,9 @@ const CreateCallPage: React.FC = () => {
         { title: null, is_video_enabled: false },
         authToken,
       );
+
+      // eslint-disable-next-line no-console
+      console.log("[CreateCall] success", response);
 
       navigate(
         `/call-created/${response.call_id}?join_url=${encodeURIComponent(response.join_url)}`,

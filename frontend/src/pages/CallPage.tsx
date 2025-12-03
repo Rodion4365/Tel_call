@@ -622,6 +622,10 @@ const CallPage: React.FC = () => {
 
     const url = `${baseUrl}/ws/calls/${callId}`;
     const protocols = token ? [`token.${token}`] : undefined;
+
+    // eslint-disable-next-line no-console
+    console.log("[Call] connecting to signaling", { url, hasToken: Boolean(token) });
+
     const socket = protocols ? new WebSocket(url, protocols) : new WebSocket(url);
 
     websocketRef.current = socket;
@@ -664,6 +668,9 @@ const CallPage: React.FC = () => {
     if (!joinUrl) {
       return;
     }
+
+    // eslint-disable-next-line no-console
+    console.log("[ShareCall] copy from call", joinUrl);
 
     try {
       await navigator.clipboard.writeText(joinUrl);

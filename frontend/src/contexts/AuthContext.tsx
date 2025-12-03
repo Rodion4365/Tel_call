@@ -87,12 +87,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setAuthError(null);
     setHasTriedAuth(true);
 
+    // eslint-disable-next-line no-console
+    console.log("[Auth] start Telegram authorization");
+
     try {
       const response = await authorizeTelegram();
       setAuthData(response.access_token, response.user);
+
+      // eslint-disable-next-line no-console
+      console.log("[Auth] success", response.user);
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error("Failed to authorize Telegram user", error);
+      console.error("[Auth] failed to authorize Telegram user", error);
       setAuthError("Не удалось авторизоваться через Telegram");
       getTelegramWebApp()?.showAlert?.("Не удалось авторизоваться через Telegram");
     } finally {

@@ -33,6 +33,9 @@ const CallCreated: React.FC = () => {
       return;
     }
 
+    // eslint-disable-next-line no-console
+    console.log("[JoinCall] from created screen", { call_id, joinUrl });
+
     navigate(`/call/${call_id}`, {
       state: {
         join_url: joinUrl,
@@ -46,10 +49,15 @@ const CallCreated: React.FC = () => {
       return;
     }
 
+    // eslint-disable-next-line no-console
+    console.log("[ShareCall] copy join link");
+
     try {
       await navigator.clipboard.writeText(joinUrl);
       setToastVisible(true);
     } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("[ShareCall] failed to copy link", error);
       setShareModalOpen(true);
     }
   };
@@ -58,6 +66,9 @@ const CallCreated: React.FC = () => {
     if (!joinUrl) {
       return;
     }
+
+    // eslint-disable-next-line no-console
+    console.log("[ShareCall] share button click");
 
     if (navigator.share) {
       try {
@@ -68,6 +79,8 @@ const CallCreated: React.FC = () => {
         });
         return;
       } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("[ShareCall] native share failed", error);
         // fall back to modal below
       }
     }
@@ -79,6 +92,9 @@ const CallCreated: React.FC = () => {
     if (!joinUrl) {
       return;
     }
+
+    // eslint-disable-next-line no-console
+    console.log("[ShareCall] telegram share");
 
     const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(joinUrl)}&text=${encodeURIComponent(
       "Присоединиться к звонку",
