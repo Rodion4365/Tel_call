@@ -87,6 +87,33 @@ const CallPage: React.FC = () => {
     setParticipants((current) => current.filter((participant) => participant.isCurrentUser));
   }, []);
 
+  const attachLocalTracks = useCallback(
+    (peer: RTCPeerConnection, stream: MediaStream | null) => {
+      if (!stream) {
+        return;
+      }
+
+      const tracks = stream.getTracks();
+
+      tracks.forEach((track) => {
+        const existingSender = peer.getSenders().find((sender) => sender.track?.kind === track.kind);
+
+        if (existingSender) {
+          existingSender.replaceTrack(track);
+        } else {
+          peer.addTrack(track, stream);
+        }
+      });
+
+      peer.getSenders().forEach((sender) => {
+        if (sender.track && !tracks.includes(sender.track)) {
+          peer.removeTrack(sender);
+        }
+      });
+    },
+    [],
+  );
+
   const scheduleNavigateHome = useCallback(() => {
     if (homeRedirectTimeoutRef.current) {
       clearTimeout(homeRedirectTimeoutRef.current);
@@ -352,33 +379,6 @@ const CallPage: React.FC = () => {
       removeParticipant(participantId);
     },
     [removeParticipant],
-  );
-
-  const attachLocalTracks = useCallback(
-    (peer: RTCPeerConnection, stream: MediaStream | null) => {
-      if (!stream) {
-        return;
-      }
-
-      const tracks = stream.getTracks();
-
-      tracks.forEach((track) => {
-        const existingSender = peer.getSenders().find((sender) => sender.track?.kind === track.kind);
-
-        if (existingSender) {
-          existingSender.replaceTrack(track);
-        } else {
-          peer.addTrack(track, stream);
-        }
-      });
-
-      peer.getSenders().forEach((sender) => {
-        if (sender.track && !tracks.includes(sender.track)) {
-          peer.removeTrack(sender);
-        }
-      });
-    },
-    [],
   );
 
   const sendSignalingMessage = useCallback((message: Omit<SignalingMessage, "from_user">) => {
