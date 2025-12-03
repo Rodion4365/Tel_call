@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     )
     stun_servers: list[str] = Field(default_factory=list, validation_alias="STUN_SERVERS")
     turn_servers: list[str] = Field(default_factory=list, validation_alias="TURN_SERVERS")
+    turn_username: Optional[str] = Field(default=None, validation_alias="TURN_USERNAME")
+    turn_password: Optional[str] = Field(default=None, validation_alias="TURN_PASSWORD")
     allowed_origins: list[str] = Field(default_factory=list, validation_alias="CORS_ALLOW_ORIGINS")
 
     def _mask_secret(self, value: Optional[str]) -> str:
