@@ -75,6 +75,25 @@ const CallPage: React.FC = () => {
     ((message: string, navigateHome?: boolean, preserveExistingMessage?: boolean) => void) | undefined
   >();
   const clearConnectionsRef = useRef<(() => void) | undefined>();
+  const localStreamRef = useRef<MediaStream | null>(null);
+
+  const rebuildLocalStream = useCallback(
+    (audio: MediaStreamTrack | null = audioTrack, video: MediaStreamTrack | null = videoTrack) => {
+      const tracks = [audio, video].filter(Boolean) as MediaStreamTrack[];
+
+      if (!tracks.length) {
+        localStreamRef.current = null;
+        setLocalStream(null);
+        return null;
+      }
+
+      const stream = new MediaStream(tracks);
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+      return stream;
+    },
+    [audioTrack, videoTrack],
+  );
 
   const stopMediaStream = useCallback((stream: MediaStream | null) => {
     stream?.getTracks().forEach((track) => track.stop());
@@ -160,6 +179,7 @@ const CallPage: React.FC = () => {
       track.enabled = true;
       setMediaStream(stream);
       setAudioTrack(track);
+      rebuildLocalStream(track, videoTrack);
       setMicOn(true);
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -169,7 +189,7 @@ const CallPage: React.FC = () => {
     } finally {
       setIsRequestingMic(false);
     }
-  }, [audioTrack, mediaStream, stopMediaStream]);
+  }, [audioTrack, mediaStream, rebuildLocalStream, stopMediaStream, videoTrack]);
 
   const toggleMicrophone = () => {
     if (!audioTrack && !isRequestingMic) {
@@ -185,6 +205,7 @@ const CallPage: React.FC = () => {
       videoTrack?.stop();
       setVideoTrack(null);
       setCameraOn(false);
+      rebuildLocalStream(audioTrack, null);
       return;
     }
 
@@ -201,6 +222,7 @@ const CallPage: React.FC = () => {
 
       setVideoTrack(track);
       setCameraOn(true);
+      rebuildLocalStream(audioTrack, track);
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error("Failed to get camera access", error);
@@ -254,20 +276,8 @@ const CallPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!audioTrack && !videoTrack) {
-      setLocalStream(null);
-      return;
-    }
-
-    const tracks = [audioTrack, videoTrack].filter(Boolean) as MediaStreamTrack[];
-
-    if (!tracks.length) {
-      setLocalStream(null);
-      return;
-    }
-
-    setLocalStream(new MediaStream(tracks));
-  }, [audioTrack, videoTrack]);
+    rebuildLocalStream();
+  }, [rebuildLocalStream]);
 
   useEffect(() => {
     if (!localStream) {
@@ -277,7 +287,9 @@ const CallPage: React.FC = () => {
       return;
     }
 
-    peersRef.current.forEach((peer) => attachLocalTracks(peer, localStream));
+    const stream = localStreamRef.current ?? localStream;
+
+    peersRef.current.forEach((peer) => attachLocalTracks(peer, stream));
   }, [attachLocalTracks, localStream]);
 
   const getParticipantName = useCallback(
@@ -406,6 +418,8 @@ const CallPage: React.FC = () => {
 
       peer.onicecandidate = (event) => {
         if (event.candidate) {
+          // eslint-disable-next-line no-console
+          console.log("[ICE] sending candidate", event.candidate);
           sendSignalingMessage({ type: "ice_candidate", payload: event.candidate });
         }
       };
@@ -448,7 +462,7 @@ const CallPage: React.FC = () => {
         }
       };
 
-      attachLocalTracks(peer, localStream);
+      attachLocalTracks(peer, localStreamRef.current ?? localStream);
       peersRef.current.set(participantId, peer);
 
       return peer;
@@ -468,7 +482,7 @@ const CallPage: React.FC = () => {
         console.error("Failed to apply remote offer", error);
         return;
       }
-      attachLocalTracks(peer, localStream);
+      attachLocalTracks(peer, localStreamRef.current ?? localStream);
 
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
@@ -520,6 +534,8 @@ const CallPage: React.FC = () => {
     }
 
     try {
+      // eslint-disable-next-line no-console
+      console.log("[ICE] received candidate", payload);
       await peer.addIceCandidate(new RTCIceCandidate(payload));
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -532,7 +548,7 @@ const CallPage: React.FC = () => {
       const participantId = String(remoteUser.id);
       const peer = createPeerConnection(participantId);
 
-      attachLocalTracks(peer, localStream);
+      attachLocalTracks(peer, localStreamRef.current ?? localStream);
 
       const offer = await peer.createOffer();
       await peer.setLocalDescription(offer);
@@ -551,6 +567,9 @@ const CallPage: React.FC = () => {
 
   const handleSignalingMessage = useCallback(
     async (message: SignalingMessage) => {
+      // eslint-disable-next-line no-console
+      console.log("[Signaling] received", message.type, message);
+
       if (message.type === "user_joined") {
         await startOfferFlow(message.user);
         return;
@@ -615,7 +634,7 @@ const CallPage: React.FC = () => {
       isCurrentUser: true,
       isSpeaking: !!audioTrack && isMicOn,
       hasVideo: !!videoTrack && isCameraOn,
-      stream: localStream ?? undefined,
+      stream: localStreamRef.current ?? localStream ?? undefined,
     });
   }, [audioTrack, callError, getParticipantColor, getParticipantHandle, getParticipantName, isCameraOn, isMicOn, localStream, updateParticipant, user, videoTrack]);
 
@@ -791,6 +810,7 @@ const CallPage: React.FC = () => {
                 ref={(element) => {
                   if (element && participant.stream) {
                     element.srcObject = participant.stream;
+                    void element.play().catch(() => undefined);
                   }
                 }}
               />
