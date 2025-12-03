@@ -35,7 +35,7 @@ export const createCall = async (
   payload: CreateCallRequest,
   token: string,
 ): Promise<CreateCallResponse> => {
-  return apiClient.post<CreateCallResponse>("/api/calls", payload, { token });
+  return apiClient.post<CreateCallResponse>("/api/calls/", payload, { token });
 };
 
 export const getCallById = async (callId: string, token: string): Promise<GetCallResponse> => {

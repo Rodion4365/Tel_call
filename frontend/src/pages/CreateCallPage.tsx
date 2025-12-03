@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AUTH_STORAGE_KEY, useAuth } from "../contexts/AuthContext";
 import { createCall } from "../services/calls";
@@ -8,6 +8,11 @@ const CreateCallPage: React.FC = () => {
   const { token, user, isAuthorizing, loginWithTelegram } = useAuth();
   const [isSubmitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log("[Auth] token =", token);
+  }, [token]);
 
   const handleCreateCall = async () => {
     // eslint-disable-next-line no-console
@@ -42,6 +47,9 @@ const CreateCallPage: React.FC = () => {
         setError("Не удалось авторизоваться. Попробуйте снова.");
         return;
       }
+
+      // eslint-disable-next-line no-console
+      console.log("[CreateCall] using auth token", authToken);
 
       const response = await createCall(
         { title: null, is_video_enabled: false },
