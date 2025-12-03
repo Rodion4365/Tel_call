@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import parse_qsl
@@ -18,6 +19,7 @@ from app.config.database import get_session
 from app.models import User
 
 
+logger = logging.getLogger(__name__)
 _bearer_scheme = HTTPBearer(auto_error=False)
 
 
@@ -39,6 +41,7 @@ def _validate_signature(init_data: str, bot_token: str) -> dict[str, str]:
     calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
 
     if not hmac.compare_digest(calculated_hash, hash_from_client):
+        logger.warning("Telegram initData signature validation failed")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid initData hash")
 
     return data
@@ -53,22 +56,31 @@ def validate_init_data(init_data: str, *, bot_token: str, max_age_seconds: int =
         max_age_seconds: Allowed age for auth_date to mitigate replay attacks.
     """
 
+    logger.info("Validating Telegram initData payload")
     data = _validate_signature(init_data, bot_token)
 
     auth_date = data.get("auth_date")
     if auth_date:
         timestamp = datetime.fromtimestamp(int(auth_date), tz=timezone.utc)
         if datetime.now(tz=timezone.utc) - timestamp > timedelta(seconds=max_age_seconds):
+            logger.warning("Received expired initData payload: auth_date=%s", auth_date)
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="initData is too old")
 
     user_payload = data.get("user")
     if not user_payload:
+        logger.warning("Received initData payload without user info")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing user payload in initData")
 
     try:
         user_data: dict[str, Any] = json.loads(user_payload)
     except json.JSONDecodeError as exc:  # pragma: no cover - defensive
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid user payload") from exc
+
+    logger.info(
+        "Telegram initData validated for user_id=%s username=%s",
+        user_data.get("id"),
+        user_data.get("username"),
+    )
 
     return user_data
 
@@ -82,6 +94,7 @@ async def get_or_create_user(session: AsyncSession, telegram_user: dict[str, Any
 
     result = await session.execute(select(User).where(User.telegram_user_id == telegram_user_id))
     user = result.scalar_one_or_none()
+    is_new = user is None
 
     if user:
         user.username = telegram_user.get("username")
@@ -98,6 +111,12 @@ async def get_or_create_user(session: AsyncSession, telegram_user: dict[str, Any
 
     await session.commit()
     await session.refresh(user)
+    logger.info(
+        "User %s persisted (id=%s, username=%s)",
+        "created" if is_new else "updated",
+        user.id,
+        user.username,
+    )
     return user
 
 
@@ -109,7 +128,13 @@ def create_access_token(subject: str) -> str:
     expires_delta = timedelta(minutes=settings.access_token_expire_minutes)
     expire = datetime.now(tz=timezone.utc) + expires_delta
     to_encode = {"sub": subject, "exp": expire}
-    return jwt.encode(to_encode, settings.secret_key, algorithm="HS256")
+    token = jwt.encode(to_encode, settings.secret_key, algorithm="HS256")
+    logger.info(
+        "Issued access token for user_id=%s with ttl_minutes=%s",
+        subject,
+        settings.access_token_expire_minutes,
+    )
+    return token
 
 
 def authenticate_user_from_init_data(init_data: str) -> dict[str, Any]:
@@ -119,7 +144,13 @@ def authenticate_user_from_init_data(init_data: str) -> dict[str, Any]:
     if not settings.bot_token:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="BOT_TOKEN is not configured")
 
-    return validate_init_data(init_data, bot_token=settings.bot_token)
+    user_data = validate_init_data(init_data, bot_token=settings.bot_token)
+    logger.info(
+        "Authenticated Telegram user payload for user_id=%s username=%s",
+        user_data.get("id"),
+        user_data.get("username"),
+    )
+    return user_data
 
 
 def _decode_user_id_from_token(token: str, secret_key: str) -> int:
@@ -157,13 +188,15 @@ async def get_current_user(
     """Extract and validate the current user from a bearer token."""
 
     if credentials is None:
+        logger.warning("Bearer token was not provided")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
     settings = get_settings()
     if not settings.secret_key:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="SECRET_KEY is not configured")
-
-    return await _resolve_user_from_token(credentials.credentials, session, settings.secret_key)
+    user = await _resolve_user_from_token(credentials.credentials, session, settings.secret_key)
+    logger.info("Resolved current user from token: id=%s username=%s", user.id, user.username)
+    return user
 
 
 async def get_user_from_token(token: str, session: AsyncSession) -> User:
