@@ -13,7 +13,7 @@ const SettingsIcon: React.FC = () => (
   </svg>
 );
 
-const Main: React.FC = () => {
+const MainPage: React.FC = () => {
   return (
     <div className="main-screen">
       <header className="main-header">
@@ -36,4 +36,4 @@ const Main: React.FC = () => {
   );
 };
 
-export default Main;
+export default MainPage;

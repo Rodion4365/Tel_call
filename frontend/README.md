@@ -11,4 +11,8 @@
 3. Build for production: `npm run build`.
 
 ## Notes
-The app currently renders a placeholder screen. Replace `src/App.tsx` with real UI once ready.
+- The UI is routed with React Router and integrates with the Telegram WebApp initialization hook.
+- Main flows:
+  - `/` — выбор действия (создать или присоединиться к звонку, переход в настройки).
+  - `/create-call`, `/join-call` — экраны создания и подключения к звонку.
+  - `/call/:id` — страница активного звонка.

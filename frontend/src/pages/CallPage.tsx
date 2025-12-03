@@ -43,8 +43,8 @@ const PARTICIPANT_COLORS = [
   "linear-gradient(135deg, #e11d48, #fb7185)",
 ];
 
-const Call: React.FC = () => {
-  const { call_id } = useParams();
+const CallPage: React.FC = () => {
+  const { id: callId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const { token, user } = useAuth();
@@ -609,7 +609,7 @@ const Call: React.FC = () => {
   }, [audioTrack, callError, getParticipantColor, getParticipantHandle, getParticipantName, isCameraOn, isMicOn, localStream, updateParticipant, user, videoTrack]);
 
   useEffect(() => {
-    if (!call_id || !token) {
+    if (!callId || !token) {
       return;
     }
 
@@ -620,7 +620,7 @@ const Call: React.FC = () => {
       return;
     }
 
-    const url = `${baseUrl}/ws/calls/${call_id}`;
+    const url = `${baseUrl}/ws/calls/${callId}`;
     const protocols = token ? [`token.${token}`] : undefined;
     const socket = protocols ? new WebSocket(url, protocols) : new WebSocket(url);
 
@@ -658,7 +658,7 @@ const Call: React.FC = () => {
 
       clearConnections();
     };
-  }, [call_id, clearConnections, handleConnectionError, handleSignalingMessage, token]);
+  }, [callId, clearConnections, handleConnectionError, handleSignalingMessage, token]);
 
   const copyLink = async () => {
     if (!joinUrl) {
@@ -694,7 +694,7 @@ const Call: React.FC = () => {
       <div className="call-header">
         <div>
           <p className="eyebrow">Комната звонка</p>
-          <h1 className="call-title">Звонок #{call_id ?? "—"}</h1>
+          <h1 className="call-title">Звонок #{callId ?? "—"}</h1>
           <p className="muted">Видео выключено по умолчанию. Можно включить позже.</p>
         </div>
         <div className="call-link">
@@ -834,4 +834,4 @@ const Call: React.FC = () => {
   );
 };
 
-export default Call;
+export default CallPage;
