@@ -11,6 +11,7 @@ interface SignalingUser {
 }
 
 type SignalingMessage =
+  | { type: "participants_snapshot"; participants: SignalingUser[] }
   | { type: "user_joined"; user: SignalingUser }
   | { type: "user_left"; user: SignalingUser }
   | { type: "call_ended"; reason: string }
@@ -18,6 +19,11 @@ type SignalingMessage =
   | { type: "offer"; payload: RTCSessionDescriptionInit; from_user: SignalingUser }
   | { type: "answer"; payload: RTCSessionDescriptionInit; from_user: SignalingUser }
   | { type: "ice_candidate"; payload: RTCIceCandidateInit; from_user: SignalingUser };
+
+type OutgoingSignalingMessage =
+  | { type: "offer"; payload: RTCSessionDescriptionInit; to_user_id: number }
+  | { type: "answer"; payload: RTCSessionDescriptionInit; to_user_id: number }
+  | { type: "ice_candidate"; payload: RTCIceCandidateInit; to_user_id: number };
 
 interface LocationState {
   join_url?: string;
@@ -75,6 +81,7 @@ const CallPage: React.FC = () => {
   const userInteractedRef = useRef(false);
   const toggleSoundContextRef = useRef<AudioContext | null>(null);
   const micChangeByUserRef = useRef(false);
+  const reconnectionTimersRef = useRef<Map<string, number>>(new Map());
   const handleSignalingMessageRef = useRef<(message: SignalingMessage) => Promise<void>>();
   const handleConnectionErrorRef = useRef<
     ((message: string, navigateHome?: boolean, preserveExistingMessage?: boolean) => void) | undefined
@@ -166,6 +173,9 @@ const CallPage: React.FC = () => {
   }, [attemptPlayAudio]);
 
   const clearConnections = useCallback(() => {
+    reconnectionTimersRef.current.forEach((timeout) => clearTimeout(timeout));
+    reconnectionTimersRef.current.clear();
+
     peersRef.current.forEach((peer) => peer.close());
     peersRef.current.clear();
 
@@ -579,6 +589,13 @@ const CallPage: React.FC = () => {
 
   const cleanupPeer = useCallback(
     (participantId: string) => {
+      const timeout = reconnectionTimersRef.current.get(participantId);
+
+      if (timeout) {
+        clearTimeout(timeout);
+        reconnectionTimersRef.current.delete(participantId);
+      }
+
       const peer = peersRef.current.get(participantId);
       const remoteStream = remoteStreamsRef.current.get(participantId);
 
@@ -597,7 +614,7 @@ const CallPage: React.FC = () => {
     [removeParticipant],
   );
 
-  const sendSignalingMessage = useCallback((message: Omit<SignalingMessage, "from_user">) => {
+  const sendSignalingMessage = useCallback((message: OutgoingSignalingMessage) => {
     const socket = websocketRef.current;
 
     if (socket && socket.readyState === WebSocket.OPEN) {
@@ -614,14 +631,15 @@ const CallPage: React.FC = () => {
       }
 
       const peer = new RTCPeerConnection({ iceServers });
+      const targetUserId = Number.parseInt(participantId, 10);
 
       ensureRemoteAudioElement(participantId);
 
       peer.onicecandidate = (event) => {
-        if (event.candidate) {
+        if (event.candidate && !Number.isNaN(targetUserId)) {
           // eslint-disable-next-line no-console
           console.log("[ICE] sending candidate", event.candidate);
-          sendSignalingMessage({ type: "ice_candidate", payload: event.candidate });
+          sendSignalingMessage({ type: "ice_candidate", payload: event.candidate, to_user_id: targetUserId });
         }
       };
 
@@ -662,12 +680,43 @@ const CallPage: React.FC = () => {
         });
       };
 
-      peer.onconnectionstatechange = () => {
-        if (peer.connectionState === "failed") {
-          websocketRef.current?.close();
-          handleConnectionError("Ошибка WebRTC соединения", true);
-        } else if (peer.connectionState === "disconnected") {
-          handleConnectionError("WebRTC соединение потеряно", true);
+      const scheduleRecovery = () => {
+        if (Number.isNaN(targetUserId)) {
+          return;
+        }
+
+        const existingTimeout = reconnectionTimersRef.current.get(participantId);
+
+        if (existingTimeout) {
+          clearTimeout(existingTimeout);
+        }
+
+        const timeout = window.setTimeout(async () => {
+          try {
+            const offer = await peer.createOffer({ iceRestart: true });
+            await peer.setLocalDescription(offer);
+            sendSignalingMessage({ type: "offer", payload: offer, to_user_id: targetUserId });
+          } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error("Failed to restart ICE", error);
+          }
+        }, 1200);
+
+        reconnectionTimersRef.current.set(participantId, timeout);
+      };
+
+      peer.oniceconnectionstatechange = () => {
+        if (peer.iceConnectionState === "connected" || peer.iceConnectionState === "completed") {
+          const timeout = reconnectionTimersRef.current.get(participantId);
+
+          if (timeout) {
+            clearTimeout(timeout);
+            reconnectionTimersRef.current.delete(participantId);
+          }
+        } else if (peer.iceConnectionState === "failed" || peer.iceConnectionState === "disconnected") {
+          scheduleRecovery();
+        } else if (peer.iceConnectionState === "closed") {
+          cleanupPeer(participantId);
         }
       };
 
@@ -675,7 +724,10 @@ const CallPage: React.FC = () => {
         try {
           const offer = await peer.createOffer();
           await peer.setLocalDescription(offer);
-          sendSignalingMessage({ type: "offer", payload: offer });
+
+          if (!Number.isNaN(targetUserId)) {
+            sendSignalingMessage({ type: "offer", payload: offer, to_user_id: targetUserId });
+          }
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error("Failed to renegotiate connection", error);
@@ -690,9 +742,9 @@ const CallPage: React.FC = () => {
     [
       attachLocalTracks,
       attemptPlayAudio,
+      cleanupPeer,
       ensureRemoteAudioElement,
       getParticipantColor,
-      handleConnectionError,
       iceServers,
       localStream,
       sendSignalingMessage,
@@ -704,6 +756,7 @@ const CallPage: React.FC = () => {
     async (fromUser: SignalingUser, payload: RTCSessionDescriptionInit) => {
       const participantId = String(fromUser.id);
       const peer = createPeerConnection(participantId);
+      const targetUserId = Number.parseInt(participantId, 10);
 
       try {
         await peer.setRemoteDescription(new RTCSessionDescription(payload));
@@ -717,7 +770,9 @@ const CallPage: React.FC = () => {
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
 
-      sendSignalingMessage({ type: "answer", payload: answer });
+      if (!Number.isNaN(targetUserId)) {
+        sendSignalingMessage({ type: "answer", payload: answer, to_user_id: targetUserId });
+      }
 
       updateParticipant({
         id: participantId,
@@ -783,7 +838,7 @@ const CallPage: React.FC = () => {
       const offer = await peer.createOffer();
       await peer.setLocalDescription(offer);
 
-      sendSignalingMessage({ type: "offer", payload: offer });
+      sendSignalingMessage({ type: "offer", payload: offer, to_user_id: remoteUser.id });
 
       updateParticipant({
         id: participantId,
@@ -795,13 +850,56 @@ const CallPage: React.FC = () => {
     [attachLocalTracks, createPeerConnection, getParticipantColor, getParticipantHandle, getParticipantName, localStream, sendSignalingMessage, updateParticipant],
   );
 
+  const shouldInitiateOffer = useCallback(
+    (remoteUser: SignalingUser) => (user?.id ? user.id < remoteUser.id : false),
+    [user?.id],
+  );
+
+  const ensureParticipant = useCallback(
+    (remoteUser: SignalingUser) => {
+      const participantId = String(remoteUser.id);
+
+      updateParticipant({
+        id: participantId,
+        name: getParticipantName(remoteUser),
+        handle: getParticipantHandle(remoteUser),
+        color: getParticipantColor(participantId),
+      });
+    },
+    [getParticipantColor, getParticipantHandle, getParticipantName, updateParticipant],
+  );
+
+  const connectToParticipantIfNeeded = useCallback(
+    async (remoteUser: SignalingUser) => {
+      ensureParticipant(remoteUser);
+
+      const participantId = String(remoteUser.id);
+
+      if (peersRef.current.has(participantId)) {
+        return;
+      }
+
+      if (!shouldInitiateOffer(remoteUser)) {
+        return;
+      }
+
+      await startOfferFlow(remoteUser);
+    },
+    [ensureParticipant, shouldInitiateOffer, startOfferFlow],
+  );
+
   const handleSignalingMessage = useCallback(
     async (message: SignalingMessage) => {
       // eslint-disable-next-line no-console
       console.log("[Signaling] received", message.type, message);
 
+      if (message.type === "participants_snapshot") {
+        await Promise.all(message.participants.map((participant) => connectToParticipantIfNeeded(participant)));
+        return;
+      }
+
       if (message.type === "user_joined") {
-        await startOfferFlow(message.user);
+        await connectToParticipantIfNeeded(message.user);
         return;
       }
 
@@ -835,7 +933,7 @@ const CallPage: React.FC = () => {
         await handleIceCandidate(sender, message.payload);
       }
     },
-    [cleanupPeer, handleAnswer, handleConnectionError, handleIceCandidate, handleOffer, startOfferFlow],
+    [cleanupPeer, connectToParticipantIfNeeded, handleAnswer, handleConnectionError, handleIceCandidate, handleOffer],
   );
 
   useEffect(() => {

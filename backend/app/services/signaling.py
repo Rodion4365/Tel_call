@@ -1,9 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from typing import Any
 
 from fastapi import WebSocket
+
+
+@dataclass
+class ParticipantConnection:
+    """Represents a participant connection and metadata."""
+
+    websocket: WebSocket
+    user: dict[str, Any]
 
 
 class CallRoom:
@@ -11,18 +20,18 @@ class CallRoom:
 
     def __init__(self, call_id: str) -> None:
         self.call_id = call_id
-        self._participants: dict[int, WebSocket] = {}
+        self._participants: dict[int, ParticipantConnection] = {}
         self._lock = asyncio.Lock()
 
     @property
     def is_empty(self) -> bool:
         return not self._participants
 
-    async def add_participant(self, user_id: int, websocket: WebSocket) -> None:
+    async def add_participant(self, user_id: int, websocket: WebSocket, user: dict[str, Any]) -> None:
         """Register a connected user in the room."""
 
         async with self._lock:
-            self._participants[user_id] = websocket
+            self._participants[user_id] = ParticipantConnection(websocket, user)
 
     async def remove_participant(self, user_id: int) -> None:
         """Remove a user from the room if present."""
@@ -30,19 +39,51 @@ class CallRoom:
         async with self._lock:
             self._participants.pop(user_id, None)
 
-    async def broadcast(self, message: dict[str, Any], *, sender_id: int | None = None) -> None:
-        """Send a message to all participants except the sender (when provided)."""
+    async def has_participant(self, user_id: int) -> bool:
+        """Return True when the user is connected to the room."""
 
         async with self._lock:
-            recipients = list(self._participants.items())
+            return user_id in self._participants
+
+    async def list_participants(self, *, exclude_user_id: int | None = None) -> list[dict[str, Any]]:
+        """Return serialized user payloads for all connected participants."""
+
+        async with self._lock:
+            return [
+                connection.user
+                for user_id, connection in self._participants.items()
+                if exclude_user_id is None or user_id != exclude_user_id
+            ]
+
+    async def broadcast(
+        self,
+        message: dict[str, Any],
+        *,
+        sender_id: int | None = None,
+        target_id: int | None = None,
+    ) -> None:
+        """Send a message to recipients.
+
+        By default the message is sent to all participants except the sender. When
+        ``target_id`` is provided, only that participant will receive the message.
+        """
+
+        async with self._lock:
+            if target_id is not None:
+                recipient = self._participants.get(target_id)
+                recipients: list[tuple[int, ParticipantConnection]] = (
+                    [(target_id, recipient)] if recipient else []
+                )
+            else:
+                recipients = list(self._participants.items())
 
         disconnected_users: list[int] = []
-        for user_id, websocket in recipients:
+        for user_id, connection in recipients:
             if sender_id is not None and user_id == sender_id:
                 continue
 
             try:
-                await websocket.send_json(message)
+                await connection.websocket.send_json(message)
             except Exception:
                 disconnected_users.append(user_id)
 
