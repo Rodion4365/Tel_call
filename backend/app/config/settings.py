@@ -22,7 +22,11 @@ class Settings(BaseSettings):
     bot_token: Optional[str] = Field(None, validation_alias="BOT_TOKEN")
     bot_username: Optional[str] = Field(None, validation_alias="BOT_USERNAME")
     secret_key: Optional[str] = Field(None, validation_alias="SECRET_KEY")
-    access_token_expire_minutes: int = Field(15, validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES")
+    access_token_expire_minutes: int = Field(
+        60 * 24 * 30,
+        validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES",
+        description="JWT access token lifetime in minutes (defaults to 30 days)",
+    )
     stun_servers: list[str] = Field(default_factory=list, validation_alias="STUN_SERVERS")
     turn_servers: list[str] = Field(default_factory=list, validation_alias="TURN_SERVERS")
     allowed_origins: list[str] = Field(default_factory=list, validation_alias="CORS_ALLOW_ORIGINS")

@@ -120,7 +120,14 @@ async def get_or_create_user(session: AsyncSession, telegram_user: dict[str, Any
     return user
 
 
-def create_access_token(subject: str) -> str:
+def build_init_data_fingerprint(init_data: str) -> str:
+    """Return a short fingerprint of the validated initData payload."""
+
+    digest = hashlib.sha256(init_data.encode()).hexdigest()
+    return digest[:16]
+
+
+def create_access_token(subject: str, *, fingerprint: str | None = None) -> str:
     settings = get_settings()
     if not settings.secret_key:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="SECRET_KEY is not configured")
@@ -128,11 +135,14 @@ def create_access_token(subject: str) -> str:
     expires_delta = timedelta(minutes=settings.access_token_expire_minutes)
     expire = datetime.now(tz=timezone.utc) + expires_delta
     to_encode = {"sub": subject, "exp": expire}
+    if fingerprint:
+        to_encode["fp"] = fingerprint
     token = jwt.encode(to_encode, settings.secret_key, algorithm="HS256")
     logger.info(
-        "Issued access token for user_id=%s with ttl_minutes=%s",
+        "Issued access token for user_id=%s with ttl_minutes=%s fingerprint=%s",
         subject,
         settings.access_token_expire_minutes,
+        fingerprint or "<none>",
     )
     return token
 

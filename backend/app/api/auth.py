@@ -8,6 +8,7 @@ from app.config.database import get_session
 from app.config.settings import get_settings
 from app.services.auth import (
     authenticate_user_from_init_data,
+    build_init_data_fingerprint,
     create_access_token,
     get_or_create_user,
 )
@@ -46,12 +47,13 @@ async def authorize_telegram(
     logger.info("Received Telegram auth request")
     telegram_user = authenticate_user_from_init_data(payload.init_data)
     user = await get_or_create_user(session, telegram_user)
-
-    token = create_access_token(str(user.id))
+    fingerprint = build_init_data_fingerprint(payload.init_data)
+    token = create_access_token(str(user.id), fingerprint=fingerprint)
     logger.info(
-        "[authorize_telegram] issued token for user_id=%s, token_prefix=%s",
+        "[authorize_telegram] issued token for user_id=%s, token_prefix=%s, fp=%s",
         user.id,
         token[:15] + "..." if token else "<empty>",
+        fingerprint,
     )
     settings = get_settings()
 
