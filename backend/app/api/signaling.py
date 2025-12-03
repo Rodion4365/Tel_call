@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
 from sqlalchemy import select
 
-from app.config.database import get_session
+from app.config.database import session_scope
 from app.models import Call, CallStatus, User
 from app.services.auth import get_user_from_token
 from app.services.signaling import call_room_manager
@@ -49,7 +49,7 @@ def _serialize_user(user: User) -> dict[str, Any]:
 
 
 async def _ensure_active_call(call_id: str) -> tuple[Call | None, str | None]:
-    async with get_session() as session:
+    async with session_scope() as session:
         result = await session.execute(select(Call).where(Call.call_id == call_id))
         call = result.scalar_one_or_none()
 
@@ -76,7 +76,7 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
         await websocket.close(code=4401, reason="Missing authentication token")
         return
 
-    async with get_session() as session:
+    async with session_scope() as session:
         try:
             user = await get_user_from_token(token, session)
         except HTTPException as exc:  # Authentication or token validation errors

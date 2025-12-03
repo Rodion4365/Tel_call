@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.config.database import get_session
+from app.config.database import session_scope
 from app.models import Call, CallStatus
 from app.services.signaling import notify_call_ended
 
@@ -15,7 +15,7 @@ async def expire_calls() -> int:
     """Mark calls as expired when their expiry timestamp has passed."""
 
     now = datetime.utcnow()
-    async with get_session() as session:
+    async with session_scope() as session:
         result = await session.execute(
             select(Call).where(
                 Call.status == CallStatus.ACTIVE,
