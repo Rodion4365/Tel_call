@@ -188,14 +188,29 @@ async def get_current_user(
     """Extract and validate the current user from a bearer token."""
 
     if credentials is None:
-        logger.warning("Bearer token was not provided")
+        logger.warning("[get_current_user] no Authorization header or wrong scheme")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
+    token = credentials.credentials
+    logger.info(
+        "[get_current_user] got token_prefix=%s",
+        token[:15] + "..." if token else "<empty>",
+    )
 
     settings = get_settings()
     if not settings.secret_key:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="SECRET_KEY is not configured")
-    user = await _resolve_user_from_token(credentials.credentials, session, settings.secret_key)
-    logger.info("Resolved current user from token: id=%s username=%s", user.id, user.username)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="SECRET_KEY is not configured",
+        )
+
+    try:
+        user = await _resolve_user_from_token(token, session, settings.secret_key)
+    except HTTPException as exc:
+        logger.warning("[get_current_user] token rejected: %s", exc.detail)
+        raise
+
+    logger.info("[get_current_user] authenticated user_id=%s", user.id)
     return user
 
 
