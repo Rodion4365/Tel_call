@@ -59,7 +59,9 @@ const CreateCallPage: React.FC = () => {
       // eslint-disable-next-line no-console
       console.log("[CreateCall] success", response);
 
-      navigate(`/call/${response.call_id}`, {
+      const joinUrlParam = encodeURIComponent(response.join_url);
+
+      navigate(`/call-created/${response.call_id}?join_url=${joinUrlParam}`, {
         state: { join_url: response.join_url },
         replace: true,
       });

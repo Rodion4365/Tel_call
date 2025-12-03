@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { getTelegramWebApp } from "../services/telegram";
 
 interface LocationState {
   join_url?: string;
@@ -9,8 +11,15 @@ const CallCreated: React.FC = () => {
   const { call_id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const joinUrl = searchParams.get("join_url") ?? (location.state as LocationState | null)?.join_url ?? "";
+
+  const shareTitle = useMemo(() => {
+    const displayName = user?.first_name || user?.username || "Пользователь";
+    return `Звонок от "${displayName}"`;
+  }, [user]);
+  const shareText = useMemo(() => `${shareTitle}\nПрисоединиться к звонку:`, [shareTitle]);
 
   const [isToastVisible, setToastVisible] = useState(false);
   const [isShareModalOpen, setShareModalOpen] = useState(false);
@@ -70,36 +79,55 @@ const CallCreated: React.FC = () => {
     // eslint-disable-next-line no-console
     console.log("[ShareCall] share button click");
 
+    if (shareViaTelegram()) {
+      return;
+    }
+
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "Приглашение на звонок",
-          text: "Присоединиться к звонку",
+          title: shareTitle,
+          text: shareText,
           url: joinUrl,
         });
         return;
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error("[ShareCall] native share failed", error);
-        // fall back to modal below
       }
     }
 
     setShareModalOpen(true);
   };
 
-  const handleTelegramShare = () => {
+  const shareViaTelegram = () => {
     if (!joinUrl) {
-      return;
+      return false;
     }
 
     // eslint-disable-next-line no-console
     console.log("[ShareCall] telegram share");
 
     const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(joinUrl)}&text=${encodeURIComponent(
-      "Присоединиться к звонку",
+      shareText,
     )}`;
-    window.open(telegramShareUrl, "_blank");
+
+    const telegramWebApp = getTelegramWebApp();
+    if (telegramWebApp?.openTelegramLink) {
+      telegramWebApp.openTelegramLink(telegramShareUrl);
+      return true;
+    }
+
+    const newWindow = window.open(telegramShareUrl, "_blank", "noreferrer");
+    return Boolean(newWindow);
+  };
+
+  const handleTelegramShare = () => {
+    if (shareViaTelegram()) {
+      return;
+    }
+
+    setShareModalOpen(true);
   };
 
   const closeModal = () => setShareModalOpen(false);
