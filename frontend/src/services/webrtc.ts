@@ -1,8 +1,14 @@
 import { apiClient } from "./apiClient";
 
+export interface TurnServerConfig {
+  url: string;
+  username?: string;
+  credential?: string;
+}
+
 export interface WebRtcConfigResponse {
   stun_servers: string[];
-  turn_servers: string[];
+  turn_servers: (string | TurnServerConfig)[];
 }
 
 const DEFAULT_ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -27,7 +33,17 @@ export const fetchIceServers = async (): Promise<RTCIceServer[]> => {
     const response = await apiClient.get<WebRtcConfigResponse>("/api/config/webrtc");
     const servers: RTCIceServer[] = [
       ...response.stun_servers.map((url) => ({ urls: url })),
-      ...response.turn_servers.map((url) => ({ urls: url })),
+      ...response.turn_servers.map((turn) => {
+        if (typeof turn === "string") {
+          return { urls: turn };
+        }
+
+        return {
+          urls: turn.url,
+          ...(turn.username ? { username: turn.username } : {}),
+          ...(turn.credential ? { credential: turn.credential } : {}),
+        } satisfies RTCIceServer;
+      }),
     ];
 
     return servers.length ? servers : DEFAULT_ICE_SERVERS;
