@@ -72,6 +72,7 @@ const CallPage: React.FC = () => {
   const remoteAudioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const websocketRef = useRef<WebSocket | null>(null);
   const homeRedirectTimeoutRef = useRef<number | null>(null);
+  const userInteractedRef = useRef(false);
   const handleSignalingMessageRef = useRef<(message: SignalingMessage) => Promise<void>>();
   const handleConnectionErrorRef = useRef<
     ((message: string, navigateHome?: boolean, preserveExistingMessage?: boolean) => void) | undefined
@@ -174,6 +175,26 @@ const CallPage: React.FC = () => {
     setParticipants((current) => current.filter((participant) => participant.isCurrentUser));
   }, []);
 
+  const setPreferredAudioCodec = useCallback((peer: RTCPeerConnection, sender: RTCRtpSender) => {
+    const transceiver = peer.getTransceivers().find((item) => item.sender === sender);
+    const audioCapabilities = RTCRtpSender.getCapabilities("audio");
+
+    if (!audioCapabilities || !audioCapabilities.codecs.length) {
+      return;
+    }
+
+    const opusCodecs = audioCapabilities.codecs.filter((codec) =>
+      codec.mimeType.toLowerCase().includes("opus"),
+    );
+
+    if (!transceiver || !transceiver.setCodecPreferences || !opusCodecs.length) {
+      return;
+    }
+
+    const otherCodecs = audioCapabilities.codecs.filter((codec) => !opusCodecs.includes(codec));
+    transceiver.setCodecPreferences([...opusCodecs, ...otherCodecs]);
+  }, []);
+
   const attachLocalTracks = useCallback(
     (peer: RTCPeerConnection, stream: MediaStream | null) => {
       if (!stream) {
@@ -187,8 +208,15 @@ const CallPage: React.FC = () => {
 
         if (existingSender) {
           existingSender.replaceTrack(track);
+          if (track.kind === "audio") {
+            setPreferredAudioCodec(peer, existingSender);
+          }
         } else {
-          peer.addTrack(track, stream);
+          const sender = peer.addTrack(track, stream);
+
+          if (track.kind === "audio") {
+            setPreferredAudioCodec(peer, sender);
+          }
         }
       });
 
@@ -198,7 +226,7 @@ const CallPage: React.FC = () => {
         }
       });
     },
-    [],
+    [setPreferredAudioCodec],
   );
 
   const scheduleNavigateHome = useCallback(() => {
@@ -300,6 +328,7 @@ const CallPage: React.FC = () => {
 
   useEffect(() => {
     const handleUserInteraction = () => {
+      userInteractedRef.current = true;
       unlockRemoteAudio();
     };
 
@@ -531,6 +560,8 @@ const CallPage: React.FC = () => {
 
       const peer = new RTCPeerConnection({ iceServers });
 
+      ensureRemoteAudioElement(participantId);
+
       peer.onicecandidate = (event) => {
         if (event.candidate) {
           // eslint-disable-next-line no-console
@@ -548,11 +579,33 @@ const CallPage: React.FC = () => {
 
         remoteStreamsRef.current.set(participantId, stream);
 
+        const audioTracks = stream.getAudioTracks();
+        const audioTrack = audioTracks[0];
+        const audioElement = ensureRemoteAudioElement(participantId);
+
+        if (audioElement && stream !== audioElement.srcObject) {
+          audioElement.srcObject = stream;
+        }
+
+        if (audioElement && audioTrack && userInteractedRef.current) {
+          attemptPlayAudio(audioElement);
+        }
+
+        if (audioTrack) {
+          audioTrack.onmute = () => updateParticipant({ id: participantId, isSpeaking: false });
+          audioTrack.onunmute = () => {
+            updateParticipant({ id: participantId, isSpeaking: true });
+            if (audioElement) {
+              attemptPlayAudio(audioElement);
+            }
+          };
+        }
+
         updateParticipant({
           id: participantId,
           color: getParticipantColor(participantId),
           hasVideo: stream.getVideoTracks().some((track) => track.enabled),
-          isSpeaking: stream.getAudioTracks().some((track) => track.enabled !== false),
+          isSpeaking: audioTracks.some((track) => track.enabled !== false && !track.muted),
           stream,
         });
       };
@@ -582,7 +635,17 @@ const CallPage: React.FC = () => {
 
       return peer;
     },
-    [attachLocalTracks, getParticipantColor, handleConnectionError, iceServers, localStream, sendSignalingMessage, updateParticipant],
+    [
+      attachLocalTracks,
+      attemptPlayAudio,
+      ensureRemoteAudioElement,
+      getParticipantColor,
+      handleConnectionError,
+      iceServers,
+      localStream,
+      sendSignalingMessage,
+      updateParticipant,
+    ],
   );
 
   const handleOffer = useCallback(
