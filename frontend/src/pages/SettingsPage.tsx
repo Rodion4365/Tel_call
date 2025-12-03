@@ -4,7 +4,7 @@ import { getTelegramUser } from "../services/telegram";
 
 const MICROPHONE_STORAGE_KEY = "tel-call:microphone-enabled";
 
-const Settings: React.FC = () => {
+const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const telegramUser = useMemo(() => getTelegramUser(), []);
   const [isMicrophoneEnabled, setIsMicrophoneEnabled] = useState(true);
@@ -109,4 +109,4 @@ const Settings: React.FC = () => {
   );
 };
 
-export default Settings;
+export default SettingsPage;

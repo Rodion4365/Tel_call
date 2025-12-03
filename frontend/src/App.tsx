@@ -1,12 +1,11 @@
 import React, { useCallback } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Layout from "./components/Layout";
-import Call from "./pages/Call";
-import CreateCall from "./pages/CreateCall";
-import JoinCall from "./pages/JoinCall";
-import Main from "./pages/Main";
-import Settings from "./pages/Settings";
-import CallCreated from "./pages/CallCreated";
+import MainPage from "./pages/MainPage";
+import CreateCallPage from "./pages/CreateCallPage";
+import JoinCallPage from "./pages/JoinCallPage";
+import SettingsPage from "./pages/SettingsPage";
+import CallPage from "./pages/CallPage";
 import { useTelegramBackButton } from "./hooks/useTelegramBackButton";
 import { useTelegramWebApp } from "./hooks/useTelegramWebApp";
 
@@ -25,12 +24,11 @@ function App(): JSX.Element {
   return (
     <Layout isTelegramReady={isTelegramReady}>
       <Routes>
-        <Route path="/" element={<Main />} />
-        <Route path="/create-call" element={<CreateCall />} />
-        <Route path="/join-call" element={<JoinCall />} />
-        <Route path="/call-created/:call_id" element={<CallCreated />} />
-        <Route path="/call/:call_id" element={<Call />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route path="/" element={<MainPage />} />
+        <Route path="/create-call" element={<CreateCallPage />} />
+        <Route path="/join-call" element={<JoinCallPage />} />
+        <Route path="/call/:id" element={<CallPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Routes>
     </Layout>
   );

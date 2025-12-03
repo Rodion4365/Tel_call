@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { createCall } from "../services/calls";
 
-const CreateCall: React.FC = () => {
+const CreateCallPage: React.FC = () => {
   const navigate = useNavigate();
   const { token } = useAuth();
   const [isSubmitting, setSubmitting] = useState(false);
@@ -20,7 +20,7 @@ const CreateCall: React.FC = () => {
 
     try {
       const response = await createCall(token);
-      navigate(`/call-created/${response.call_id}`, {
+      navigate(`/call/${response.call_id}`, {
         state: { join_url: response.join_url },
         replace: true,
       });
@@ -56,4 +56,4 @@ const CreateCall: React.FC = () => {
   );
 };
 
-export default CreateCall;
+export default CreateCallPage;

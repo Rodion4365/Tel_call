@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { joinCallByCode } from "../services/calls";
 
-const JoinCall: React.FC = () => {
+const JoinCallPage: React.FC = () => {
   const navigate = useNavigate();
   const { token } = useAuth();
   const [callCode, setCallCode] = useState("");
@@ -79,4 +79,4 @@ const JoinCall: React.FC = () => {
   );
 };
 
-export default JoinCall;
+export default JoinCallPage;
