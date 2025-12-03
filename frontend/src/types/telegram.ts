@@ -10,6 +10,7 @@ export interface TelegramWebApp {
   isVersionAtLeast?: (version: string) => boolean;
   ready: () => void;
   expand?: () => void;
+  showAlert?: (message: string) => void;
   BackButton?: {
     onClick?: (callback: () => void) => void;
     offClick?: (callback: () => void) => void;

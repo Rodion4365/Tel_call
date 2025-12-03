@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import MainPage from "./pages/MainPage";
@@ -8,12 +8,20 @@ import SettingsPage from "./pages/SettingsPage";
 import CallPage from "./pages/CallPage";
 import { useTelegramBackButton } from "./hooks/useTelegramBackButton";
 import { useTelegramWebApp } from "./hooks/useTelegramWebApp";
+import { useAuth } from "./contexts/AuthContext";
 
 function App(): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
   const { isReady: isTelegramReady, webApp } = useTelegramWebApp();
+  const { status: authStatus, error: authError, loginWithTelegram } = useAuth();
   const handleBack = useCallback(() => navigate(-1), [navigate]);
+
+  useEffect(() => {
+    if (authStatus === "idle" && isTelegramReady) {
+      loginWithTelegram();
+    }
+  }, [authStatus, isTelegramReady, loginWithTelegram]);
 
   useTelegramBackButton({
     webApp,
@@ -22,7 +30,11 @@ function App(): JSX.Element {
   });
 
   return (
-    <Layout isTelegramReady={isTelegramReady}>
+    <Layout
+      isTelegramReady={isTelegramReady}
+      authStatus={authStatus}
+      authError={authError}
+    >
       <Routes>
         <Route path="/" element={<MainPage />} />
         <Route path="/create-call" element={<CreateCallPage />} />
