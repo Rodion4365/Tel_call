@@ -3,7 +3,7 @@ export interface ApiRequestOptions {
   headers?: Record<string, string>;
 }
 
-const AUTH_STORAGE_KEY = "telegram-auth";
+const AUTH_STORAGE_KEY = "telegram-auth-v2";
 
 const resolveToken = (explicitToken?: string): string | null => {
   if (explicitToken) {
