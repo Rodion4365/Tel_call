@@ -48,6 +48,11 @@ async def authorize_telegram(
     user = await get_or_create_user(session, telegram_user)
 
     token = create_access_token(str(user.id))
+    logger.info(
+        "[authorize_telegram] issued token for user_id=%s, token_prefix=%s",
+        user.id,
+        token[:15] + "..." if token else "<empty>",
+    )
     settings = get_settings()
 
     logger.info("Authorized Telegram user id=%s username=%s", user.id, user.username)
