@@ -70,6 +70,11 @@ const CallPage: React.FC = () => {
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
   const websocketRef = useRef<WebSocket | null>(null);
   const homeRedirectTimeoutRef = useRef<number | null>(null);
+  const handleSignalingMessageRef = useRef<(message: SignalingMessage) => Promise<void>>();
+  const handleConnectionErrorRef = useRef<
+    ((message: string, navigateHome?: boolean, preserveExistingMessage?: boolean) => void) | undefined
+  >();
+  const clearConnectionsRef = useRef<(() => void) | undefined>();
 
   const stopMediaStream = useCallback((stream: MediaStream | null) => {
     stream?.getTracks().forEach((track) => track.stop());
@@ -585,6 +590,12 @@ const CallPage: React.FC = () => {
   );
 
   useEffect(() => {
+    handleSignalingMessageRef.current = handleSignalingMessage;
+    handleConnectionErrorRef.current = handleConnectionError;
+    clearConnectionsRef.current = clearConnections;
+  });
+
+  useEffect(() => {
     if (!user) {
       setCallError("Авторизация не выполнена");
       return;
@@ -633,7 +644,7 @@ const CallPage: React.FC = () => {
     socket.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data) as SignalingMessage;
-        void handleSignalingMessage(message);
+        void handleSignalingMessageRef.current?.(message);
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error("Failed to parse signaling message", error);
@@ -642,7 +653,7 @@ const CallPage: React.FC = () => {
 
     socket.onerror = () => {
       socket.close();
-      handleConnectionError("Ошибка соединения с сервером", true);
+      handleConnectionErrorRef.current?.("Ошибка соединения с сервером", true);
     };
 
     socket.onclose = (event) => {
@@ -656,20 +667,20 @@ const CallPage: React.FC = () => {
       websocketRef.current = null;
 
       if (!event.wasClean) {
-        handleConnectionError("Соединение с сервером закрыто", true, true);
+        handleConnectionErrorRef.current?.("Соединение с сервером закрыто", true, true);
         return;
       }
 
-      clearConnections();
+      clearConnectionsRef.current?.();
     };
 
     return () => {
       socket.close();
       websocketRef.current = null;
 
-      clearConnections();
+      clearConnectionsRef.current?.();
     };
-  }, [callId, clearConnections, handleConnectionError, handleSignalingMessage, token]);
+  }, [callId, token]);
 
   const copyLink = async () => {
     if (!joinUrl) {
