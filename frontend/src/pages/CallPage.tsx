@@ -62,12 +62,14 @@ const CallPage: React.FC = () => {
   const [isRequestingMic, setIsRequestingMic] = useState(false);
   const [isRequestingCamera, setIsRequestingCamera] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
+  const [audioUnlockNeeded, setAudioUnlockNeeded] = useState(false);
   const [isToastVisible, setToastVisible] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [callError, setCallError] = useState<string | null>(null);
 
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
+  const remoteAudioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const websocketRef = useRef<WebSocket | null>(null);
   const homeRedirectTimeoutRef = useRef<number | null>(null);
   const handleSignalingMessageRef = useRef<(message: SignalingMessage) => Promise<void>>();
@@ -76,6 +78,7 @@ const CallPage: React.FC = () => {
   >();
   const clearConnectionsRef = useRef<(() => void) | undefined>();
   const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteAudioContainerRef = useRef<HTMLDivElement | null>(null);
 
   const rebuildLocalStream = useCallback(
     (audio: MediaStreamTrack | null = audioTrack, video: MediaStreamTrack | null = videoTrack) => {
@@ -98,6 +101,66 @@ const CallPage: React.FC = () => {
   const stopMediaStream = useCallback((stream: MediaStream | null) => {
     stream?.getTracks().forEach((track) => track.stop());
   }, []);
+
+  const attemptPlayAudio = useCallback((audio: HTMLAudioElement) => {
+    audio.muted = false;
+    audio.volume = Math.max(audio.volume, 0.8);
+
+    const playPromise = audio.play();
+
+    if (playPromise) {
+      void playPromise.catch((error) => {
+        // eslint-disable-next-line no-console
+        console.warn("[Call] failed to autoplay remote audio", error);
+        setAudioUnlockNeeded(true);
+      });
+    }
+  }, []);
+
+  const ensureRemoteAudioElement = useCallback(
+    (participantId: string) => {
+      const container = remoteAudioContainerRef.current;
+
+      if (!container) {
+        return null;
+      }
+
+      let audioElement = remoteAudioElementsRef.current.get(participantId) ?? null;
+
+      if (!audioElement) {
+        audioElement = document.createElement("audio");
+        audioElement.autoplay = true;
+        audioElement.playsInline = true;
+        audioElement.controls = false;
+        audioElement.muted = false;
+        audioElement.volume = 1;
+        audioElement.dataset.participantId = participantId;
+        container.appendChild(audioElement);
+        remoteAudioElementsRef.current.set(participantId, audioElement);
+      }
+
+      return audioElement;
+    },
+    [],
+  );
+
+  const removeRemoteAudioElement = useCallback((participantId: string) => {
+    const existing = remoteAudioElementsRef.current.get(participantId);
+
+    if (existing) {
+      existing.srcObject = null;
+      existing.remove();
+      remoteAudioElementsRef.current.delete(participantId);
+    }
+  }, []);
+
+  const unlockRemoteAudio = useCallback(() => {
+    setAudioUnlockNeeded(false);
+
+    remoteAudioElementsRef.current.forEach((audio) => {
+      attemptPlayAudio(audio);
+    });
+  }, [attemptPlayAudio]);
 
   const clearConnections = useCallback(() => {
     peersRef.current.forEach((peer) => peer.close());
@@ -236,16 +299,38 @@ const CallPage: React.FC = () => {
   }, [requestMicrophone]);
 
   useEffect(() => {
+    const handleUserInteraction = () => {
+      unlockRemoteAudio();
+    };
+
+    document.addEventListener("click", handleUserInteraction, { once: true });
+    document.addEventListener("touchstart", handleUserInteraction, { once: true });
+
+    return () => {
+      document.removeEventListener("click", handleUserInteraction);
+      document.removeEventListener("touchstart", handleUserInteraction);
+    };
+  }, [unlockRemoteAudio]);
+
+  useEffect(() => {
     if (audioTrack) {
       audioTrack.enabled = isMicOn;
     }
   }, [audioTrack, isMicOn]);
 
   useEffect(() => {
+    const remoteAudioElements = remoteAudioElementsRef.current;
+
     return () => {
       audioTrack?.stop();
       videoTrack?.stop();
       stopMediaStream(mediaStream);
+
+      remoteAudioElements.forEach((audio) => {
+        audio.srcObject = null;
+        audio.remove();
+      });
+      remoteAudioElements.clear();
     };
   }, [audioTrack, mediaStream, stopMediaStream, videoTrack]);
 
@@ -278,6 +363,36 @@ const CallPage: React.FC = () => {
   useEffect(() => {
     rebuildLocalStream();
   }, [rebuildLocalStream]);
+
+  useEffect(() => {
+    const participantIds = new Set<string>();
+
+    participants.forEach((participant) => {
+      if (participant.isCurrentUser || !participant.stream) {
+        removeRemoteAudioElement(participant.id);
+        return;
+      }
+
+      participantIds.add(participant.id);
+      const audioElement = ensureRemoteAudioElement(participant.id);
+
+      if (!audioElement) {
+        return;
+      }
+
+      if (audioElement.srcObject !== participant.stream) {
+        audioElement.srcObject = participant.stream;
+      }
+
+      attemptPlayAudio(audioElement);
+    });
+
+    remoteAudioElementsRef.current.forEach((_, participantId) => {
+      if (!participantIds.has(participantId)) {
+        removeRemoteAudioElement(participantId);
+      }
+    });
+  }, [attemptPlayAudio, ensureRemoteAudioElement, participants, removeRemoteAudioElement]);
 
   useEffect(() => {
     if (!localStream) {
@@ -735,6 +850,12 @@ const CallPage: React.FC = () => {
 
   return (
     <div className="panel call-panel">
+      <div
+        ref={remoteAudioContainerRef}
+        aria-hidden
+        style={{ position: "absolute", width: 0, height: 0, overflow: "hidden" }}
+      />
+
       <div className="call-header">
         <div>
           <p className="eyebrow">Комната звонка</p>
@@ -803,18 +924,6 @@ const CallPage: React.FC = () => {
 
             {participant.isCurrentUser ? <span className="call-badge">Вы</span> : null}
             {!participant.hasVideo ? <span className="call-video-off">Видео выключено</span> : null}
-            {!participant.isCurrentUser && participant.stream ? (
-              <audio
-                autoPlay
-                playsInline
-                ref={(element) => {
-                  if (element && participant.stream) {
-                    element.srcObject = participant.stream;
-                    void element.play().catch(() => undefined);
-                  }
-                }}
-              />
-            ) : null}
           </div>
         ))}
       </div>
@@ -870,6 +979,16 @@ const CallPage: React.FC = () => {
           <p className="alert__description">Предоставьте доступ, чтобы мы включили микрофон.</p>
           <button type="button" className="outline" onClick={requestMicrophone} disabled={isRequestingMic}>
             Разрешить микрофон
+          </button>
+        </div>
+      ) : null}
+
+      {audioUnlockNeeded ? (
+        <div className="alert" role="alert">
+          <p className="alert__title">Нажмите, чтобы включить звук</p>
+          <p className="alert__description">Мы не смогли автоматически включить звук удалённых участников.</p>
+          <button type="button" className="outline" onClick={unlockRemoteAudio}>
+            Включить звук
           </button>
         </div>
       ) : null}
