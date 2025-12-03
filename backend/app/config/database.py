@@ -18,11 +18,18 @@ SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 
 @asynccontextmanager
-async def get_session() -> AsyncIterator[AsyncSession]:
-    """Provide an async database session."""
+async def session_scope() -> AsyncIterator[AsyncSession]:
+    """Context manager for an async database session."""
 
     session: AsyncSession = SessionLocal()
     try:
         yield session
     finally:
         await session.close()
+
+
+async def get_session() -> AsyncIterator[AsyncSession]:
+    """FastAPI dependency that yields an async database session."""
+
+    async with session_scope() as session:
+        yield session
