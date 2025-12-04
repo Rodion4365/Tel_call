@@ -2,8 +2,11 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from sqlalchemy import text
 
 from app.api import get_api_router
@@ -51,7 +54,12 @@ async def lifespan(app: FastAPI):
 
 
 settings.log_status(logger)
+
+# Rate limiting
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS
 allowed_origins = settings.allowed_origins or ["*"]
@@ -61,6 +69,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    max_age=600,  # Cache preflight requests for 10 minutes
 )
 
 # Routers

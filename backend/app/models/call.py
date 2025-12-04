@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 import secrets
 
@@ -28,6 +28,11 @@ def generate_call_id() -> str:
     return token[:20]
 
 
+def utc_now() -> datetime:
+    """Return current UTC time with timezone awareness."""
+    return datetime.now(tz=timezone.utc)
+
+
 class Call(Base):
     """Represents a voice or video call created by a user."""
 
@@ -39,5 +44,5 @@ class Call(Base):
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_video_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[CallStatus] = mapped_column(SQLEnum(CallStatus), default=CallStatus.ACTIVE)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.utcnow)
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

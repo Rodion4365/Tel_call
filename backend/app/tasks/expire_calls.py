@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -14,7 +14,7 @@ from app.services.signaling import notify_call_ended
 async def expire_calls() -> int:
     """Mark calls as expired when their expiry timestamp has passed."""
 
-    now = datetime.utcnow()
+    now = datetime.now(tz=timezone.utc)
     async with session_scope() as session:
         result = await session.execute(
             select(Call).where(
