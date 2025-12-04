@@ -809,10 +809,14 @@ const CallPage: React.FC = () => {
   }, []);
 
   const createPeerConnection = useCallback(
-    (participantId: string) => {
+    (participantId: string, stream?: MediaStream) => {
       const existing = peersRef.current.get(participantId);
 
       if (existing) {
+        if (stream) {
+          attachLocalTracks(existing, stream);
+        }
+
         return existing;
       }
 
@@ -931,18 +935,9 @@ const CallPage: React.FC = () => {
         }
       };
 
-      // 👉 гарантируем, что на момент создания пытаемся повесить локальные треки
-      (async () => {
-        let stream = localStreamRef.current;
-
-        if (!stream) {
-          stream = await ensureLocalAudioStream();
-        }
-
-        if (stream) {
-          attachLocalTracks(peer, stream);
-        }
-      })();
+      if (stream) {
+        attachLocalTracks(peer, stream);
+      }
 
       peersRef.current.set(participantId, peer);
 
@@ -952,7 +947,6 @@ const CallPage: React.FC = () => {
       attachLocalTracks,
       attemptPlayAudio,
       cleanupPeer,
-      ensureLocalAudioStream,
       ensureRemoteAudioElement,
       getParticipantColor,
       iceServers,
@@ -964,7 +958,13 @@ const CallPage: React.FC = () => {
   const handleOffer = useCallback(
     async (fromUser: SignalingUser, payload: RTCSessionDescriptionInit) => {
       const participantId = String(fromUser.id);
-      const peer = createPeerConnection(participantId);
+      let stream = localStreamRef.current;
+
+      if (!stream) {
+        stream = await ensureLocalAudioStream();
+      }
+
+      const peer = createPeerConnection(participantId, stream);
       const targetUserId = Number.parseInt(participantId, 10);
 
       try {
@@ -973,17 +973,6 @@ const CallPage: React.FC = () => {
         // eslint-disable-next-line no-console
         console.error("Failed to apply remote offer", error);
         return;
-      }
-
-      // ГАРАНТИРУЕМ, что перед answer у нас есть локальный аудио-стрим
-      let stream = localStreamRef.current;
-
-      if (!stream) {
-        stream = await ensureLocalAudioStream();
-      }
-
-      if (stream) {
-        attachLocalTracks(peer, stream);
       }
 
       logPeerAudioDebug(peer, participantId, "after-set-remote-offer+local-audio");
@@ -1007,7 +996,6 @@ const CallPage: React.FC = () => {
       });
     },
     [
-      attachLocalTracks,
       createPeerConnection,
       ensureLocalAudioStream,
       getParticipantColor,
@@ -1069,16 +1057,13 @@ const CallPage: React.FC = () => {
   const startOfferFlow = useCallback(
     async (remoteUser: SignalingUser) => {
       const participantId = String(remoteUser.id);
-      const peer = createPeerConnection(participantId);
       let stream = localStreamRef.current;
 
       if (!stream) {
         stream = await ensureLocalAudioStream();
       }
 
-      if (stream) {
-        attachLocalTracks(peer, stream);
-      }
+      const peer = createPeerConnection(participantId, stream);
 
       const offer = await peer.createOffer();
       await peer.setLocalDescription(offer);
@@ -1093,7 +1078,6 @@ const CallPage: React.FC = () => {
       });
     },
   [
-    attachLocalTracks,
     createPeerConnection,
     ensureLocalAudioStream,
     getParticipantColor,
