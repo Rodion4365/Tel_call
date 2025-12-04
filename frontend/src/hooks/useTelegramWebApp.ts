@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { getTelegramWebApp } from "../services/telegram";
+import { useWebAppConnection } from "../contexts/WebAppConnectionContext";
 import type { TelegramWebApp, TelegramWebAppUser } from "../types/telegram";
 
 interface UseTelegramWebAppResult {
@@ -13,41 +13,30 @@ interface UseTelegramWebAppResult {
 export const useTelegramWebApp = (): UseTelegramWebAppResult => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [webApp, setWebApp] = useState<TelegramWebApp | null>(null);
-  const [isReady, setReady] = useState(false);
+  const { webApp, startParam, isReady } = useWebAppConnection();
   const hasNavigated = useRef(false);
 
   useEffect(() => {
-    const telegramApp = getTelegramWebApp();
-
-    if (!telegramApp) {
+    if (
+      !isReady ||
+      !startParam ||
+      hasNavigated.current ||
+      location.pathname === `/call/${startParam}`
+    ) {
       return;
     }
 
-    telegramApp.ready();
-    telegramApp.expand?.();
-    setWebApp(telegramApp);
-    setReady(true);
-
-    const startParam = telegramApp.initDataUnsafe?.start_param;
-
-    if (
-      startParam &&
-      !hasNavigated.current &&
-      location.pathname !== `/call/${startParam}`
-    ) {
-      hasNavigated.current = true;
-      navigate(`/call/${startParam}`, { replace: true });
-    }
-  }, [location.pathname, navigate]);
+    hasNavigated.current = true;
+    navigate(`/call/${startParam}`, { replace: true });
+  }, [isReady, location.pathname, navigate, startParam]);
 
   return useMemo(
     () => ({
       webApp,
       user: webApp?.initDataUnsafe?.user,
-      startParam: webApp?.initDataUnsafe?.start_param,
+      startParam,
       isReady,
     }),
-    [isReady, webApp],
+    [isReady, startParam, webApp],
   );
 };

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import MainPage from "./pages/MainPage";
@@ -35,24 +35,8 @@ function App(): JSX.Element {
     onBack: handleBack,
   });
 
-  const authStatus = useMemo(() => {
-    if (isAuthorizing) {
-      return { label: "Авторизация...", variant: "pending" as const };
-    }
-
-    if (authError) {
-      return { label: "Ошибка авторизации", variant: "offline" as const };
-    }
-
-    if (user) {
-      return { label: "Готово", variant: "online" as const };
-    }
-
-    return { label: "Авторизация не выполнена", variant: "offline" as const };
-  }, [authError, isAuthorizing, user]);
-
   return (
-    <Layout isTelegramReady={isTelegramReady} authStatus={authStatus}>
+    <Layout>
       {authError ? (
         <p className="status status-offline" role="alert">
           {authError}
