@@ -1407,6 +1407,19 @@ const CallPage: React.FC = () => {
 
             {participant.isCurrentUser ? <span className="call-badge">Вы</span> : null}
             {!participant.hasVideo ? <span className="call-video-off">Видео выключено</span> : null}
+
+            {/* DEBUG: ручное воспроизведение удалённого аудио */}
+            {!participant.isCurrentUser && participant.stream ? (
+              <audio
+                controls
+                style={{ marginTop: 8 }}
+                ref={(element) => {
+                  if (element && participant.stream && element.srcObject !== participant.stream) {
+                    element.srcObject = participant.stream;
+                  }
+                }}
+              />
+            ) : null}
           </div>
         ))}
       </div>
