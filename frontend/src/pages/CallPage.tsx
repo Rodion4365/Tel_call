@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useWebSocketToken } from "../hooks/useWebSocketToken";
 import { fetchIceServers, getWebSocketBaseUrl } from "../services/webrtc";
 
 interface SignalingUser {
@@ -58,7 +59,8 @@ const CallPage: React.FC = () => {
   const { id: callId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { token, user } = useAuth();
+  const { user } = useAuth();
+  const { getToken } = useWebSocketToken();
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const joinUrl =
     searchParams.get("join_url") ?? (location.state as LocationState | null)?.join_url ?? "";
@@ -1081,24 +1083,31 @@ const CallPage: React.FC = () => {
   ]);
 
   useEffect(() => {
-    if (!callId || !token) {
+    if (!callId) {
       return;
     }
 
-    const baseUrl = getWebSocketBaseUrl();
+    let socket: WebSocket | null = null;
 
-    if (!baseUrl) {
-      setCallError("Не удалось определить адрес WebSocket сервера");
-      return;
-    }
+    const connectWebSocket = async () => {
+      try {
+        // Get WebSocket token from httpOnly cookie
+        const token = await getToken();
 
-    const url = `${baseUrl}/ws/calls/${callId}`;
-    const protocols = token ? [`token.${token}`] : undefined;
+        const baseUrl = getWebSocketBaseUrl();
 
-    // eslint-disable-next-line no-console
-    console.log("[Call] connecting to signaling", { url, hasToken: Boolean(token) });
+        if (!baseUrl) {
+          setCallError("Не удалось определить адрес WebSocket сервера");
+          return;
+        }
 
-    const socket = protocols ? new WebSocket(url, protocols) : new WebSocket(url);
+        const url = `${baseUrl}/ws/calls/${callId}`;
+        const protocols = token ? [`token.${token}`] : undefined;
+
+        // eslint-disable-next-line no-console
+        console.log("[Call] connecting to signaling", { url, hasToken: Boolean(token) });
+
+        socket = protocols ? new WebSocket(url, protocols) : new WebSocket(url);
 
     websocketRef.current = socket;
 
@@ -1143,15 +1152,25 @@ const CallPage: React.FC = () => {
 
       clearConnectionsRef.current?.();
     };
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("[Call] failed to get WebSocket token", error);
+        setCallError("Не удалось получить токен для WebSocket");
+      }
+    };
+
+    void connectWebSocket();
 
     return () => {
-      socket.close();
+      if (socket) {
+        socket.close();
+      }
       websocketRef.current = null;
       setCallConnected(false);
 
       clearConnectionsRef.current?.();
     };
-  }, [callId, token]);
+  }, [callId, getToken]);
 
   const copyLink = async () => {
     if (!joinUrl) {
