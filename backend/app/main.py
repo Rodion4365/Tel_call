@@ -12,8 +12,10 @@ from app.config.settings import get_settings
 import app.models  # noqa: F401  # Ensure models are registered with metadata
 
 
+settings = get_settings()
+
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG if settings.debug else logging.INFO,
     format="%(levelname)s %(asctime)s %(name)s:%(lineno)d - %(message)s",
 )
 
@@ -48,7 +50,6 @@ async def lifespan(app: FastAPI):
         logger.info("Database engine disposed")
 
 
-settings = get_settings()
 settings.log_status(logger)
 app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
 

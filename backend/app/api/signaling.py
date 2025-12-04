@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any
 
@@ -12,6 +13,7 @@ from app.services.auth import get_user_from_token
 from app.services.signaling import call_room_manager
 
 router = APIRouter()
+logger = logging.getLogger("app.webrtc")
 
 
 def _extract_token(websocket: WebSocket) -> tuple[str | None, str | None]:
@@ -73,9 +75,17 @@ async def _ensure_active_call(call_id: str) -> tuple[Call | None, str | None]:
 async def call_signaling(websocket: WebSocket, call_id: str) -> None:
     """WebSocket endpoint for relaying WebRTC signaling messages."""
 
+    logger.info(
+        "Incoming WebSocket connection for call %s from %s", call_id, websocket.client
+    )
+
     token, subprotocol = _extract_token(websocket)
     if not token:
         await websocket.close(code=4401, reason="Missing authentication token")
+        logger.warning(
+            "Rejected WebSocket connection for call %s: missing authentication token",
+            call_id,
+        )
         return
 
     async with session_scope() as session:
@@ -84,14 +94,24 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
         except HTTPException as exc:  # Authentication or token validation errors
             close_code = 4401 if exc.status_code == status.HTTP_401_UNAUTHORIZED else 1011
             await websocket.close(code=close_code, reason=str(exc.detail))
+            logger.warning(
+                "Authentication failed for call %s (close_code=%s): %s",
+                call_id,
+                close_code,
+                exc.detail,
+            )
             return
         except Exception:
             await websocket.close(code=1011, reason="Authentication failed")
+            logger.exception("Unexpected error authenticating WebSocket for call %s", call_id)
             return
 
     call, reason = await _ensure_active_call(call_id)
     if call is None:
         await websocket.close(code=4404, reason=reason or "Call is not available")
+        logger.warning(
+            "Rejected WebSocket connection for call %s: %s", call_id, reason or "unknown reason"
+        )
         return
 
     await websocket.accept(subprotocol=subprotocol)
@@ -99,9 +119,19 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
     serialized_user = _serialize_user(user)
     await room.add_participant(user.id, websocket, serialized_user)
 
+    logger.info(
+        "WebSocket accepted for call %s; user_id=%s username=%s", call_id, user.id, user.username
+    )
+
     existing_participants = await room.list_participants(exclude_user_id=user.id)
     if existing_participants:
         await websocket.send_json({"type": "participants_snapshot", "participants": existing_participants})
+        logger.debug(
+            "Sent participants_snapshot to user_id=%s for call %s (participants=%s)",
+            user.id,
+            call_id,
+            [participant.get("id") for participant in existing_participants],
+        )
 
     await room.broadcast({"type": "user_joined", "user": serialized_user}, sender_id=user.id)
 
@@ -109,6 +139,13 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
         while True:
             message = await websocket.receive_json()
             message_type = message.get("type")
+
+            logger.debug(
+                "Received signaling message from user_id=%s call_id=%s: %s",
+                user.id,
+                call_id,
+                message,
+            )
 
             if message_type in {"offer", "answer", "ice_candidate"}:
                 try:
@@ -121,6 +158,13 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
 
                 if not await room.has_participant(target_user_id):
                     await websocket.send_json({"type": "error", "detail": "Target user is offline"})
+                    logger.warning(
+                        "Target user %s is offline for message %s from user %s in call %s",
+                        target_user_id,
+                        message_type,
+                        user.id,
+                        call_id,
+                    )
                     continue
 
                 await room.broadcast(
@@ -132,11 +176,28 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
                     sender_id=user.id,
                     target_id=target_user_id,
                 )
+                logger.info(
+                    "Relayed %s from user %s to user %s in call %s",
+                    message_type,
+                    user.id,
+                    target_user_id,
+                    call_id,
+                )
             else:
                 await websocket.send_json({"type": "error", "detail": "Unsupported message type"})
+                logger.warning(
+                    "Unsupported signaling message from user %s in call %s: %s",
+                    user.id,
+                    call_id,
+                    message,
+                )
     except WebSocketDisconnect:
-        pass
+        logger.info("WebSocket disconnected for user %s in call %s", user.id, call_id)
+    except Exception:
+        logger.exception("Unhandled error in signaling loop for user %s in call %s", user.id, call_id)
+        await websocket.close(code=1011, reason="Internal server error")
     finally:
         await room.remove_participant(user.id)
         await room.broadcast({"type": "user_left", "user": _serialize_user(user)}, sender_id=user.id)
         await call_room_manager.cleanup_room(call_id)
+        logger.info("Cleaned up WebSocket session for user %s in call %s", user.id, call_id)
