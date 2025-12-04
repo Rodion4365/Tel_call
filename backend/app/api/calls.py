@@ -45,7 +45,7 @@ def _build_join_url(call_id: str) -> str:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="BOT_USERNAME is not configured"
         )
 
-    return f"https://t.me/{settings.bot_username}?startapp={call_id}"
+    return f"https://t.me/{settings.bot_username}/app?startapp={call_id}"
 
 
 @router.post("/", response_model=CallResponse, status_code=status.HTTP_201_CREATED)
