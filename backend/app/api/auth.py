@@ -1,7 +1,9 @@
 import logging
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from pydantic import BaseModel, Field
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.database import get_session
@@ -15,6 +17,7 @@ from app.services.auth import (
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 logger = logging.getLogger(__name__)
+limiter = Limiter(key_func=get_remote_address)
 
 
 class TelegramAuthRequest(BaseModel):
@@ -39,8 +42,9 @@ class AuthResponse(BaseModel):
 
 
 @router.post("/telegram", response_model=AuthResponse, status_code=status.HTTP_200_OK)
+@limiter.limit("5/minute")
 async def authorize_telegram(
-    payload: TelegramAuthRequest, session: AsyncSession = Depends(get_session)
+    request: Request, payload: TelegramAuthRequest, session: AsyncSession = Depends(get_session)
 ) -> AuthResponse:
     """Validate Telegram initData, persist user, and issue a short-lived token."""
 

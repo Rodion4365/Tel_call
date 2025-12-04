@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
@@ -60,7 +60,7 @@ async def _ensure_active_call(call_id: str) -> tuple[Call | None, str | None]:
     if not call:
         return None, "Call not found. Please create a new call."
 
-    if call.expires_at and call.expires_at < datetime.utcnow():
+    if call.expires_at and call.expires_at < datetime.now(tz=timezone.utc):
         return None, "Call has expired. Please create a new call."
 
     if call.status != CallStatus.ACTIVE:

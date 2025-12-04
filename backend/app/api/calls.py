@@ -1,7 +1,9 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +15,7 @@ from app.services.auth import get_current_user
 from app.services.signaling import notify_call_ended
 
 router = APIRouter(prefix="/api/calls", tags=["Calls"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 class CallCreateRequest(BaseModel):
@@ -49,14 +52,16 @@ def _build_join_url(call_id: str) -> str:
 
 
 @router.post("/", response_model=CallResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
 async def create_call(
+    request: Request,
     payload: CallCreateRequest,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> CallResponse:
     """Create a new call and return its join details."""
 
-    expires_at = datetime.utcnow() + timedelta(hours=24)
+    expires_at = datetime.now(tz=timezone.utc) + timedelta(hours=24)
     call = Call(
         creator_user_id=current_user.id,
         title=payload.title,
@@ -103,7 +108,7 @@ async def get_call(
 
     error_detail = None
 
-    if call.expires_at and call.expires_at < datetime.utcnow():
+    if call.expires_at and call.expires_at < datetime.now(tz=timezone.utc):
         call.status = CallStatus.EXPIRED
         error_detail = "Call has expired"
     elif call.status != CallStatus.ACTIVE:
@@ -151,7 +156,7 @@ async def end_call(
     if call.creator_user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the organizer can end the call")
 
-    if call.expires_at and call.expires_at < datetime.utcnow():
+    if call.expires_at and call.expires_at < datetime.now(tz=timezone.utc):
         call.status = CallStatus.EXPIRED
     elif call.status != CallStatus.ACTIVE:
         raise HTTPException(
@@ -203,7 +208,7 @@ async def join_call_by_code(
     if not call:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Call not found")
 
-    if call.expires_at and call.expires_at < datetime.utcnow():
+    if call.expires_at and call.expires_at < datetime.now(tz=timezone.utc):
         call.status = CallStatus.EXPIRED
         error_detail = "Call has expired"
     elif call.status != CallStatus.ACTIVE:
