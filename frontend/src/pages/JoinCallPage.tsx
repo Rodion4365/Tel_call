@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { getCallById } from "../services/calls";
+import { logger } from "../utils/logger";
 
 const CALL_ID_PATTERN = /^[A-Za-z0-9_-]{6,64}$/;
 
@@ -65,8 +66,7 @@ const JoinCallPage: React.FC = () => {
     }
 
     if (!token) {
-      // eslint-disable-next-line no-console
-      console.error("[JoinCall] missing auth token");
+      logger.error("[JoinCall] missing auth token");
       setErrorMessage("Авторизация не выполнена");
       return;
     }
@@ -81,18 +81,15 @@ const JoinCallPage: React.FC = () => {
     setSubmitting(true);
 
     try {
-      // eslint-disable-next-line no-console
-      console.log("[JoinCall] resolving call", extractedCallId);
+      logger.log("[JoinCall] resolving call", extractedCallId);
 
       const response = await getCallById(extractedCallId, token);
 
-      // eslint-disable-next-line no-console
-      console.log("[JoinCall] success", response);
+      logger.log("[JoinCall] success", response);
 
       navigate(`/call/${response.call_id}`, { state: { join_url: response.join_url } });
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("[JoinCall] failed", error);
+      logger.error("[JoinCall] failed", error);
       const message = error instanceof Error ? error.message : "";
       if (message.includes("status 404")) {
         setErrorMessage("Звонок не найден или завершён");

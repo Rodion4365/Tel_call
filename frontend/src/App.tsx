@@ -10,6 +10,7 @@ import CallCreated from "./pages/CallCreated";
 import { useTelegramBackButton } from "./hooks/useTelegramBackButton";
 import { useTelegramWebApp } from "./hooks/useTelegramWebApp";
 import { useAuth } from "./contexts/AuthContext";
+import { logger } from "./utils/logger";
 
 function App(): JSX.Element {
   const navigate = useNavigate();
@@ -24,8 +25,7 @@ function App(): JSX.Element {
     }
 
     loginWithTelegram().catch((error) => {
-      // eslint-disable-next-line no-console
-      console.error("Auto authorization failed", error);
+      logger.error("Auto authorization failed", error);
     });
   }, [hasTriedAuth, isAuthorizing, isTelegramReady, loginWithTelegram, user]);
 

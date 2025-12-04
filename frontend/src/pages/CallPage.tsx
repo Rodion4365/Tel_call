@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchIceServers, getWebSocketBaseUrl } from "../services/webrtc";
+import { logger } from "../utils/logger";
 
 interface SignalingUser {
   id: number;
@@ -112,8 +113,7 @@ const CallPage: React.FC = () => {
 
     if (playPromise) {
       void playPromise.catch((error) => {
-        // eslint-disable-next-line no-console
-        console.warn("[Call] failed to autoplay remote audio", error);
+        logger.warn("[Call] failed to autoplay remote audio", error);
         setAudioUnlockNeeded(true);
       });
     }
@@ -205,8 +205,7 @@ const CallPage: React.FC = () => {
           }))
         : [];
 
-      // eslint-disable-next-line no-console
-      console.log("[RTC][AudioDebug] peer audio status", {
+      logger.log("[RTC][AudioDebug] peer audio status", {
         participantId,
         context,
         signalingState: peer.signalingState,
@@ -239,8 +238,7 @@ const CallPage: React.FC = () => {
       const tracks = stream.getTracks();
 
       tracks.forEach((track) => {
-        // eslint-disable-next-line no-console
-        console.log("[RTC] attaching local track", {
+        logger.log("[RTC] attaching local track", {
           kind: track.kind,
           id: track.id,
           enabled: track.enabled,
@@ -312,8 +310,7 @@ const CallPage: React.FC = () => {
       });
       return stream;
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error("[Call] failed to get local audio", err);
+      logger.error("[Call] failed to get local audio", err);
       setMediaError("Нет доступа к микрофону");
       setIsMicOn(false);
       return null;
@@ -336,8 +333,7 @@ const CallPage: React.FC = () => {
     const audioTracks = stream.getAudioTracks();
 
     if (audioTracks.length === 0) {
-      // eslint-disable-next-line no-console
-      console.warn("[Call] no audio tracks in local stream");
+      logger.warn("[Call] no audio tracks in local stream");
       return;
     }
 
@@ -351,8 +347,7 @@ const CallPage: React.FC = () => {
 
   const toggleCamera = async () => {
     if (isCameraOn) {
-      // eslint-disable-next-line no-console
-      console.log("[Media] turning camera off", { trackId: videoTrack?.id });
+      logger.log("[Media] turning camera off", { trackId: videoTrack?.id });
       const currentStream = localStreamRef.current;
 
       if (videoTrack) {
@@ -389,8 +384,7 @@ const CallPage: React.FC = () => {
         return;
       }
 
-      // eslint-disable-next-line no-console
-      console.log("[Media] acquired camera track", {
+      logger.log("[Media] acquired camera track", {
         id: track.id,
         label: track.label,
         settings: track.getSettings ? track.getSettings() : undefined,
@@ -408,8 +402,7 @@ const CallPage: React.FC = () => {
         attachLocalTracks(peer, mergedStream);
       });
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("Failed to get camera access", error);
+      logger.error("Failed to get camera access", error);
     } finally {
       setIsRequestingCamera(false);
     }
@@ -464,8 +457,7 @@ const CallPage: React.FC = () => {
       oscillator.start(now);
       oscillator.stop(now + duration);
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.warn("Failed to play toggle sound", error);
+      logger.warn("Failed to play toggle sound", error);
     }
   }, []);
 
@@ -665,8 +657,7 @@ const CallPage: React.FC = () => {
     const socket = websocketRef.current;
 
     if (socket && socket.readyState === WebSocket.OPEN) {
-      // eslint-disable-next-line no-console
-      console.log("[WS] sending signaling message", {
+      logger.log("[WS] sending signaling message", {
         type: message.type,
         to_user_id: "to_user_id" in message ? message.to_user_id : undefined,
       });
@@ -674,8 +665,7 @@ const CallPage: React.FC = () => {
       return;
     }
 
-    // eslint-disable-next-line no-console
-    console.warn("[WS] unable to send signaling message; socket not open", {
+    logger.warn("[WS] unable to send signaling message; socket not open", {
       readyState: socket?.readyState,
       type: message.type,
     });
@@ -690,8 +680,7 @@ const CallPage: React.FC = () => {
       }
 
       if (!stream || !hasActiveAudioTrack(stream)) {
-        // eslint-disable-next-line no-console
-        console.warn("[RTC] skip creating peer without active audio", { participantId });
+        logger.warn("[RTC] skip creating peer without active audio", { participantId });
         return null;
       }
 
@@ -707,8 +696,7 @@ const CallPage: React.FC = () => {
       const peer = new RTCPeerConnection({ iceServers });
       const targetUserId = Number.parseInt(participantId, 10);
 
-      // eslint-disable-next-line no-console
-      console.log("[RTC] creating peer connection", {
+      logger.log("[RTC] creating peer connection", {
         participantId,
         targetUserId,
         iceServers,
@@ -716,15 +704,13 @@ const CallPage: React.FC = () => {
 
       peer.onicecandidate = (event) => {
         if (event.candidate && !Number.isNaN(targetUserId)) {
-          // eslint-disable-next-line no-console
-          console.log("[ICE] sending candidate", event.candidate);
+          logger.log("[ICE] sending candidate", event.candidate);
           sendSignalingMessage({ type: "ice_candidate", payload: event.candidate, to_user_id: targetUserId });
         }
       };
 
       peer.ontrack = (event) => {
-        // eslint-disable-next-line no-console
-        console.log("[RTC] received remote track", {
+        logger.log("[RTC] received remote track", {
           participantId,
           trackId: event.track.id,
           kind: event.track.kind,
@@ -766,8 +752,7 @@ const CallPage: React.FC = () => {
             await peer.setLocalDescription(offer);
             sendSignalingMessage({ type: "offer", payload: offer, to_user_id: targetUserId });
           } catch (error) {
-            // eslint-disable-next-line no-console
-            console.error("Failed to restart ICE", error);
+            logger.error("Failed to restart ICE", error);
           }
         }, 1200);
 
@@ -775,8 +760,7 @@ const CallPage: React.FC = () => {
       };
 
       peer.oniceconnectionstatechange = () => {
-        // eslint-disable-next-line no-console
-        console.log("[ICE] state changed", {
+        logger.log("[ICE] state changed", {
           participantId,
           state: peer.iceConnectionState,
         });
@@ -828,8 +812,7 @@ const CallPage: React.FC = () => {
       try {
         await peer.setRemoteDescription(new RTCSessionDescription(payload));
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error("Failed to apply remote offer", error);
+        logger.error("Failed to apply remote offer", error);
         return;
       }
 
@@ -876,8 +859,7 @@ const CallPage: React.FC = () => {
       try {
         await peer.setRemoteDescription(new RTCSessionDescription(payload));
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error("Failed to apply remote answer", error);
+        logger.error("Failed to apply remote answer", error);
       }
 
       logPeerAudioDebug(peer, participantId, "after-set-remote-answer");
@@ -902,12 +884,10 @@ const CallPage: React.FC = () => {
     }
 
     try {
-      // eslint-disable-next-line no-console
-      console.log("[ICE] received candidate", payload);
+      logger.log("[ICE] received candidate", payload);
       await peer.addIceCandidate(new RTCIceCandidate(payload));
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("Failed to add ICE candidate", error);
+      logger.error("Failed to add ICE candidate", error);
     }
   }, []);
 
@@ -982,8 +962,7 @@ const CallPage: React.FC = () => {
 
   const handleSignalingMessage = useCallback(
     async (message: SignalingMessage) => {
-      // eslint-disable-next-line no-console
-      console.log("[Signaling] received", message.type, message);
+      logger.log("[Signaling] received", message.type, message);
 
       if (message.type === "participants_snapshot") {
         await Promise.all(message.participants.map((participant) => connectToParticipantIfNeeded(participant)));
@@ -1084,28 +1063,24 @@ const CallPage: React.FC = () => {
     const url = `${baseUrl}/ws/calls/${callId}`;
     const protocols = token ? [`token.${token}`] : undefined;
 
-    // eslint-disable-next-line no-console
-    console.log("[Call] connecting to signaling", { url, hasToken: Boolean(token) });
+    logger.log("[Call] connecting to signaling", { url, hasToken: Boolean(token) });
 
     const socket = protocols ? new WebSocket(url, protocols) : new WebSocket(url);
 
     websocketRef.current = socket;
 
     socket.onopen = () => {
-      // eslint-disable-next-line no-console
-      console.log("[WS] signaling socket opened", { url, protocols });
+      logger.log("[WS] signaling socket opened", { url, protocols });
       setCallConnected(true);
     };
 
     socket.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data) as SignalingMessage;
-        // eslint-disable-next-line no-console
-        console.log("[WS] received signaling message", message);
+        logger.log("[WS] received signaling message", message);
         void handleSignalingMessageRef.current?.(message);
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error("Failed to parse signaling message", error);
+        logger.error("Failed to parse signaling message", error);
       }
     };
 
@@ -1115,8 +1090,7 @@ const CallPage: React.FC = () => {
     };
 
     socket.onclose = (event) => {
-      // eslint-disable-next-line no-console
-      console.log("[Call] socket closed", {
+      logger.log("[Call] socket closed", {
         code: event.code,
         reason: event.reason,
         wasClean: event.wasClean,
@@ -1147,15 +1121,13 @@ const CallPage: React.FC = () => {
       return;
     }
 
-    // eslint-disable-next-line no-console
-    console.log("[ShareCall] copy from call", joinUrl);
+    logger.log("[ShareCall] copy from call", joinUrl);
 
     try {
       await navigator.clipboard.writeText(joinUrl);
       setToastVisible(true);
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("Failed to copy link", error);
+      logger.error("Failed to copy link", error);
       setToastVisible(true);
     }
   };

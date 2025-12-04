@@ -1,3 +1,5 @@
+import { logger } from "../utils/logger";
+
 export interface ApiRequestOptions {
   token?: string;
   headers?: Record<string, string>;
@@ -20,8 +22,7 @@ const resolveToken = (explicitToken?: string): string | null => {
     const parsed = JSON.parse(stored) as { token?: string };
     return parsed.token ?? null;
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.warn("[apiClient] Failed to parse stored auth token", error);
+    logger.warn("[apiClient] Failed to parse stored auth token", error);
     localStorage.removeItem(AUTH_STORAGE_KEY);
     return null;
   }
@@ -33,8 +34,7 @@ const DEFAULT_API_BASE_URL = "https://tel-call-backend.onrender.com";
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.trim() || DEFAULT_API_BASE_URL;
 
-// eslint-disable-next-line no-console
-console.log("[apiClient] API_BASE_URL =", API_BASE_URL);
+logger.log("[apiClient] API_BASE_URL =", API_BASE_URL);
 
 export const apiClient = {
   async get<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {

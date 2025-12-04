@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AUTH_STORAGE_KEY, useAuth } from "../contexts/AuthContext";
 import { createCall } from "../services/calls";
+import { logger } from "../utils/logger";
 
 const CreateCallPage: React.FC = () => {
   const navigate = useNavigate();
@@ -10,13 +11,11 @@ const CreateCallPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log("[Auth] token =", token);
+    logger.log("[Auth] token =", token);
   }, [token]);
 
   const handleCreateCall = async () => {
-    // eslint-disable-next-line no-console
-    console.log("[CreateCall] click");
+    logger.log("[CreateCall] click");
     setSubmitting(true);
     setError(null);
 
@@ -35,29 +34,25 @@ const CreateCallPage: React.FC = () => {
             const parsedAuth = JSON.parse(rawAuth) as { token: string };
             authToken = parsedAuth.token;
           } catch (parseError) {
-            // eslint-disable-next-line no-console
-            console.error("[CreateCall] failed to parse stored auth", parseError);
+            logger.error("[CreateCall] failed to parse stored auth", parseError);
           }
         }
       }
 
       if (!authToken) {
-        // eslint-disable-next-line no-console
-        console.error("[CreateCall] missing auth token");
+        logger.error("[CreateCall] missing auth token");
         setError("Не удалось авторизоваться. Попробуйте снова.");
         return;
       }
 
-      // eslint-disable-next-line no-console
-      console.log("[CreateCall] using auth token", authToken);
+      logger.log("[CreateCall] using auth token", authToken);
 
       const response = await createCall(
         { title: null, is_video_enabled: false },
         authToken,
       );
 
-      // eslint-disable-next-line no-console
-      console.log("[CreateCall] success", response);
+      logger.log("[CreateCall] success", response);
 
       const joinUrlParam = encodeURIComponent(response.join_url);
 
@@ -66,8 +61,7 @@ const CreateCallPage: React.FC = () => {
         replace: true,
       });
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error("[CreateCall] failed to create call", err);
+      logger.error("[CreateCall] failed to create call", err);
 
       const message =
         err instanceof Error && err.message

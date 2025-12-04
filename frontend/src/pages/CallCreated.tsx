@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { getTelegramWebApp } from "../services/telegram";
+import { logger } from "../utils/logger";
 
 interface LocationState {
   join_url?: string;
@@ -42,8 +43,7 @@ const CallCreated: React.FC = () => {
       return;
     }
 
-    // eslint-disable-next-line no-console
-    console.log("[JoinCall] from created screen", { call_id, joinUrl });
+    logger.log("[JoinCall] from created screen", { call_id, joinUrl });
 
     navigate(`/call/${call_id}`, {
       state: {
@@ -58,15 +58,13 @@ const CallCreated: React.FC = () => {
       return;
     }
 
-    // eslint-disable-next-line no-console
-    console.log("[ShareCall] copy join link");
+    logger.log("[ShareCall] copy join link");
 
     try {
       await navigator.clipboard.writeText(joinUrl);
       setToastVisible(true);
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("[ShareCall] failed to copy link", error);
+      logger.error("[ShareCall] failed to copy link", error);
       setShareModalOpen(true);
     }
   };
@@ -76,8 +74,7 @@ const CallCreated: React.FC = () => {
       return;
     }
 
-    // eslint-disable-next-line no-console
-    console.log("[ShareCall] share button click");
+    logger.log("[ShareCall] share button click");
 
     if (shareViaTelegram()) {
       return;
@@ -92,8 +89,7 @@ const CallCreated: React.FC = () => {
         });
         return;
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error("[ShareCall] native share failed", error);
+        logger.error("[ShareCall] native share failed", error);
       }
     }
 
@@ -105,8 +101,7 @@ const CallCreated: React.FC = () => {
       return false;
     }
 
-    // eslint-disable-next-line no-console
-    console.log("[ShareCall] telegram share");
+    logger.log("[ShareCall] telegram share");
 
     const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(joinUrl)}&text=${encodeURIComponent(
       shareText,

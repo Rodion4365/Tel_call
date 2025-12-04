@@ -10,6 +10,7 @@ import React, {
 import { authorizeTelegram } from "../services/auth";
 import { getTelegramWebApp } from "../services/telegram";
 import type { AuthUser } from "../types/auth";
+import { logger } from "../utils/logger";
 
 export const AUTH_STORAGE_KEY = "telegram-auth-v2";
 
@@ -54,8 +55,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(parsed.user);
       setHasTriedAuth(true);
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("Failed to parse stored auth data", error);
+      logger.error("Failed to parse stored auth data", error);
       localStorage.removeItem(AUTH_STORAGE_KEY);
     }
   }, []);
@@ -64,8 +64,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setToken(newToken);
     setUser(newUser);
     setHasTriedAuth(true);
-    // eslint-disable-next-line no-console
-    console.log("[Auth] storing backend access token", newToken);
+    logger.log("[Auth] storing backend access token", newToken);
     localStorage.setItem(
       AUTH_STORAGE_KEY,
       JSON.stringify({ token: newToken, user: newUser } satisfies StoredAuthData),
@@ -89,18 +88,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setAuthError(null);
     setHasTriedAuth(true);
 
-    // eslint-disable-next-line no-console
-    console.log("[Auth] start Telegram authorization");
+    logger.log("[Auth] start Telegram authorization");
 
     try {
       const response = await authorizeTelegram();
       setAuthData(response.access_token, response.user);
 
-      // eslint-disable-next-line no-console
-      console.log("[Auth] success", response.user);
+      logger.log("[Auth] success", response.user);
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("[Auth] failed to authorize Telegram user", error);
+      logger.error("[Auth] failed to authorize Telegram user", error);
       setAuthError("Не удалось авторизоваться через Telegram");
       getTelegramWebApp()?.showAlert?.("Не удалось авторизоваться через Telegram");
     } finally {
