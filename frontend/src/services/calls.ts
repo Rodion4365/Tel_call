@@ -20,24 +20,14 @@ export interface CreateCallRequest {
   is_video_enabled?: boolean;
 }
 
-export const joinCallByCode = async (
-  callCode: string,
-  token: string,
-): Promise<JoinCallResponse> => {
-  return apiClient.post<JoinCallResponse>(
-    "/api/calls/join_by_code",
-    { call_code: callCode },
-    { token },
-  );
+export const joinCallByCode = async (callCode: string): Promise<JoinCallResponse> => {
+  return apiClient.post<JoinCallResponse>("/api/calls/join_by_code", { call_code: callCode });
 };
 
-export const createCall = async (
-  payload: CreateCallRequest,
-  token: string,
-): Promise<CreateCallResponse> => {
-  return apiClient.post<CreateCallResponse>("/api/calls/", payload, { token });
+export const createCall = async (payload: CreateCallRequest): Promise<CreateCallResponse> => {
+  return apiClient.post<CreateCallResponse>("/api/calls/", payload);
 };
 
-export const getCallById = async (callId: string, token: string): Promise<GetCallResponse> => {
-  return apiClient.get<GetCallResponse>(`/api/calls/${callId}`, { token });
+export const getCallById = async (callId: string): Promise<GetCallResponse> => {
+  return apiClient.get<GetCallResponse>(`/api/calls/${callId}`);
 };

@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { getTelegramUser } from "../services/telegram";
 
 const MICROPHONE_STORAGE_KEY = "tel-call:microphone-enabled";
 
 const SettingsPage: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const telegramUser = useMemo(() => getTelegramUser(), []);
   const [isMicrophoneEnabled, setIsMicrophoneEnabled] = useState(true);
@@ -21,14 +23,48 @@ const SettingsPage: React.FC = () => {
     localStorage.setItem(MICROPHONE_STORAGE_KEY, String(isMicrophoneEnabled));
   }, [isMicrophoneEnabled]);
 
+  const changeLanguage = (lng: string) => {
+    i18n.changeLanguage(lng);
+  };
+
   return (
     <div className="settings">
       <header className="settings__header">
         <div>
-          <p className="eyebrow">Настройки</p>
+          <p className="eyebrow">{t("settingsPage.title")}</p>
           <h1 className="settings__title">Ваш профиль и звонки</h1>
         </div>
       </header>
+
+      <section className="panel settings__section" aria-labelledby="language-section">
+        <div className="settings__section-header">
+          <div>
+            <p id="language-section" className="eyebrow">
+              {t("settingsPage.language")}
+            </p>
+            <h2 className="settings__section-title">{t("settingsPage.language")}</h2>
+          </div>
+        </div>
+        <div className="settings__rows">
+          <div className="settings__row">
+            <button
+              type="button"
+              className={`outline ${i18n.language === "ru" ? "primary" : ""}`}
+              onClick={() => changeLanguage("ru")}
+              style={{ marginRight: "8px" }}
+            >
+              {t("settingsPage.languageRu")}
+            </button>
+            <button
+              type="button"
+              className={`outline ${i18n.language === "en" ? "primary" : ""}`}
+              onClick={() => changeLanguage("en")}
+            >
+              {t("settingsPage.languageEn")}
+            </button>
+          </div>
+        </div>
+      </section>
 
       <section className="panel settings__section" aria-labelledby="profile-section">
         <div className="settings__section-header">
@@ -102,7 +138,7 @@ const SettingsPage: React.FC = () => {
 
       <div className="settings__actions">
         <button type="button" className="outline" onClick={() => navigate(-1)}>
-          Назад
+          {t("common.back")}
         </button>
       </div>
     </div>

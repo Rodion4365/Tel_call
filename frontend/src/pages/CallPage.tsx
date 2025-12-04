@@ -132,18 +132,25 @@ const CallPage: React.FC = () => {
   }, [attemptPlayAudio]);
 
   const clearConnections = useCallback(() => {
+    // Clear all reconnection timers
     reconnectionTimersRef.current.forEach((timeout) => clearTimeout(timeout));
     reconnectionTimersRef.current.clear();
 
+    // Close all peer connections
     peersRef.current.forEach((peer) => peer.close());
     peersRef.current.clear();
 
+    // Stop all remote stream tracks
     remoteStreamsRef.current.forEach((stream) => {
-      stream.getTracks().forEach((track) => track.stop());
+      stream.getTracks().forEach((track) => {
+        track.stop();
+      });
     });
     remoteStreamsRef.current.clear();
 
+    // Properly cleanup remote audio elements
     remoteAudioElementsRef.current.forEach((audio) => {
+      audio.pause();
       audio.srcObject = null;
       audio.remove();
     });
@@ -486,14 +493,18 @@ const CallPage: React.FC = () => {
     const remoteAudioElements = remoteAudioElementsRef.current;
 
     return () => {
+      // Stop all local media tracks
       stopLocalMedia();
 
+      // Cleanup all remote audio elements
       remoteAudioElements.forEach((audio) => {
+        audio.pause();
         audio.srcObject = null;
         audio.remove();
       });
       remoteAudioElements.clear();
 
+      // Close audio context
       if (toggleSoundContextRef.current?.state !== "closed") {
         void toggleSoundContextRef.current?.close();
       }
@@ -1106,24 +1117,31 @@ const CallPage: React.FC = () => {
   ]);
 
   useEffect(() => {
-    if (!callId || !token) {
+    if (!callId) {
       return;
     }
 
-    const baseUrl = getWebSocketBaseUrl();
+    let socket: WebSocket | null = null;
 
-    if (!baseUrl) {
-      setCallError("Не удалось определить адрес WebSocket сервера");
-      return;
-    }
+    const connectWebSocket = async () => {
+      try {
+        // Get WebSocket token from httpOnly cookie
+        const token = await getToken();
 
-    const url = `${baseUrl}/ws/calls/${callId}`;
-    const protocols = token ? [`token.${token}`] : undefined;
+        const baseUrl = getWebSocketBaseUrl();
 
-    // eslint-disable-next-line no-console
-    console.log("[Call] connecting to signaling", { url, hasToken: Boolean(token) });
+        if (!baseUrl) {
+          setCallError("Не удалось определить адрес WebSocket сервера");
+          return;
+        }
 
-    const socket = protocols ? new WebSocket(url, protocols) : new WebSocket(url);
+        const url = `${baseUrl}/ws/calls/${callId}`;
+        const protocols = token ? [`token.${token}`] : undefined;
+
+        // eslint-disable-next-line no-console
+        console.log("[Call] connecting to signaling", { url, hasToken: Boolean(token) });
+
+        socket = protocols ? new WebSocket(url, protocols) : new WebSocket(url);
 
     websocketRef.current = socket;
 
@@ -1168,15 +1186,25 @@ const CallPage: React.FC = () => {
 
       clearConnectionsRef.current?.();
     };
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("[Call] failed to get WebSocket token", error);
+        setCallError("Не удалось получить токен для WebSocket");
+      }
+    };
+
+    void connectWebSocket();
 
     return () => {
-      socket.close();
+      if (socket) {
+        socket.close();
+      }
       websocketRef.current = null;
       setCallConnected(false);
 
       clearConnectionsRef.current?.();
     };
-  }, [callId, token]);
+  }, [callId, getToken]);
 
   const copyLink = async () => {
     if (!joinUrl) {

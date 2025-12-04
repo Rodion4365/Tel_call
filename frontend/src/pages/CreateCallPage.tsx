@@ -1,18 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AUTH_STORAGE_KEY, useAuth } from "../contexts/AuthContext";
+import { useTranslation } from "react-i18next";
+import { useAuth } from "../contexts/AuthContext";
 import { createCall } from "../services/calls";
 
 const CreateCallPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
-  const { token, user, isAuthorizing, loginWithTelegram } = useAuth();
+  const { user, isAuthorizing, loginWithTelegram } = useAuth();
   const [isSubmitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log("[Auth] token =", token);
-  }, [token]);
 
   const handleCreateCall = async () => {
     // eslint-disable-next-line no-console
@@ -25,36 +22,7 @@ const CreateCallPage: React.FC = () => {
         await loginWithTelegram();
       }
 
-      let authToken = token;
-
-      if (!authToken) {
-        const rawAuth = localStorage.getItem(AUTH_STORAGE_KEY);
-
-        if (rawAuth) {
-          try {
-            const parsedAuth = JSON.parse(rawAuth) as { token: string };
-            authToken = parsedAuth.token;
-          } catch (parseError) {
-            // eslint-disable-next-line no-console
-            console.error("[CreateCall] failed to parse stored auth", parseError);
-          }
-        }
-      }
-
-      if (!authToken) {
-        // eslint-disable-next-line no-console
-        console.error("[CreateCall] missing auth token");
-        setError("Не удалось авторизоваться. Попробуйте снова.");
-        return;
-      }
-
-      // eslint-disable-next-line no-console
-      console.log("[CreateCall] using auth token", authToken);
-
-      const response = await createCall(
-        { title: null, is_video_enabled: false },
-        authToken,
-      );
+      const response = await createCall({ title: null, is_video_enabled: false });
 
       // eslint-disable-next-line no-console
       console.log("[CreateCall] success", response);
@@ -71,8 +39,8 @@ const CreateCallPage: React.FC = () => {
 
       const message =
         err instanceof Error && err.message
-          ? `Не удалось создать звонок: ${err.message}`
-          : "Не удалось создать звонок. Попробуйте снова.";
+          ? t("createCallPage.errorCreateWithMessage", { message: err.message })
+          : t("createCallPage.errorCreate");
 
       setError(message);
     } finally {
@@ -82,8 +50,8 @@ const CreateCallPage: React.FC = () => {
 
   return (
     <div className="panel">
-      <h1>Создать звонок</h1>
-      <p>Микрофон включен по умолчанию, видео выключено. Ссылка появится сразу после создания.</p>
+      <h1>{t("createCallPage.title")}</h1>
+      <p>{t("createCallPage.description")}</p>
 
       {error ? (
         <p className="status status-offline" role="alert">
@@ -98,10 +66,10 @@ const CreateCallPage: React.FC = () => {
           onClick={handleCreateCall}
           disabled={isSubmitting || isAuthorizing}
         >
-          {isSubmitting ? "Создаём…" : "Создать звонок"}
+          {isSubmitting ? t("createCallPage.buttonCreating") : t("createCallPage.buttonCreate")}
         </button>
         <button type="button" className="outline" onClick={() => navigate("/")} disabled={isSubmitting}>
-          Назад
+          {t("common.back")}
         </button>
       </div>
     </div>
