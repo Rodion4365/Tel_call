@@ -1,0 +1,68 @@
+{
+  "common": {
+    "back": "Back",
+    "settings": "Settings",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success"
+  },
+  "mainPage": {
+    "title": "Calls",
+    "createCall": "Create Call",
+    "joinCall": "Join Call"
+  },
+  "createCallPage": {
+    "title": "Create Call",
+    "description": "Microphone is enabled by default, video is disabled. The link will appear immediately after creation.",
+    "buttonCreate": "Create Call",
+    "buttonCreating": "Creating…",
+    "errorAuth": "Failed to authenticate. Please try again.",
+    "errorCreate": "Failed to create call. Please try again.",
+    "errorCreateWithMessage": "Failed to create call: {{message}}"
+  },
+  "joinCallPage": {
+    "title": "Join Call",
+    "description": "Paste the link or call ID to connect manually.",
+    "inputLabel": "Link or Call ID",
+    "inputPlaceholder": "For example, https://t.me/bot?startapp=abcd1234",
+    "buttonJoin": "Join",
+    "errorEmpty": "Enter link or call ID",
+    "errorInvalidId": "Invalid call ID",
+    "errorNotFound": "Call not found or ended",
+    "errorConnect": "Failed to connect to the call. Please try again."
+  },
+  "callCreatedPage": {
+    "title": "Call Created",
+    "shareTitle": "Share the link to join",
+    "copyButton": "Copy Link",
+    "copiedButton": "Copied",
+    "joinButton": "Join",
+    "backToMain": "Back to Main"
+  },
+  "callPage": {
+    "connecting": "Connecting...",
+    "waitingForParticipants": "Waiting for participants...",
+    "participantJoined": "Participant joined",
+    "callEnded": "Call ended",
+    "endCall": "End Call",
+    "toggleMicrophone": "Toggle microphone",
+    "toggleCamera": "Toggle camera",
+    "errorMediaAccess": "Failed to access media devices",
+    "errorConnection": "Connection error",
+    "microphoneMuted": "Microphone muted",
+    "microphoneActive": "Microphone active",
+    "cameraOff": "Camera off",
+    "cameraOn": "Camera on"
+  },
+  "settingsPage": {
+    "title": "Settings",
+    "language": "Language",
+    "languageRu": "Русский",
+    "languageEn": "English",
+    "close": "Close"
+  },
+  "auth": {
+    "notAuthenticated": "Not authenticated",
+    "telegramDataMissing": "Failed to get Telegram data"
+  }
+}

@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 const CameraIcon: React.FC = () => (
   <svg className="action-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -7,13 +8,18 @@ const CameraIcon: React.FC = () => (
   </svg>
 );
 
-const SettingsButton: React.FC = () => (
-  <Link to="/settings" className="settings-button" aria-label="Настройки">
-    ⚙️
-  </Link>
-);
+const SettingsButton: React.FC = () => {
+  const { t } = useTranslation();
+  return (
+    <Link to="/settings" className="settings-button" aria-label={t("common.settings")}>
+      ⚙️
+    </Link>
+  );
+};
 
 const MainPage: React.FC = () => {
+  const { t } = useTranslation();
+
   return (
     <div className="main-screen">
       <header className="top-bar">
@@ -22,16 +28,16 @@ const MainPage: React.FC = () => {
       </header>
 
       <header className="main-header">
-        <h1 className="main-title">Звонки</h1>
+        <h1 className="main-title">{t("mainPage.title")}</h1>
       </header>
 
       <div className="main-actions">
         <Link className="action-button action-primary" to="/create-call">
           <CameraIcon />
-          <span>Создать звонок</span>
+          <span>{t("mainPage.createCall")}</span>
         </Link>
         <Link className="action-button action-secondary" to="/join-call">
-          <span>Присоединиться к звонку</span>
+          <span>{t("mainPage.joinCall")}</span>
         </Link>
       </div>
     </div>

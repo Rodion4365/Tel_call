@@ -1,0 +1,68 @@
+{
+  "common": {
+    "back": "Назад",
+    "settings": "Настройки",
+    "loading": "Загрузка...",
+    "error": "Ошибка",
+    "success": "Успешно"
+  },
+  "mainPage": {
+    "title": "Звонки",
+    "createCall": "Создать звонок",
+    "joinCall": "Присоединиться к звонку"
+  },
+  "createCallPage": {
+    "title": "Создать звонок",
+    "description": "Микрофон включен по умолчанию, видео выключено. Ссылка появится сразу после создания.",
+    "buttonCreate": "Создать звонок",
+    "buttonCreating": "Создаём…",
+    "errorAuth": "Не удалось авторизоваться. Попробуйте снова.",
+    "errorCreate": "Не удалось создать звонок. Попробуйте снова.",
+    "errorCreateWithMessage": "Не удалось создать звонок: {{message}}"
+  },
+  "joinCallPage": {
+    "title": "Присоединиться к звонку",
+    "description": "Вставьте ссылку или ID звонка, чтобы подключиться вручную.",
+    "inputLabel": "Ссылка или ID звонка",
+    "inputPlaceholder": "Например, https://t.me/bot?startapp=abcd1234",
+    "buttonJoin": "Подключиться",
+    "errorEmpty": "Введите ссылку или ID звонка",
+    "errorInvalidId": "Некорректный идентификатор звонка",
+    "errorNotFound": "Звонок не найден или завершён",
+    "errorConnect": "Не удалось подключиться к звонку. Попробуйте снова."
+  },
+  "callCreatedPage": {
+    "title": "Звонок создан",
+    "shareTitle": "Поделитесь ссылкой для подключения",
+    "copyButton": "Скопировать ссылку",
+    "copiedButton": "Скопировано",
+    "joinButton": "Присоединиться",
+    "backToMain": "На главную"
+  },
+  "callPage": {
+    "connecting": "Подключение...",
+    "waitingForParticipants": "Ожидание участников...",
+    "participantJoined": "Участник присоединился",
+    "callEnded": "Звонок завершён",
+    "endCall": "Завершить звонок",
+    "toggleMicrophone": "Включить/выключить микрофон",
+    "toggleCamera": "Включить/выключить камеру",
+    "errorMediaAccess": "Не удалось получить доступ к медиа устройствам",
+    "errorConnection": "Ошибка подключения",
+    "microphoneMuted": "Микрофон выключен",
+    "microphoneActive": "Микрофон включён",
+    "cameraOff": "Камера выключена",
+    "cameraOn": "Камера включена"
+  },
+  "settingsPage": {
+    "title": "Настройки",
+    "language": "Язык",
+    "languageRu": "Русский",
+    "languageEn": "English",
+    "close": "Закрыть"
+  },
+  "auth": {
+    "notAuthenticated": "Не авторизован",
+    "telegramDataMissing": "Не удалось получить данные Telegram"
+  }
+}

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { getCallById } from "../services/calls";
 
 const CALL_ID_PATTERN = /^[A-Za-z0-9_-]{6,64}$/;
@@ -41,6 +42,7 @@ const extractCallId = (rawValue: string): string | null => {
 };
 
 const JoinCallPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [callCode, setCallCode] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -58,14 +60,14 @@ const JoinCallPage: React.FC = () => {
     const normalizedCode = callCode.trim();
 
     if (!normalizedCode) {
-      setErrorMessage("Введите ссылку или ID звонка");
+      setErrorMessage(t("joinCallPage.errorEmpty"));
       return;
     }
 
     const extractedCallId = extractCallId(normalizedCode);
 
     if (!extractedCallId || !CALL_ID_PATTERN.test(extractedCallId)) {
-      setErrorMessage("Некорректный идентификатор звонка");
+      setErrorMessage(t("joinCallPage.errorInvalidId"));
       return;
     }
 
@@ -86,9 +88,9 @@ const JoinCallPage: React.FC = () => {
       console.error("[JoinCall] failed", error);
       const message = error instanceof Error ? error.message : "";
       if (message.includes("status 404")) {
-        setErrorMessage("Звонок не найден или завершён");
+        setErrorMessage(t("joinCallPage.errorNotFound"));
       } else {
-        setErrorMessage("Не удалось подключиться к звонку. Попробуйте снова.");
+        setErrorMessage(t("joinCallPage.errorConnect"));
       }
     } finally {
       setSubmitting(false);
@@ -97,14 +99,14 @@ const JoinCallPage: React.FC = () => {
 
   return (
     <div className="panel">
-      <h1>Присоединиться к звонку</h1>
-      <p>Вставьте ссылку или ID звонка, чтобы подключиться вручную.</p>
+      <h1>{t("joinCallPage.title")}</h1>
+      <p>{t("joinCallPage.description")}</p>
       <form className="form" onSubmit={handleSubmit}>
         <label className="form-field">
-          <span>Ссылка или ID звонка</span>
+          <span>{t("joinCallPage.inputLabel")}</span>
           <input
             type="text"
-            placeholder="Например, https://t.me/bot?startapp=abcd1234"
+            placeholder={t("joinCallPage.inputPlaceholder")}
             value={callCode}
             onChange={(event) => setCallCode(event.target.value)}
             autoComplete="off"
@@ -119,10 +121,10 @@ const JoinCallPage: React.FC = () => {
 
         <div className="form-actions">
           <button type="submit" className="primary" disabled={isSubmitDisabled}>
-            Подключиться
+            {t("joinCallPage.buttonJoin")}
           </button>
           <button type="button" className="outline" onClick={() => navigate(-1)}>
-            Назад
+            {t("common.back")}
           </button>
         </div>
       </form>

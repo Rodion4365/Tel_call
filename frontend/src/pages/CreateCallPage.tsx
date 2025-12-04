@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { createCall } from "../services/calls";
 
 const CreateCallPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, isAuthorizing, loginWithTelegram } = useAuth();
   const [isSubmitting, setSubmitting] = useState(false);
@@ -37,8 +39,8 @@ const CreateCallPage: React.FC = () => {
 
       const message =
         err instanceof Error && err.message
-          ? `Не удалось создать звонок: ${err.message}`
-          : "Не удалось создать звонок. Попробуйте снова.";
+          ? t("createCallPage.errorCreateWithMessage", { message: err.message })
+          : t("createCallPage.errorCreate");
 
       setError(message);
     } finally {
@@ -48,8 +50,8 @@ const CreateCallPage: React.FC = () => {
 
   return (
     <div className="panel">
-      <h1>Создать звонок</h1>
-      <p>Микрофон включен по умолчанию, видео выключено. Ссылка появится сразу после создания.</p>
+      <h1>{t("createCallPage.title")}</h1>
+      <p>{t("createCallPage.description")}</p>
 
       {error ? (
         <p className="status status-offline" role="alert">
@@ -64,10 +66,10 @@ const CreateCallPage: React.FC = () => {
           onClick={handleCreateCall}
           disabled={isSubmitting || isAuthorizing}
         >
-          {isSubmitting ? "Создаём…" : "Создать звонок"}
+          {isSubmitting ? t("createCallPage.buttonCreating") : t("createCallPage.buttonCreate")}
         </button>
         <button type="button" className="outline" onClick={() => navigate("/")} disabled={isSubmitting}>
-          Назад
+          {t("common.back")}
         </button>
       </div>
     </div>
