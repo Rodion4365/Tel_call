@@ -333,6 +333,19 @@ const CallPage: React.FC = () => {
     }
   };
 
+  const ensureLocalStream = useCallback(async () => {
+    let stream = localStreamRef.current ?? localStream;
+
+    if (stream && stream.getTracks().length) {
+      return stream;
+    }
+
+    await requestMicrophone(true);
+    stream = localStreamRef.current ?? localStream;
+
+    return stream ?? null;
+  }, [localStream, requestMicrophone]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -658,6 +671,8 @@ const CallPage: React.FC = () => {
       peer.ontrack = (event) => {
         const existingStream = remoteStreamsRef.current.get(participantId);
         const stream = existingStream ?? event.streams[0] ?? new MediaStream();
+        const incomingStream = event.streams[0];
+        let stream = existingStream ?? incomingStream ?? new MediaStream();
 
         if (!stream.getTracks().includes(event.track)) {
           stream.addTrack(event.track);
@@ -776,6 +791,7 @@ const CallPage: React.FC = () => {
       }
 
       const stream = localStreamRef.current;
+      const stream = await ensureLocalStream();
       attachLocalTracks(peer, stream);
 
       const answer = await peer.createAnswer();
@@ -801,6 +817,7 @@ const CallPage: React.FC = () => {
       sendSignalingMessage,
       updateParticipant,
     ],
+    [attachLocalTracks, createPeerConnection, ensureLocalStream, getParticipantColor, getParticipantHandle, getParticipantName, sendSignalingMessage, updateParticipant],
   );
 
   const handleAnswer = useCallback(
@@ -852,6 +869,7 @@ const CallPage: React.FC = () => {
       const participantId = String(remoteUser.id);
       const peer = createPeerConnection(participantId);
       const stream = localStreamRef.current;
+      const stream = await ensureLocalStream();
 
       attachLocalTracks(peer, stream);
 
@@ -876,6 +894,7 @@ const CallPage: React.FC = () => {
       sendSignalingMessage,
       updateParticipant,
     ],
+    [attachLocalTracks, createPeerConnection, ensureLocalStream, getParticipantColor, getParticipantHandle, getParticipantName, sendSignalingMessage, updateParticipant],
   );
 
   const shouldInitiateOffer = useCallback(
