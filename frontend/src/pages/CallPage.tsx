@@ -206,6 +206,68 @@ const CallPage: React.FC = () => {
     transceiver.setCodecPreferences([...opusCodecs, ...otherCodecs]);
   }, []);
 
+  const logPeerAudioDebug = useCallback(
+    (peer: RTCPeerConnection, participantId: string, context: string) => {
+      const audioReceivers = peer
+        .getReceivers()
+        .filter((receiver) => receiver.track?.kind === "audio")
+        .map((receiver) => ({
+          trackId: receiver.track?.id,
+          readyState: receiver.track?.readyState,
+          muted: receiver.track?.muted,
+          enabled: receiver.track?.enabled,
+        }));
+
+      const audioTransceivers = peer
+        .getTransceivers()
+        .filter((transceiver) => transceiver.receiver.track?.kind === "audio")
+        .map((transceiver) => ({
+          mid: transceiver.mid,
+          direction: transceiver.direction,
+          currentDirection: transceiver.currentDirection,
+          receiverTrackId: transceiver.receiver.track?.id,
+          senderTrackId: transceiver.sender.track?.id,
+          receiverState: transceiver.receiver.track?.readyState,
+        }));
+
+      const remoteStream = remoteStreamsRef.current.get(participantId);
+      const remoteAudio = remoteAudioElementsRef.current.get(participantId);
+
+      const remoteAudioTracks = remoteStream
+        ? remoteStream.getAudioTracks().map((track) => ({
+            id: track.id,
+            label: track.label,
+            enabled: track.enabled,
+            muted: track.muted,
+            readyState: track.readyState,
+          }))
+        : [];
+
+      // eslint-disable-next-line no-console
+      console.log("[RTC][AudioDebug] peer audio status", {
+        participantId,
+        context,
+        signalingState: peer.signalingState,
+        connectionState: peer.connectionState,
+        iceConnectionState: peer.iceConnectionState,
+        remoteDescription: peer.remoteDescription?.type,
+        audioReceivers,
+        audioTransceivers,
+        remoteAudioTracks,
+        remoteAudioElement: remoteAudio
+          ? {
+              present: true,
+              hasSrcObject: Boolean(remoteAudio.srcObject),
+              paused: remoteAudio.paused,
+              readyState: remoteAudio.readyState,
+              volume: remoteAudio.volume,
+            }
+          : { present: false },
+      });
+    },
+    [],
+  );
+
   const attachLocalTracks = useCallback(
     (peer: RTCPeerConnection, stream: MediaStream | null) => {
       if (!stream) {
@@ -736,15 +798,7 @@ const CallPage: React.FC = () => {
         }
 
         if (audioElement) {
-          audioElement.muted = false;
-          audioElement.volume = 1;
-          audioElement
-            .play()
-            .catch((err) => {
-              // eslint-disable-next-line no-console
-              console.warn("[Call] failed to play remote audio", err);
-              setAudioUnlockNeeded(true);
-            });
+          attemptPlayAudio(audioElement);
         }
 
         updateParticipant({
@@ -826,7 +880,6 @@ const CallPage: React.FC = () => {
       ensureRemoteAudioElement,
       getParticipantColor,
       iceServers,
-      localStream,
       sendSignalingMessage,
       updateParticipant,
     ],
@@ -845,6 +898,9 @@ const CallPage: React.FC = () => {
         console.error("Failed to apply remote offer", error);
         return;
       }
+
+      logPeerAudioDebug(peer, participantId, "after-set-remote-offer");
+      window.setTimeout(() => logPeerAudioDebug(peer, participantId, "delayed-offer-audio-check"), 2000);
 
       const stream = localStreamRef.current;
 
@@ -872,6 +928,7 @@ const CallPage: React.FC = () => {
       getParticipantColor,
       getParticipantHandle,
       getParticipantName,
+      logPeerAudioDebug,
       sendSignalingMessage,
       updateParticipant,
     ],
@@ -893,6 +950,9 @@ const CallPage: React.FC = () => {
         console.error("Failed to apply remote answer", error);
       }
 
+      logPeerAudioDebug(peer, participantId, "after-set-remote-answer");
+      window.setTimeout(() => logPeerAudioDebug(peer, participantId, "delayed-answer-audio-check"), 2000);
+
       updateParticipant({
         id: participantId,
         name: getParticipantName(fromUser),
@@ -900,7 +960,7 @@ const CallPage: React.FC = () => {
         color: getParticipantColor(participantId),
       });
     },
-    [getParticipantColor, getParticipantHandle, getParticipantName, updateParticipant],
+    [getParticipantColor, getParticipantHandle, getParticipantName, logPeerAudioDebug, updateParticipant],
   );
 
   const handleIceCandidate = useCallback(async (fromUser: SignalingUser, payload: RTCIceCandidateInit) => {
