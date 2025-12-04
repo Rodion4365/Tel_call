@@ -364,61 +364,95 @@ const CallPage: React.FC = () => {
     }
   }, [setAudioTrack, setLocalStream, setMediaError, setMicOn]);
 
-  const requestMicrophone = useCallback(async (userInitiated = false) => {
-    micChangeByUserRef.current = userInitiated;
-    setIsRequestingMic(true);
-    setMediaError(null);
+  const requestMicrophone = useCallback(
+    async (userInitiated = false) => {
+      micChangeByUserRef.current = userInitiated;
+      setIsRequestingMic(true);
+      setMediaError(null);
 
-    if (audioTrack) {
-      audioTrack.stop();
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      const [track] = stream.getAudioTracks();
-
-      if (!track) {
-        throw new Error("No audio track available");
+      if (audioTrack) {
+        audioTrack.stop();
       }
 
-      track.enabled = true;
-      // eslint-disable-next-line no-console
-      console.log("[Media] acquired microphone track", {
-        id: track.id,
-        label: track.label,
-        settings: track.getSettings ? track.getSettings() : undefined,
-        userInitiated,
-      });
-      setAudioTrack(track);
-      rebuildLocalStream(track, videoTrack);
-      setMicOn(true);
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("Failed to get microphone access", error);
-      setMediaError("Нет доступа к микрофону");
-      setAudioTrack(null);
-      rebuildLocalStream(null, videoTrack);
-      setMicOn(false);
-    } finally {
-      setIsRequestingMic(false);
-    }
-  }, [audioTrack, rebuildLocalStream, videoTrack]);
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        const [track] = stream.getAudioTracks();
+
+        if (!track) {
+          throw new Error("No audio track available");
+        }
+
+        track.enabled = true;
+        // eslint-disable-next-line no-console
+        console.log("[Media] acquired microphone track", {
+          id: track.id,
+          label: track.label,
+          settings: track.getSettings ? track.getSettings() : undefined,
+          userInitiated,
+        });
+
+        setAudioTrack(track);
+        const newStream = rebuildLocalStream(track, videoTrack);
+        setMicOn(true);
+
+        // 👉 сразу перевешиваем треки на все активные peer'ы
+        if (newStream) {
+          peersRef.current.forEach((peer) => {
+            attachLocalTracks(peer, newStream);
+          });
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Failed to get microphone access", error);
+        setMediaError("Нет доступа к микрофону");
+        setAudioTrack(null);
+        rebuildLocalStream(null, videoTrack);
+        setMicOn(false);
+      } finally {
+        setIsRequestingMic(false);
+      }
+    },
+    [audioTrack, rebuildLocalStream, videoTrack, attachLocalTracks],
+  );
 
   const toggleMicrophone = () => {
-    if (!audioTrack && !isRequestingMic) {
-      micChangeByUserRef.current = true;
-      requestMicrophone(true);
+    // пользователь кликнул кнопку
+    micChangeByUserRef.current = true;
+
+    const track = audioTrack;
+
+    // Если трека нет или он уже закончился — пересоздаём микрофон и перевешиваем на все peer'ы
+    if (!track || track.readyState === "ended") {
+      // eslint-disable-next-line no-console
+      console.log("[Media] toggle microphone: no valid track, reacquiring...");
+      void (async () => {
+        await requestMicrophone(true);
+        const stream = localStreamRef.current;
+
+        if (stream) {
+          peersRef.current.forEach((peer) => {
+            attachLocalTracks(peer, stream);
+          });
+        }
+      })();
+
       return;
     }
 
-    micChangeByUserRef.current = true;
+    // Нормальный случай: живой трек есть — просто включаем/выключаем
     setMicOn((prev) => {
       const next = !prev;
+
+      // сразу применяем к треку, чтобы не ждать useEffect
+      track.enabled = next;
+
       // eslint-disable-next-line no-console
       console.log("[Media] toggle microphone", {
         nextState: next,
-        hasTrack: Boolean(audioTrack),
+        trackId: track.id,
+        readyState: track.readyState,
       });
+
       return next;
     });
   };
@@ -504,12 +538,6 @@ const CallPage: React.FC = () => {
       document.removeEventListener("touchstart", handleUserInteraction);
     };
   }, [unlockRemoteAudio]);
-
-  useEffect(() => {
-    if (audioTrack) {
-      audioTrack.enabled = isMicOn;
-    }
-  }, [audioTrack, isMicOn]);
 
   const playToggleSound = useCallback(() => {
     try {
@@ -903,7 +931,19 @@ const CallPage: React.FC = () => {
         }
       };
 
-      attachLocalTracks(peer, localStreamRef.current);
+      // 👉 гарантируем, что на момент создания пытаемся повесить локальные треки
+      (async () => {
+        let stream = localStreamRef.current;
+
+        if (!stream) {
+          stream = await ensureLocalAudioStream();
+        }
+
+        if (stream) {
+          attachLocalTracks(peer, stream);
+        }
+      })();
+
       peersRef.current.set(participantId, peer);
 
       return peer;
@@ -912,6 +952,7 @@ const CallPage: React.FC = () => {
       attachLocalTracks,
       attemptPlayAudio,
       cleanupPeer,
+      ensureLocalAudioStream,
       ensureRemoteAudioElement,
       getParticipantColor,
       iceServers,
