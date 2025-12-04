@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass
 from typing import Any
 
 from fastapi import WebSocket
+
+
+logger = logging.getLogger("app.webrtc")
 
 
 @dataclass
@@ -33,11 +37,25 @@ class CallRoom:
         async with self._lock:
             self._participants[user_id] = ParticipantConnection(websocket, user)
 
+        logger.info(
+            "User %s joined call %s (participants=%s)",
+            user_id,
+            self.call_id,
+            len(self._participants),
+        )
+
     async def remove_participant(self, user_id: int) -> None:
         """Remove a user from the room if present."""
 
         async with self._lock:
             self._participants.pop(user_id, None)
+
+        logger.info(
+            "User %s left call %s (participants=%s)",
+            user_id,
+            self.call_id,
+            len(self._participants),
+        )
 
     async def has_participant(self, user_id: int) -> bool:
         """Return True when the user is connected to the room."""
@@ -78,6 +96,14 @@ class CallRoom:
                 recipients = list(self._participants.items())
 
         disconnected_users: list[int] = []
+        logger.debug(
+            "Broadcasting message in call %s (type=%s sender=%s target=%s recipients=%s)",
+            self.call_id,
+            message.get("type"),
+            sender_id,
+            target_id,
+            [user_id for user_id, _ in recipients],
+        )
         for user_id, connection in recipients:
             if sender_id is not None and user_id == sender_id:
                 continue
@@ -85,6 +111,12 @@ class CallRoom:
             try:
                 await connection.websocket.send_json(message)
             except Exception:
+                logger.exception(
+                    "Failed to deliver message type=%s to user_id=%s in call %s",
+                    message.get("type"),
+                    user_id,
+                    self.call_id,
+                )
                 disconnected_users.append(user_id)
 
         for user_id in disconnected_users:
@@ -125,5 +157,6 @@ async def notify_call_ended(call_id: str, *, reason: str) -> None:
 
     room = await call_room_manager.get_existing_room(call_id)
     if room:
+        logger.info("Sending call_ended to call %s: %s", call_id, reason)
         await room.broadcast({"type": "call_ended", "reason": reason})
         await call_room_manager.cleanup_room(call_id)

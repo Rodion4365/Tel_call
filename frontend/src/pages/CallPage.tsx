@@ -215,6 +215,13 @@ const CallPage: React.FC = () => {
       const tracks = stream.getTracks();
 
       tracks.forEach((track) => {
+        // eslint-disable-next-line no-console
+        console.log("[RTC] attaching local track", {
+          kind: track.kind,
+          id: track.id,
+          enabled: track.enabled,
+          peerConnectionId: peer.connectionState,
+        });
         const existingSender = peer.getSenders().find((sender) => sender.track?.kind === track.kind);
 
         if (existingSender) {
@@ -278,6 +285,13 @@ const CallPage: React.FC = () => {
       }
 
       track.enabled = true;
+      // eslint-disable-next-line no-console
+      console.log("[Media] acquired microphone track", {
+        id: track.id,
+        label: track.label,
+        settings: track.getSettings ? track.getSettings() : undefined,
+        userInitiated,
+      });
       setAudioTrack(track);
       rebuildLocalStream(track, videoTrack);
       setMicOn(true);
@@ -301,11 +315,21 @@ const CallPage: React.FC = () => {
     }
 
     micChangeByUserRef.current = true;
-    setMicOn((prev) => !prev);
+    setMicOn((prev) => {
+      const next = !prev;
+      // eslint-disable-next-line no-console
+      console.log("[Media] toggle microphone", {
+        nextState: next,
+        hasTrack: Boolean(audioTrack),
+      });
+      return next;
+    });
   };
 
   const toggleCamera = async () => {
     if (isCameraOn) {
+      // eslint-disable-next-line no-console
+      console.log("[Media] turning camera off", { trackId: videoTrack?.id });
       videoTrack?.stop();
       setVideoTrack(null);
       setCameraOn(false);
@@ -324,6 +348,12 @@ const CallPage: React.FC = () => {
         return;
       }
 
+      // eslint-disable-next-line no-console
+      console.log("[Media] acquired camera track", {
+        id: track.id,
+        label: track.label,
+        settings: track.getSettings ? track.getSettings() : undefined,
+      });
       setVideoTrack(track);
       setCameraOn(true);
       rebuildLocalStream(audioTrack, track);
@@ -341,14 +371,20 @@ const CallPage: React.FC = () => {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         const [track] = stream.getAudioTracks();
 
-        if (!track) {
-          throw new Error("No audio track");
-        }
+      if (!track) {
+        throw new Error("No audio track");
+      }
 
-        setAudioTrack(track);
-        localStreamRef.current = stream;
-        setLocalStream(stream);
-        setMicOn(true);
+      // eslint-disable-next-line no-console
+      console.log("[Media] initial microphone ready", {
+        id: track.id,
+        label: track.label,
+        settings: track.getSettings ? track.getSettings() : undefined,
+      });
+      setAudioTrack(track);
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+      setMicOn(true);
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error("[Call] failed to get local audio", err);
@@ -631,8 +667,20 @@ const CallPage: React.FC = () => {
     const socket = websocketRef.current;
 
     if (socket && socket.readyState === WebSocket.OPEN) {
+      // eslint-disable-next-line no-console
+      console.log("[WS] sending signaling message", {
+        type: message.type,
+        to_user_id: "to_user_id" in message ? message.to_user_id : undefined,
+      });
       socket.send(JSON.stringify(message));
+      return;
     }
+
+    // eslint-disable-next-line no-console
+    console.warn("[WS] unable to send signaling message; socket not open", {
+      readyState: socket?.readyState,
+      type: message.type,
+    });
   }, []);
 
   const createPeerConnection = useCallback(
@@ -646,6 +694,13 @@ const CallPage: React.FC = () => {
       const peer = new RTCPeerConnection({ iceServers });
       const targetUserId = Number.parseInt(participantId, 10);
 
+      // eslint-disable-next-line no-console
+      console.log("[RTC] creating peer connection", {
+        participantId,
+        targetUserId,
+        iceServers,
+      });
+
       ensureRemoteAudioElement(participantId);
 
       peer.onicecandidate = (event) => {
@@ -657,6 +712,14 @@ const CallPage: React.FC = () => {
       };
 
       peer.ontrack = (event) => {
+        // eslint-disable-next-line no-console
+        console.log("[RTC] received remote track", {
+          participantId,
+          trackId: event.track.id,
+          kind: event.track.kind,
+          streams: event.streams.map((stream) => ({ id: stream.id, active: stream.active })),
+        });
+
         const existingStream = remoteStreamsRef.current.get(participantId);
         const stream = existingStream ?? event.streams[0] ?? new MediaStream();
 
@@ -718,6 +781,11 @@ const CallPage: React.FC = () => {
       };
 
       peer.oniceconnectionstatechange = () => {
+        // eslint-disable-next-line no-console
+        console.log("[ICE] state changed", {
+          participantId,
+          state: peer.iceConnectionState,
+        });
         if (peer.iceConnectionState === "connected" || peer.iceConnectionState === "completed") {
           const timeout = reconnectionTimersRef.current.get(participantId);
 
@@ -1024,9 +1092,16 @@ const CallPage: React.FC = () => {
 
     websocketRef.current = socket;
 
+    socket.onopen = () => {
+      // eslint-disable-next-line no-console
+      console.log("[WS] signaling socket opened", { url, protocols });
+    };
+
     socket.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data) as SignalingMessage;
+        // eslint-disable-next-line no-console
+        console.log("[WS] received signaling message", message);
         void handleSignalingMessageRef.current?.(message);
       } catch (error) {
         // eslint-disable-next-line no-console
