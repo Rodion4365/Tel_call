@@ -1324,6 +1324,24 @@ const CallPage: React.FC = () => {
       .join("")
       .toUpperCase();
 
+  // DEBUG: локальный звук (ЭХО)
+  // !!! не оставляй это в проде, только для теста
+  const DebugLocalAudio: React.FC = () => {
+    if (!localStreamRef.current) return null;
+
+    return (
+      <audio
+        controls
+        style={{ marginTop: 8 }}
+        ref={(el) => {
+          if (el && localStreamRef.current && el.srcObject !== localStreamRef.current) {
+            el.srcObject = localStreamRef.current;
+          }
+        }}
+      />
+    );
+  };
+
   return (
     <div className="panel call-panel">
       <div
@@ -1495,6 +1513,9 @@ const CallPage: React.FC = () => {
       ) : null}
 
       {isToastVisible && <div className="toast">Ссылка скопирована</div>}
+
+      {/* DEBUG: локальный звук (услышать свой микрофон) */}
+      <DebugLocalAudio />
     </div>
   );
 };
