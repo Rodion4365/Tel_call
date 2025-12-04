@@ -128,18 +128,25 @@ const CallPage: React.FC = () => {
   }, [attemptPlayAudio]);
 
   const clearConnections = useCallback(() => {
+    // Clear all reconnection timers
     reconnectionTimersRef.current.forEach((timeout) => clearTimeout(timeout));
     reconnectionTimersRef.current.clear();
 
+    // Close all peer connections
     peersRef.current.forEach((peer) => peer.close());
     peersRef.current.clear();
 
+    // Stop all remote stream tracks
     remoteStreamsRef.current.forEach((stream) => {
-      stream.getTracks().forEach((track) => track.stop());
+      stream.getTracks().forEach((track) => {
+        track.stop();
+      });
     });
     remoteStreamsRef.current.clear();
 
+    // Properly cleanup remote audio elements
     remoteAudioElementsRef.current.forEach((audio) => {
+      audio.pause();
       audio.srcObject = null;
       audio.remove();
     });
@@ -482,14 +489,18 @@ const CallPage: React.FC = () => {
     const remoteAudioElements = remoteAudioElementsRef.current;
 
     return () => {
+      // Stop all local media tracks
       stopLocalMedia();
 
+      // Cleanup all remote audio elements
       remoteAudioElements.forEach((audio) => {
+        audio.pause();
         audio.srcObject = null;
         audio.remove();
       });
       remoteAudioElements.clear();
 
+      // Close audio context
       if (toggleSoundContextRef.current?.state !== "closed") {
         void toggleSoundContextRef.current?.close();
       }
