@@ -1330,15 +1330,18 @@ const CallPage: React.FC = () => {
     if (!localStreamRef.current) return null;
 
     return (
-      <audio
-        controls
-        style={{ marginTop: 8 }}
-        ref={(el) => {
-          if (el && localStreamRef.current && el.srcObject !== localStreamRef.current) {
-            el.srcObject = localStreamRef.current;
-          }
-        }}
-      />
+      <div style={{ marginTop: 12 }}>
+        <p className="muted">DEBUG: локальный звук (нажми ▶️, чтобы услышать себя)</p>
+        <audio
+          controls
+          style={{ width: "100%", marginTop: 4 }}
+          ref={(el) => {
+            if (el && localStreamRef.current && el.srcObject !== localStreamRef.current) {
+              el.srcObject = localStreamRef.current;
+            }
+          }}
+        />
+      </div>
     );
   };
 
@@ -1487,6 +1490,9 @@ const CallPage: React.FC = () => {
         </button>
       </div>
 
+      {/* DEBUG: локальный звук, чтобы проверить, что микрофон реально пишет */}
+      <DebugLocalAudio />
+
       {mediaError ? (
         <div className="alert" role="alert">
           <p className="alert__title">{mediaError}</p>
@@ -1513,9 +1519,6 @@ const CallPage: React.FC = () => {
       ) : null}
 
       {isToastVisible && <div className="toast">Ссылка скопирована</div>}
-
-      {/* DEBUG: локальный звук (услышать свой микрофон) */}
-      <DebugLocalAudio />
     </div>
   );
 };
