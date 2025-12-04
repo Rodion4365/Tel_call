@@ -809,13 +809,11 @@ const CallPage: React.FC = () => {
   }, []);
 
   const createPeerConnection = useCallback(
-    (participantId: string, stream?: MediaStream) => {
+    (participantId: string, stream: MediaStream) => {
       const existing = peersRef.current.get(participantId);
 
       if (existing) {
-        if (stream) {
-          attachLocalTracks(existing, stream);
-        }
+        attachLocalTracks(existing, stream);
 
         return existing;
       }
@@ -935,9 +933,7 @@ const CallPage: React.FC = () => {
         }
       };
 
-      if (stream) {
-        attachLocalTracks(peer, stream);
-      }
+      attachLocalTracks(peer, stream);
 
       peersRef.current.set(participantId, peer);
 
@@ -960,16 +956,17 @@ const CallPage: React.FC = () => {
       const participantId = String(fromUser.id);
       let stream = localStreamRef.current;
 
-      if (!stream || stream.getTracks().length === 0) {
+      if (!stream || stream.getAudioTracks().length === 0) {
         stream = await ensureLocalAudioStream();
       }
 
-      if (!stream) {
+      if (!stream || stream.getAudioTracks().length === 0) {
+        // eslint-disable-next-line no-console
+        console.warn("[Media] Unable to handle offer without local audio stream");
         return;
       }
 
-      const peer = createPeerConnection(participantId);
-      attachLocalTracks(peer, stream);
+      const peer = createPeerConnection(participantId, stream);
       const targetUserId = Number.parseInt(participantId, 10);
 
       try {
@@ -1001,7 +998,6 @@ const CallPage: React.FC = () => {
       });
     },
     [
-      attachLocalTracks,
       createPeerConnection,
       ensureLocalAudioStream,
       getParticipantColor,
