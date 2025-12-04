@@ -82,6 +82,7 @@ const CallPage: React.FC = () => {
   const remoteAudioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const websocketRef = useRef<WebSocket | null>(null);
   const homeRedirectTimeoutRef = useRef<number | null>(null);
+  const hasAutoRequestedMicRef = useRef(false);
   const userInteractedRef = useRef(false);
   const toggleSoundContextRef = useRef<AudioContext | null>(null);
   const micChangeByUserRef = useRef(false);
@@ -506,6 +507,15 @@ const CallPage: React.FC = () => {
       setIsRequestingCamera(false);
     }
   };
+
+  useEffect(() => {
+    if (hasAutoRequestedMicRef.current) {
+      return;
+    }
+
+    hasAutoRequestedMicRef.current = true;
+    void requestMicrophone(false);
+  }, [requestMicrophone]);
 
   useEffect(() => {
     const handleUserInteraction = () => {
@@ -1345,6 +1355,8 @@ const CallPage: React.FC = () => {
     );
   };
 
+  const isMicrophoneActive = isMicOn && hasActiveAudioTrack(localStreamRef.current);
+
   return (
     <div className="panel call-panel">
       <div
@@ -1358,6 +1370,23 @@ const CallPage: React.FC = () => {
           <p className="eyebrow">Комната звонка</p>
           <h1 className="call-title">Звонок #{callId ?? "—"}</h1>
           <p className="muted">Видео выключено по умолчанию. Можно включить позже.</p>
+          <div className="call-status" role="status" aria-live="polite">
+            {isMicrophoneActive ? (
+              <span className="call-status__badge" aria-label="Микрофон включён">
+                <span className="call-status__icon" aria-hidden>
+                  🎤
+                </span>
+                <span>Микрофон включён</span>
+              </span>
+            ) : (
+              <span className="call-status__badge call-status__badge--muted" aria-label="Микрофон выключен">
+                <span className="call-status__icon" aria-hidden>
+                  🔇
+                </span>
+                <span>Микрофон выключен</span>
+              </span>
+            )}
+          </div>
         </div>
         <div className="call-link">
           <p className="muted">Ссылка приглашения</p>
