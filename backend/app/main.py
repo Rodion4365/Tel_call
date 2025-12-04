@@ -11,16 +11,15 @@ from sqlalchemy import text
 
 from app.api import get_api_router
 from app.config.database import Base, engine
+from app.config.logging import configure_logging
 from app.config.settings import get_settings
 import app.models  # noqa: F401  # Ensure models are registered with metadata
 
 
 settings = get_settings()
 
-logging.basicConfig(
-    level=logging.DEBUG if settings.debug else logging.INFO,
-    format="%(levelname)s %(asctime)s %(name)s:%(lineno)d - %(message)s",
-)
+# Configure structured logging (JSON in production, simple in development)
+configure_logging()
 
 logger = logging.getLogger(__name__)
 
