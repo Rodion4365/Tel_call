@@ -32,12 +32,13 @@ async def lifespan(app: FastAPI):
     logger.info("Starting application lifespan checks")
 
     # Validate database connectivity during startup.
+    # NOTE: Run database migrations before starting the server:
+    #   alembic upgrade head
     try:
         async with engine.begin() as connection:
             logger.info("Validating database connectivity using %s", settings.masked_database_url())
             await connection.execute(text("SELECT 1"))
-            await connection.run_sync(Base.metadata.create_all)
-            logger.info("Database connectivity check succeeded; migrations are in sync")
+            logger.info("Database connectivity check succeeded")
     except Exception:
         logger.exception("Database connectivity check failed")
         await engine.dispose()
