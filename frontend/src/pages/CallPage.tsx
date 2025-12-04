@@ -340,6 +340,19 @@ const CallPage: React.FC = () => {
     }
   };
 
+  const ensureLocalStream = useCallback(async () => {
+    let stream = localStreamRef.current ?? localStream;
+
+    if (stream && stream.getTracks().length) {
+      return stream;
+    }
+
+    await requestMicrophone(true);
+    stream = localStreamRef.current ?? localStream;
+
+    return stream ?? null;
+  }, [localStream, requestMicrophone]);
+
   useEffect(() => {
     requestMicrophone();
   }, [requestMicrophone]);
@@ -644,7 +657,13 @@ const CallPage: React.FC = () => {
       };
 
       peer.ontrack = (event) => {
-        const stream = event.streams[0] ?? new MediaStream([event.track]);
+        const existingStream = remoteStreamsRef.current.get(participantId);
+        const incomingStream = event.streams[0];
+        let stream = existingStream ?? incomingStream ?? new MediaStream();
+
+        if (!stream.getTracks().includes(event.track)) {
+          stream.addTrack(event.track);
+        }
 
         remoteStreamsRef.current.set(participantId, stream);
 
@@ -653,7 +672,7 @@ const CallPage: React.FC = () => {
           audioTracks[0] ?? (event.track.kind === "audio" ? event.track : undefined);
         const audioElement = ensureRemoteAudioElement(participantId);
 
-        if (audioElement && stream !== audioElement.srcObject) {
+        if (audioElement && audioElement.srcObject !== stream) {
           audioElement.srcObject = stream;
         }
 
@@ -765,7 +784,9 @@ const CallPage: React.FC = () => {
         console.error("Failed to apply remote offer", error);
         return;
       }
-      attachLocalTracks(peer, localStreamRef.current ?? localStream);
+
+      const stream = await ensureLocalStream();
+      attachLocalTracks(peer, stream);
 
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
@@ -781,7 +802,7 @@ const CallPage: React.FC = () => {
         color: getParticipantColor(participantId),
       });
     },
-    [attachLocalTracks, createPeerConnection, getParticipantColor, getParticipantHandle, getParticipantName, localStream, sendSignalingMessage, updateParticipant],
+    [attachLocalTracks, createPeerConnection, ensureLocalStream, getParticipantColor, getParticipantHandle, getParticipantName, sendSignalingMessage, updateParticipant],
   );
 
   const handleAnswer = useCallback(
@@ -832,8 +853,9 @@ const CallPage: React.FC = () => {
     async (remoteUser: SignalingUser) => {
       const participantId = String(remoteUser.id);
       const peer = createPeerConnection(participantId);
+      const stream = await ensureLocalStream();
 
-      attachLocalTracks(peer, localStreamRef.current ?? localStream);
+      attachLocalTracks(peer, stream);
 
       const offer = await peer.createOffer();
       await peer.setLocalDescription(offer);
@@ -847,7 +869,7 @@ const CallPage: React.FC = () => {
         color: getParticipantColor(participantId),
       });
     },
-    [attachLocalTracks, createPeerConnection, getParticipantColor, getParticipantHandle, getParticipantName, localStream, sendSignalingMessage, updateParticipant],
+    [attachLocalTracks, createPeerConnection, ensureLocalStream, getParticipantColor, getParticipantHandle, getParticipantName, sendSignalingMessage, updateParticipant],
   );
 
   const shouldInitiateOffer = useCallback(
