@@ -117,6 +117,16 @@ const CallPage: React.FC = () => {
     stream?.getTracks().forEach((track) => track.stop());
   }, []);
 
+  const stopLocalMedia = useCallback(() => {
+    audioTrack?.stop();
+    videoTrack?.stop();
+    stopMediaStream(localStreamRef.current);
+    localStreamRef.current = null;
+    setLocalStream(null);
+    setAudioTrack(null);
+    setVideoTrack(null);
+  }, [audioTrack, stopMediaStream, videoTrack]);
+
   const attemptPlayAudio = useCallback((audio: HTMLAudioElement) => {
     audio.muted = false;
     audio.volume = Math.max(audio.volume, 0.8);
@@ -188,6 +198,12 @@ const CallPage: React.FC = () => {
       stream.getTracks().forEach((track) => track.stop());
     });
     remoteStreamsRef.current.clear();
+
+    remoteAudioElementsRef.current.forEach((audio) => {
+      audio.srcObject = null;
+      audio.remove();
+    });
+    remoteAudioElementsRef.current.clear();
 
     setParticipants((current) => current.filter((participant) => participant.isCurrentUser));
   }, []);
@@ -335,56 +351,21 @@ const CallPage: React.FC = () => {
     [clearConnections, scheduleNavigateHome],
   );
 
-  const ensureLocalAudioStream = useCallback(async (): Promise<MediaStream | null> => {
-    // если уже есть стрим с аудио — просто возвращаем
-    if (hasActiveAudioTrack(localStreamRef.current)) {
-      return localStreamRef.current;
-    }
+  const ensureLocalAudioStream = useCallback(
+    async (userInitiated = false): Promise<MediaStream | null> => {
+      if (audioTrack && audioTrack.readyState === "live") {
+        if (!localStreamRef.current || !localStreamRef.current.getAudioTracks().includes(audioTrack)) {
+          rebuildLocalStream(audioTrack, videoTrack);
+        }
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      const [track] = stream.getAudioTracks();
+        setMicOn(audioTrack.enabled);
 
-      if (!track) {
-        throw new Error("No audio track");
+        return localStreamRef.current;
       }
 
-      // eslint-disable-next-line no-console
-      console.log("[Media] ensureLocalAudioStream acquired track", {
-        id: track.id,
-        label: track.label,
-      });
-
-      setMediaError(null);
-      setAudioTrack(track);
-      const combinedStream = rebuildLocalStream(track, videoTrack);
-
-      if (combinedStream) {
-        return combinedStream;
-      }
-
-      localStreamRef.current = stream;
-      setLocalStream(stream);
-      setMicOn(true);
-
-      return stream;
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("[Media] ensureLocalAudioStream failed", error);
-      setMediaError("Нет доступа к микрофону");
-      return null;
-    }
-  }, [rebuildLocalStream, setAudioTrack, setLocalStream, setMediaError, setMicOn, videoTrack]);
-
-  const requestMicrophone = useCallback(
-    async (userInitiated = false) => {
       micChangeByUserRef.current = userInitiated;
       setIsRequestingMic(true);
       setMediaError(null);
-
-      if (audioTrack) {
-        audioTrack.stop();
-      }
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -395,6 +376,7 @@ const CallPage: React.FC = () => {
         }
 
         track.enabled = true;
+
         // eslint-disable-next-line no-console
         console.log("[Media] acquired microphone track", {
           id: track.id,
@@ -404,15 +386,17 @@ const CallPage: React.FC = () => {
         });
 
         setAudioTrack(track);
-        const newStream = rebuildLocalStream(track, videoTrack);
         setMicOn(true);
 
-        // 👉 сразу перевешиваем треки на все активные peer'ы
-        if (newStream) {
-          peersRef.current.forEach((peer) => {
-            attachLocalTracks(peer, newStream);
-          });
-        }
+        const combinedStream = rebuildLocalStream(track, videoTrack) ?? stream;
+        localStreamRef.current = combinedStream;
+        setLocalStream(combinedStream);
+
+        peersRef.current.forEach((peer) => {
+          attachLocalTracks(peer, combinedStream);
+        });
+
+        return combinedStream;
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error("Failed to get microphone access", error);
@@ -420,11 +404,12 @@ const CallPage: React.FC = () => {
         setAudioTrack(null);
         rebuildLocalStream(null, videoTrack);
         setMicOn(false);
+        return null;
       } finally {
         setIsRequestingMic(false);
       }
     },
-    [audioTrack, rebuildLocalStream, videoTrack, attachLocalTracks],
+    [attachLocalTracks, audioTrack, rebuildLocalStream, videoTrack],
   );
 
   const toggleMicrophone = () => {
@@ -433,39 +418,22 @@ const CallPage: React.FC = () => {
 
     const track = audioTrack;
 
-    // Если трека нет или он уже закончился — пересоздаём микрофон и перевешиваем на все peer'ы
-    if (!track || track.readyState === "ended") {
+    if (!track || track.readyState !== "live") {
       // eslint-disable-next-line no-console
-      console.log("[Media] toggle microphone: no valid track, reacquiring...");
-      void (async () => {
-        await requestMicrophone(true);
-        const stream = localStreamRef.current;
-
-        if (stream) {
-          peersRef.current.forEach((peer) => {
-            attachLocalTracks(peer, stream);
-          });
-        }
-      })();
-
+      console.log("[Media] toggle microphone: no valid track, acquiring...");
+      void ensureLocalAudioStream(true);
       return;
     }
 
-    // Нормальный случай: живой трек есть — просто включаем/выключаем
-    setMicOn((prev) => {
-      const next = !prev;
+    const nextState = !track.enabled;
+    track.enabled = nextState;
+    setMicOn(track.enabled);
 
-      // сразу применяем к треку, чтобы не ждать useEffect
-      track.enabled = next;
-
-      // eslint-disable-next-line no-console
-      console.log("[Media] toggle microphone", {
-        nextState: next,
-        trackId: track.id,
-        readyState: track.readyState,
-      });
-
-      return next;
+    // eslint-disable-next-line no-console
+    console.log("[Media] toggle microphone", {
+      nextState: track.enabled,
+      trackId: track.id,
+      readyState: track.readyState,
     });
   };
 
@@ -514,8 +482,8 @@ const CallPage: React.FC = () => {
     }
 
     hasAutoRequestedMicRef.current = true;
-    void requestMicrophone(false);
-  }, [requestMicrophone]);
+    void ensureLocalAudioStream(false);
+  }, [ensureLocalAudioStream]);
 
   useEffect(() => {
     const handleUserInteraction = () => {
@@ -578,9 +546,7 @@ const CallPage: React.FC = () => {
     const remoteAudioElements = remoteAudioElementsRef.current;
 
     return () => {
-      audioTrack?.stop();
-      videoTrack?.stop();
-      stopMediaStream(localStreamRef.current);
+      stopLocalMedia();
 
       remoteAudioElements.forEach((audio) => {
         audio.srcObject = null;
@@ -593,7 +559,7 @@ const CallPage: React.FC = () => {
       }
       toggleSoundContextRef.current = null;
     };
-  }, [audioTrack, stopMediaStream, videoTrack]);
+  }, [stopLocalMedia]);
 
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
@@ -781,9 +747,11 @@ const CallPage: React.FC = () => {
         remoteStreamsRef.current.delete(participantId);
       }
 
+      removeRemoteAudioElement(participantId);
+
       removeParticipant(participantId);
     },
-    [removeParticipant],
+    [removeParticipant, removeRemoteAudioElement],
   );
 
   const sendSignalingMessage = useCallback((message: OutgoingSignalingMessage) => {
@@ -807,10 +775,14 @@ const CallPage: React.FC = () => {
   }, []);
 
   const createPeerConnection = useCallback(
-    (participantId: string, stream: MediaStream) => {
-      const hasAudio = hasActiveAudioTrack(stream);
+    async (participantId: string) => {
+      let stream = localStreamRef.current;
 
-      if (!hasAudio) {
+      if (!hasActiveAudioTrack(stream)) {
+        stream = await ensureLocalAudioStream();
+      }
+
+      if (!stream || !hasActiveAudioTrack(stream)) {
         // eslint-disable-next-line no-console
         console.warn("[RTC] skip creating peer without active audio", { participantId });
         return null;
@@ -835,7 +807,7 @@ const CallPage: React.FC = () => {
         iceServers,
       });
 
-      ensureRemoteAudioElement(participantId);
+      const audioElement = ensureRemoteAudioElement(participantId);
 
       peer.onicecandidate = (event) => {
         if (event.candidate && !Number.isNaN(targetUserId)) {
@@ -851,34 +823,34 @@ const CallPage: React.FC = () => {
           participantId,
           trackId: event.track.id,
           kind: event.track.kind,
-          streams: event.streams.map((stream) => ({ id: stream.id, active: stream.active })),
+          streams: event.streams.map((incoming) => ({ id: incoming.id, active: incoming.active })),
         });
 
         const existingStream = remoteStreamsRef.current.get(participantId);
-        const stream = existingStream ?? event.streams[0] ?? new MediaStream();
+        const remoteStream = existingStream ?? event.streams[0] ?? new MediaStream();
 
-        if (!stream.getTracks().includes(event.track)) {
-          stream.addTrack(event.track);
+        if (!remoteStream.getTracks().includes(event.track)) {
+          remoteStream.addTrack(event.track);
         }
 
-        remoteStreamsRef.current.set(participantId, stream);
+        remoteStreamsRef.current.set(participantId, remoteStream);
 
-        const audioElement = ensureRemoteAudioElement(participantId);
+        const element = audioElement ?? ensureRemoteAudioElement(participantId);
 
-        if (audioElement && audioElement.srcObject !== stream) {
-          audioElement.srcObject = stream;
+        if (element && element.srcObject !== remoteStream) {
+          element.srcObject = remoteStream;
         }
 
-        if (audioElement) {
-          attemptPlayAudio(audioElement);
+        if (element) {
+          attemptPlayAudio(element);
         }
 
         updateParticipant({
           id: participantId,
           color: getParticipantColor(participantId),
-          hasVideo: stream.getVideoTracks().some((track) => track.enabled),
-          hasRemoteAudio: event.track.kind === "audio" || stream.getAudioTracks().length > 0,
-          stream,
+          hasVideo: remoteStream.getVideoTracks().some((track) => track.enabled),
+          hasRemoteAudio: event.track.kind === "audio" || remoteStream.getAudioTracks().length > 0,
+          stream: remoteStream,
         });
       };
 
@@ -929,20 +901,6 @@ const CallPage: React.FC = () => {
         updateParticipant({ id: participantId, iceConnectionState: peer.iceConnectionState });
       };
 
-      peer.onnegotiationneeded = async () => {
-        try {
-          const offer = await peer.createOffer();
-          await peer.setLocalDescription(offer);
-
-          if (!Number.isNaN(targetUserId)) {
-            sendSignalingMessage({ type: "offer", payload: offer, to_user_id: targetUserId });
-          }
-        } catch (error) {
-          // eslint-disable-next-line no-console
-          console.error("Failed to renegotiate connection", error);
-        }
-      };
-
       attachLocalTracks(peer, stream);
 
       peersRef.current.set(participantId, peer);
@@ -955,6 +913,7 @@ const CallPage: React.FC = () => {
       attachLocalTracks,
       attemptPlayAudio,
       cleanupPeer,
+      ensureLocalAudioStream,
       ensureRemoteAudioElement,
       getParticipantColor,
       iceServers,
@@ -966,19 +925,7 @@ const CallPage: React.FC = () => {
   const handleOffer = useCallback(
     async (fromUser: SignalingUser, payload: RTCSessionDescriptionInit) => {
       const participantId = String(fromUser.id);
-      let stream = localStreamRef.current;
-
-      if (!hasActiveAudioTrack(stream)) {
-        stream = await ensureLocalAudioStream();
-      }
-
-      if (!stream || !hasActiveAudioTrack(stream)) {
-        // eslint-disable-next-line no-console
-        console.warn("[Media] Unable to handle offer without local audio stream");
-        return;
-      }
-
-      const peer = createPeerConnection(participantId, stream);
+      const peer = await createPeerConnection(participantId);
       const targetUserId = Number.parseInt(participantId, 10);
 
       if (!peer) {
@@ -1015,7 +962,6 @@ const CallPage: React.FC = () => {
     },
     [
       createPeerConnection,
-      ensureLocalAudioStream,
       getParticipantColor,
       getParticipantHandle,
       getParticipantName,
@@ -1075,19 +1021,7 @@ const CallPage: React.FC = () => {
   const startOfferFlow = useCallback(
     async (remoteUser: SignalingUser) => {
       const participantId = String(remoteUser.id);
-      let stream = localStreamRef.current;
-
-      if (!hasActiveAudioTrack(stream)) {
-        stream = await ensureLocalAudioStream();
-      }
-
-      if (!stream || !hasActiveAudioTrack(stream)) {
-        // eslint-disable-next-line no-console
-        console.warn("[Media] Unable to start offer without local audio stream");
-        return;
-      }
-
-      const peer = createPeerConnection(participantId, stream);
+      const peer = await createPeerConnection(participantId);
 
       if (!peer) {
         return;
@@ -1107,7 +1041,6 @@ const CallPage: React.FC = () => {
     },
   [
     createPeerConnection,
-    ensureLocalAudioStream,
     getParticipantColor,
     getParticipantHandle,
     getParticipantName,
@@ -1323,6 +1256,7 @@ const CallPage: React.FC = () => {
   const leaveCall = () => {
     websocketRef.current?.close();
     clearConnections();
+    stopLocalMedia();
 
     navigate("/");
   };
@@ -1333,27 +1267,6 @@ const CallPage: React.FC = () => {
       .map((part) => part[0])
       .join("")
       .toUpperCase();
-
-  // DEBUG: локальный звук (ЭХО)
-  // !!! не оставляй это в проде, только для теста
-  const DebugLocalAudio: React.FC = () => {
-    if (!localStreamRef.current) return null;
-
-    return (
-      <div style={{ marginTop: 12 }}>
-        <p className="muted">DEBUG: локальный звук (нажми ▶️, чтобы услышать себя)</p>
-        <audio
-          controls
-          style={{ width: "100%", marginTop: 4 }}
-          ref={(el) => {
-            if (el && localStreamRef.current && el.srcObject !== localStreamRef.current) {
-              el.srcObject = localStreamRef.current;
-            }
-          }}
-        />
-      </div>
-    );
-  };
 
   const isMicrophoneActive = isMicOn && hasActiveAudioTrack(localStreamRef.current);
 
@@ -1457,19 +1370,6 @@ const CallPage: React.FC = () => {
 
             {participant.isCurrentUser ? <span className="call-badge">Вы</span> : null}
             {!participant.hasVideo ? <span className="call-video-off">Видео выключено</span> : null}
-
-            {/* DEBUG: ручное воспроизведение удалённого аудио */}
-            {!participant.isCurrentUser && participant.stream ? (
-              <audio
-                controls
-                style={{ marginTop: 8 }}
-                ref={(element) => {
-                  if (element && participant.stream && element.srcObject !== participant.stream) {
-                    element.srcObject = participant.stream;
-                  }
-                }}
-              />
-            ) : null}
           </div>
         ))}
       </div>
@@ -1519,9 +1419,6 @@ const CallPage: React.FC = () => {
         </button>
       </div>
 
-      {/* DEBUG: локальный звук, чтобы проверить, что микрофон реально пишет */}
-      <DebugLocalAudio />
-
       {mediaError ? (
         <div className="alert" role="alert">
           <p className="alert__title">{mediaError}</p>
@@ -1529,7 +1426,7 @@ const CallPage: React.FC = () => {
           <button
             type="button"
             className="outline"
-            onClick={() => requestMicrophone(true)}
+            onClick={() => ensureLocalAudioStream(true)}
             disabled={isRequestingMic}
           >
             Разрешить микрофон
