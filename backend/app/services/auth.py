@@ -9,7 +9,7 @@ from typing import Any
 from urllib.parse import parse_qsl
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -192,16 +192,24 @@ async def _resolve_user_from_token(token: str, session: AsyncSession, secret_key
 
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
     session: AsyncSession = Depends(get_session),
 ) -> User:
-    """Extract and validate the current user from a bearer token."""
+    """Extract and validate the current user from httpOnly cookie or bearer token (fallback)."""
 
-    if credentials is None:
-        logger.warning("[get_current_user] no Authorization header or wrong scheme")
+    # Try to get token from httpOnly cookie first (preferred method)
+    token = request.cookies.get("access_token")
+
+    # Fallback to Authorization header for backwards compatibility
+    if not token and credentials:
+        token = credentials.credentials
+        logger.info("[get_current_user] using Authorization header (fallback)")
+
+    if not token:
+        logger.warning("[get_current_user] no token found in cookie or Authorization header")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
-    token = credentials.credentials
     logger.info(
         "[get_current_user] got token_prefix=%s",
         token[:15] + "..." if token else "<empty>",

@@ -3,7 +3,6 @@ import React, {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -11,10 +10,7 @@ import { authorizeTelegram } from "../services/auth";
 import { getTelegramWebApp } from "../services/telegram";
 import type { AuthUser } from "../types/auth";
 
-export const AUTH_STORAGE_KEY = "telegram-auth-v2";
-
 export interface AuthContextValue {
-  token: string | null;
   user: AuthUser | null;
   isAuthorizing: boolean;
   authError: string | null;
@@ -29,55 +25,17 @@ interface AuthProviderProps {
   children: React.ReactNode;
 }
 
-interface StoredAuthData {
-  token: string;
-  user: AuthUser;
-}
-
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isAuthorizing, setIsAuthorizing] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [hasTriedAuth, setHasTriedAuth] = useState(false);
 
-  useEffect(() => {
-    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-
-    if (!stored) {
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(stored) as StoredAuthData;
-      setToken(parsed.token);
-      setUser(parsed.user);
-      setHasTriedAuth(true);
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("Failed to parse stored auth data", error);
-      localStorage.removeItem(AUTH_STORAGE_KEY);
-    }
-  }, []);
-
-  const setAuthData = useCallback((newToken: string, newUser: AuthUser) => {
-    setToken(newToken);
-    setUser(newUser);
-    setHasTriedAuth(true);
-    // eslint-disable-next-line no-console
-    console.log("[Auth] storing backend access token", `${newToken.substring(0, 10)}...${newToken.substring(newToken.length - 4)}`);
-    localStorage.setItem(
-      AUTH_STORAGE_KEY,
-      JSON.stringify({ token: newToken, user: newUser } satisfies StoredAuthData),
-    );
-  }, []);
-
   const clearAuth = useCallback(() => {
-    setToken(null);
     setUser(null);
     setAuthError(null);
     setHasTriedAuth(false);
-    localStorage.removeItem(AUTH_STORAGE_KEY);
+    // Token is in httpOnly cookie, cleared by backend on logout
   }, []);
 
   const loginWithTelegram = useCallback(async () => {
@@ -94,10 +52,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     try {
       const response = await authorizeTelegram();
-      setAuthData(response.access_token, response.user);
+      setUser(response.user);
 
       // eslint-disable-next-line no-console
-      console.log("[Auth] success", response.user);
+      console.log("[Auth] success - token stored in httpOnly cookie", response.user);
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error("[Auth] failed to authorize Telegram user", error);
@@ -106,11 +64,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       setIsAuthorizing(false);
     }
-  }, [isAuthorizing, setAuthData]);
+  }, [isAuthorizing]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      token,
       user,
       isAuthorizing,
       authError,
@@ -118,7 +75,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       loginWithTelegram,
       clearAuth,
     }),
-    [authError, clearAuth, hasTriedAuth, isAuthorizing, loginWithTelegram, token, user],
+    [authError, clearAuth, hasTriedAuth, isAuthorizing, loginWithTelegram, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

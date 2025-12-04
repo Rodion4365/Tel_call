@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -35,18 +35,39 @@ class UserResponse(BaseModel):
 
 
 class AuthResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    expires_in: int
     user: UserResponse
+    expires_in: int
+
+
+class WebSocketTokenResponse(BaseModel):
+    token: str
+
+
+@router.get("/ws-token", response_model=WebSocketTokenResponse)
+async def get_websocket_token(request: Request) -> WebSocketTokenResponse:
+    """Get a token from httpOnly cookie for WebSocket connections.
+
+    WebSocket cannot automatically send httpOnly cookies, so this endpoint
+    allows authenticated users to retrieve their token for WebSocket auth.
+    """
+    token = request.cookies.get("access_token")
+
+    if not token:
+        logger.warning("[get_websocket_token] no token found in cookie")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
+    return WebSocketTokenResponse(token=token)
 
 
 @router.post("/telegram", response_model=AuthResponse, status_code=status.HTTP_200_OK)
 @limiter.limit("5/minute")
 async def authorize_telegram(
-    request: Request, payload: TelegramAuthRequest, session: AsyncSession = Depends(get_session)
+    request: Request,
+    response: Response,
+    payload: TelegramAuthRequest,
+    session: AsyncSession = Depends(get_session),
 ) -> AuthResponse:
-    """Validate Telegram initData, persist user, and issue a short-lived token."""
+    """Validate Telegram initData, persist user, and issue httpOnly cookie with JWT."""
 
     logger.info("Received Telegram auth request")
     telegram_user = authenticate_user_from_init_data(payload.init_data)
@@ -61,10 +82,20 @@ async def authorize_telegram(
     )
     settings = get_settings()
 
+    # Set httpOnly cookie with JWT token
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        secure=True,  # Only sent over HTTPS
+        samesite="lax",  # CSRF protection
+        max_age=settings.access_token_expire_minutes * 60,
+        path="/",
+    )
+
     logger.info("Authorized Telegram user id=%s username=%s", user.id, user.username)
 
     return AuthResponse(
-        access_token=token,
         expires_in=settings.access_token_expire_minutes * 60,
         user=user,
     )
