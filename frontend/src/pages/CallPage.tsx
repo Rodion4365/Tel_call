@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { useWebSocketToken } from "../hooks/useWebSocketToken";
+import { useWebAppConnection } from "../contexts/WebAppConnectionContext";
 import { fetchIceServers, getWebSocketBaseUrl } from "../services/webrtc";
+import avatarPlaceholder from "../assets/avatar-placeholder.svg";
 
 interface SignalingUser {
   id: number;
@@ -59,8 +60,8 @@ const CallPage: React.FC = () => {
   const { id: callId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
-  const { getToken } = useWebSocketToken();
+  const { token, user } = useAuth();
+  const { user: telegramUser } = useWebAppConnection();
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const joinUrl =
     searchParams.get("join_url") ?? (location.state as LocationState | null)?.join_url ?? "";
@@ -78,6 +79,7 @@ const CallPage: React.FC = () => {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [callError, setCallError] = useState<string | null>(null);
   const [callConnected, setCallConnected] = useState(false);
+  const [gridColumns, setGridColumns] = useState(1);
 
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
@@ -535,6 +537,38 @@ const CallPage: React.FC = () => {
   useEffect(() => {
     fetchIceServers().then(setIceServers);
   }, []);
+
+  const participantCount = participants.length;
+
+  const updateGridColumns = useCallback(() => {
+    const count = Math.max(1, participantCount);
+    const maxColsByParticipants = Math.min(3, count);
+    const width = window.innerWidth;
+
+    let cols = maxColsByParticipants;
+
+    if (width < 320) {
+      cols = Math.min(2, cols);
+    }
+
+    if (width < 240) {
+      cols = 1;
+    }
+
+    setGridColumns(cols);
+  }, [participantCount]);
+
+  useEffect(() => {
+    updateGridColumns();
+  }, [updateGridColumns]);
+
+  useEffect(() => {
+    window.addEventListener("resize", updateGridColumns);
+
+    return () => {
+      window.removeEventListener("resize", updateGridColumns);
+    };
+  }, [updateGridColumns]);
 
   useEffect(() => {
     if (!localStream) {
@@ -1205,198 +1239,162 @@ const CallPage: React.FC = () => {
       .join("")
       .toUpperCase();
 
-  const isMicrophoneActive = isMicOn && hasActiveAudioTrack(localStreamRef.current);
-
   return (
-    <div className="panel call-panel">
-      <div className="call-header">
-        <div>
-          <p className="eyebrow">Комната звонка</p>
-          <h1 className="call-title">Звонок #{callId ?? "—"}</h1>
-          <p className="muted">Видео выключено по умолчанию. Можно включить позже.</p>
-          <div className="call-status" role="status" aria-live="polite">
-            {isMicrophoneActive ? (
-              <span className="call-status__badge" aria-label="Микрофон включён">
-                <span className="call-status__icon" aria-hidden>
-                  🎤
-                </span>
-                <span>Микрофон включён</span>
-              </span>
-            ) : (
-              <span className="call-status__badge call-status__badge--muted" aria-label="Микрофон выключен">
-                <span className="call-status__icon" aria-hidden>
-                  🔇
-                </span>
-                <span>Микрофон выключен</span>
-              </span>
-            )}
+    <div className="call-screen">
+      <main className="call-page">
+        {callError ? (
+          <div className="alert call-alert" role="alert">
+            <p className="alert__title">{callError}</p>
+            <p className="alert__description">Попробуйте переподключиться или вернуться назад.</p>
           </div>
-        </div>
-        <div className="call-link">
-          <p className="muted">Ссылка приглашения</p>
-          <p className="call-link__value" title={joinUrl || "Нет ссылки"}>
-            {joinUrl || "join_url не передан"}
-          </p>
-        </div>
-      </div>
+        ) : null}
 
-      {callError ? (
-        <div className="alert" role="alert">
-          <p className="alert__title">{callError}</p>
-          <p className="alert__description">Попробуйте переподключиться или вернуться назад.</p>
-        </div>
-      ) : null}
+        <section
+          className="call-grid"
+          role="list"
+          style={{ gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))` }}
+        >
+          {participants.map((participant) => {
+            const avatarUrl =
+              participant.isCurrentUser && telegramUser?.photo_url
+                ? telegramUser.photo_url
+                : avatarPlaceholder;
+            const initials = getInitials(participant.name);
 
-      <div className="call-grid" role="list">
-        {participants.map((participant) => (
-          <div
-            key={participant.id}
-            className={`call-tile ${participant.isSpeaking ? "call-tile--speaking" : ""}`}
-            role="listitem"
-            aria-label={`${participant.name}${participant.isSpeaking ? " говорит" : ""}`}
-          >
-            <div className="call-video">
-              {participant.hasVideo && participant.stream ? (
-                <video
-                  className="call-video__feed"
-                  aria-label={`Видео ${participant.name}`}
-                  autoPlay
-                  playsInline
-                  muted={participant.isCurrentUser}
-                  ref={(element) => {
-                    if (element && participant.stream) {
-                      if (element.srcObject !== participant.stream) {
-                        element.srcObject = participant.stream;
+            return (
+              <article key={participant.id} className="call-tile" role="listitem" aria-label={participant.name}>
+                <div
+                  className="call-tile__video"
+                  data-self={participant.isCurrentUser ? "true" : undefined}
+                >
+                  {participant.hasVideo && participant.stream ? (
+                    <video
+                      className="call-tile__video-feed"
+                      aria-label={`Видео ${participant.name}`}
+                      autoPlay
+                      playsInline
+                      muted={participant.isCurrentUser}
+                      ref={(element) => {
+                        if (element && participant.stream) {
+                          if (element.srcObject !== participant.stream) {
+                            element.srcObject = participant.stream;
+                          }
+
+                          void element.play().catch(() => undefined);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <img
+                        className="call-tile__image"
+                        src={avatarUrl}
+                        alt={`Аватар ${participant.name}`}
+                      />
+                      <span className="call-tile__initial">{initials}</span>
+                    </>
+                  )}
+
+                  {participant.isCurrentUser ? <span className="call-tile__badge">Вы</span> : null}
+                </div>
+
+                {!participant.isCurrentUser && participant.stream ? (
+                  <audio
+                    autoPlay
+                    playsInline
+                    ref={(el) => {
+                      if (!el) {
+                        remoteAudioElementsRef.current.delete(participant.id);
+                        return;
                       }
 
-                      void element.play().catch(() => undefined);
-                    }
-                  }}
-                />
-              ) : (
-                <div
-                  className="call-avatar"
-                  style={{ background: participant.color }}
-                  aria-label={`Видео ${participant.name} выключено`}
-                >
-                  <span>{getInitials(participant.name)}</span>
-                </div>
-              )}
-            </div>
+                      remoteAudioElementsRef.current.set(participant.id, el);
 
-            {!participant.isCurrentUser && participant.stream ? (
-              <audio
-                autoPlay
-                playsInline
-                ref={(el) => {
-                  if (!el) {
-                    remoteAudioElementsRef.current.delete(participant.id);
-                    return;
-                  }
+                      if (el.srcObject !== participant.stream) {
+                        el.srcObject = participant.stream;
+                      }
 
-                  remoteAudioElementsRef.current.set(participant.id, el);
+                      attemptPlayAudio(el);
+                    }}
+                  />
+                ) : null}
 
-                  if (el.srcObject !== participant.stream) {
-                    el.srcObject = participant.stream;
-                  }
+                <div className="call-tile__name">{participant.name}</div>
+              </article>
+            );
+          })}
+        </section>
 
-                  attemptPlayAudio(el);
-                }}
-              />
-            ) : null}
-
-            <div className="call-participant">
-              <div>
-                <p className="call-participant__name">{participant.name}</p>
-                <p className="call-participant__handle">{participant.handle}</p>
-              </div>
-              {participant.isSpeaking ? <span className="call-speaking">Говорит</span> : null}
-            </div>
-
-            <div className="call-participant__diagnostics">
-              <p className="muted">
-                {participant.hasRemoteAudio ? "Аудио получено" : "Аудио не получено"}
-              </p>
-              <p className="muted">ICE: {participant.iceConnectionState ?? "n/a"}</p>
-            </div>
-
-            {participant.isCurrentUser ? <span className="call-badge">Вы</span> : null}
-            {!participant.hasVideo ? <span className="call-video-off">Видео выключено</span> : null}
+        {mediaError ? (
+          <div className="alert call-alert" role="alert">
+            <p className="alert__title">{mediaError}</p>
+            <p className="alert__description">Предоставьте доступ, чтобы мы включили микрофон.</p>
+            <button
+              type="button"
+              className="outline"
+              onClick={() => ensureLocalAudioStream()}
+              disabled={isRequestingMic}
+            >
+              Разрешить микрофон
+            </button>
           </div>
-        ))}
-      </div>
+        ) : null}
 
-      <div className="call-controls" aria-label="Панель управления звонком">
+        {audioUnlockNeeded ? (
+          <div className="alert call-alert" role="alert">
+            <p className="alert__title">Нажмите, чтобы включить звук</p>
+            <p className="alert__description">
+              Мы не смогли автоматически включить звук удалённых участников.
+            </p>
+            <button type="button" className="outline" onClick={unlockRemoteAudio}>
+              Включить звук
+            </button>
+          </div>
+        ) : null}
+
+        {isToastVisible && <div className="toast">Ссылка скопирована</div>}
+      </main>
+
+      <footer className="call-toolbar" aria-label="Панель управления звонком">
         <button
           type="button"
-          className={`call-control ${isMicOn ? "call-control--active" : "call-control--muted"}`}
+          className={`call-btn ${isMicOn ? "call-btn--active" : ""}`}
           onClick={toggleMicrophone}
           disabled={isRequestingMic}
+          aria-label="Микрофон"
         >
-          <span className="call-control__icon" aria-hidden>
-            {isMicOn ? "🎤" : "🔇"}
-          </span>
-          <span>{isMicOn ? "Микрофон включен" : "Микрофон выключен"}</span>
+          🎙️
         </button>
 
         <button
           type="button"
-          className={`call-control ${isCameraOn ? "call-control--active" : "call-control--ghost"}`}
+          className={`call-btn ${isCameraOn ? "call-btn--active" : ""}`}
           onClick={toggleCamera}
           disabled={isRequestingCamera}
+          aria-label="Камера"
         >
-          <span className="call-control__icon" aria-hidden>
-            {isCameraOn ? "🎥" : "📷"}
-          </span>
-          <span>{isCameraOn ? "Камера включена" : "Камера выключена"}</span>
+          🎥
         </button>
 
         <button
           type="button"
-          className="call-control call-control--ghost"
+          className="call-btn"
           onClick={copyLink}
           disabled={!joinUrl}
+          aria-label="Скопировать ссылку"
         >
-          <span className="call-control__icon" aria-hidden>
-            🔗
-          </span>
-          <span>Скопировать ссылку</span>
+          🔗
         </button>
 
-        <button type="button" className="call-control call-control--danger" onClick={leaveCall}>
-          <span className="call-control__icon" aria-hidden>
-            🚪
-          </span>
-          <span>Выйти</span>
+        <button
+          type="button"
+          className="call-btn call-btn--danger"
+          onClick={leaveCall}
+          aria-label="Выйти"
+        >
+          📞
         </button>
-      </div>
-
-      {mediaError ? (
-        <div className="alert" role="alert">
-          <p className="alert__title">{mediaError}</p>
-          <p className="alert__description">Предоставьте доступ, чтобы мы включили микрофон.</p>
-          <button
-            type="button"
-            className="outline"
-            onClick={() => ensureLocalAudioStream()}
-            disabled={isRequestingMic}
-          >
-            Разрешить микрофон
-          </button>
-        </div>
-      ) : null}
-
-      {audioUnlockNeeded ? (
-        <div className="alert" role="alert">
-          <p className="alert__title">Нажмите, чтобы включить звук</p>
-          <p className="alert__description">Мы не смогли автоматически включить звук удалённых участников.</p>
-          <button type="button" className="outline" onClick={unlockRemoteAudio}>
-            Включить звук
-          </button>
-        </div>
-      ) : null}
-
-      {isToastVisible && <div className="toast">Ссылка скопирована</div>}
+      </footer>
     </div>
   );
 };

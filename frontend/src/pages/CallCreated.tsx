@@ -135,38 +135,21 @@ const CallCreated: React.FC = () => {
   return (
     <div className="panel call-created">
       <div className="call-created__header">
-        <div>
-          <p className="eyebrow">Звонок создан</p>
-          <h1>Поделитесь ссылкой или присоединяйтесь сами</h1>
-        </div>
-        <button className="ghost-button" onClick={() => navigate("/")}>Назад</button>
+        <p className="eyebrow">Звонок создан</p>
+        <h1 className="call-created__title">Поделитесь ссылкой и присоединитесь к звонку</h1>
       </div>
 
       <div className="call-created__content">
-        <div className="call-created__link-card">
-          <div>
-            <p className="muted">Ссылка для приглашения</p>
-            <p className="call-created__link" title={joinUrl || "Нет ссылки"}>
-              {joinUrl || "join_url не передан"}
-            </p>
-          </div>
-          <button className="secondary" onClick={copyLink} disabled={!joinUrl}>
-            Скопировать
-          </button>
-        </div>
-
-        <div className="call-created__actions">
+        <div className="call-created__actions-row">
           <button className="primary" onClick={handleJoinCall} disabled={!call_id}>
-            Присоединиться к звонку
+            Присоединиться
           </button>
-          <div className="call-created__actions-row">
-            <button className="secondary" onClick={copyLink} disabled={!joinUrl}>
-              Скопировать ссылку
-            </button>
-            <button className="outline" onClick={handleShare} disabled={!joinUrl}>
-              Поделиться ссылкой
-            </button>
-          </div>
+          <button className="secondary" onClick={copyLink} disabled={!joinUrl}>
+            Скопировать 🔗
+          </button>
+          <button className="outline" onClick={handleShare} disabled={!joinUrl}>
+            Поделиться 🔗
+          </button>
         </div>
       </div>
 

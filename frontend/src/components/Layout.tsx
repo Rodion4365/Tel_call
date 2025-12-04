@@ -1,28 +1,21 @@
 import React from "react";
+import { useLocation } from "react-router-dom";
 import "../styles.css";
+import { ConnectionBanner } from "./ConnectionBanner";
 
 interface LayoutProps {
   children: React.ReactNode;
-  isTelegramReady: boolean;
-  authStatus?: {
-    label: string;
-    variant: "online" | "offline" | "pending";
-  };
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, isTelegramReady, authStatus }) => {
+const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const location = useLocation();
+  const isCallPage = location.pathname.startsWith("/call/");
+
   return (
-    <div className="app-shell">
-      <div className="app-container">
-        <div className="status-row">
-          <span className={`status-pill ${isTelegramReady ? "status-online" : "status-offline"}`}>
-            {isTelegramReady ? "Telegram WebApp connected" : "Telegram WebApp not detected"}
-          </span>
-          {authStatus ? (
-            <span className={`status-pill status-${authStatus.variant}`}>{authStatus.label}</span>
-          ) : null}
-        </div>
-        <main className="app-content">{children}</main>
+    <div className={`app-shell ${isCallPage ? "app-shell--call" : ""}`}>
+      <div className={`app-container ${isCallPage ? "app-container--call" : ""}`}>
+        <ConnectionBanner />
+        <main className={`app-content ${isCallPage ? "app-content--call" : ""}`}>{children}</main>
       </div>
     </div>
   );
