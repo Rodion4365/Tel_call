@@ -11,6 +11,16 @@ from app.models import Call, CallStatus
 from app.services.signaling import notify_call_ended
 
 
+def _make_aware(dt: datetime | None) -> datetime | None:
+    """Convert naive datetime to timezone-aware UTC datetime."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        # Assume naive datetime is UTC
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 async def expire_calls() -> int:
     """Mark calls as expired when their expiry timestamp has passed."""
 
