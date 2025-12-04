@@ -43,6 +43,16 @@ def _extract_token(websocket: WebSocket) -> tuple[str | None, str | None]:
     return None, selected_protocol
 
 
+def _make_aware(dt: datetime | None) -> datetime | None:
+    """Convert naive datetime to timezone-aware UTC datetime."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        # Assume naive datetime is UTC
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 def _serialize_user(user: User) -> dict[str, Any]:
     return {
         "id": user.id,
@@ -60,7 +70,9 @@ async def _ensure_active_call(call_id: str) -> tuple[Call | None, str | None]:
     if not call:
         return None, "Call not found. Please create a new call."
 
-    if call.expires_at and call.expires_at < datetime.now(tz=timezone.utc):
+    # Handle both naive and aware datetimes for backwards compatibility
+    expires_at = _make_aware(call.expires_at)
+    if expires_at and expires_at < datetime.now(tz=timezone.utc):
         return None, "Call has expired. Please create a new call."
 
     if call.status != CallStatus.ACTIVE:

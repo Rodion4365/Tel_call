@@ -41,6 +41,16 @@ class JoinCallRequest(BaseModel):
     call_code: str = Field(..., min_length=1, max_length=255)
 
 
+def _make_aware(dt: datetime | None) -> datetime | None:
+    """Convert naive datetime to timezone-aware UTC datetime."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        # Assume naive datetime is UTC
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 def _build_join_url(call_id: str) -> str:
     settings = get_settings()
     if not settings.bot_username:
@@ -108,7 +118,9 @@ async def get_call(
 
     error_detail = None
 
-    if call.expires_at and call.expires_at < datetime.now(tz=timezone.utc):
+    # Handle both naive and aware datetimes for backwards compatibility
+    expires_at = _make_aware(call.expires_at)
+    if expires_at and expires_at < datetime.now(tz=timezone.utc):
         call.status = CallStatus.EXPIRED
         error_detail = "Call has expired"
     elif call.status != CallStatus.ACTIVE:
@@ -156,7 +168,9 @@ async def end_call(
     if call.creator_user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the organizer can end the call")
 
-    if call.expires_at and call.expires_at < datetime.now(tz=timezone.utc):
+    # Handle both naive and aware datetimes for backwards compatibility
+    expires_at = _make_aware(call.expires_at)
+    if expires_at and expires_at < datetime.now(tz=timezone.utc):
         call.status = CallStatus.EXPIRED
     elif call.status != CallStatus.ACTIVE:
         raise HTTPException(
@@ -208,7 +222,9 @@ async def join_call_by_code(
     if not call:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Call not found")
 
-    if call.expires_at and call.expires_at < datetime.now(tz=timezone.utc):
+    # Handle both naive and aware datetimes for backwards compatibility
+    expires_at = _make_aware(call.expires_at)
+    if expires_at and expires_at < datetime.now(tz=timezone.utc):
         call.status = CallStatus.EXPIRED
         error_detail = "Call has expired"
     elif call.status != CallStatus.ACTIVE:
