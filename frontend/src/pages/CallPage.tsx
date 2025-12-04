@@ -960,11 +960,16 @@ const CallPage: React.FC = () => {
       const participantId = String(fromUser.id);
       let stream = localStreamRef.current;
 
-      if (!stream) {
+      if (!stream || stream.getTracks().length === 0) {
         stream = await ensureLocalAudioStream();
       }
 
-      const peer = createPeerConnection(participantId, stream);
+      if (!stream) {
+        return;
+      }
+
+      const peer = createPeerConnection(participantId);
+      attachLocalTracks(peer, stream);
       const targetUserId = Number.parseInt(participantId, 10);
 
       try {
@@ -996,6 +1001,7 @@ const CallPage: React.FC = () => {
       });
     },
     [
+      attachLocalTracks,
       createPeerConnection,
       ensureLocalAudioStream,
       getParticipantColor,
