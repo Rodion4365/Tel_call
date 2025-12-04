@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
 import { getCallById } from "../services/calls";
 
 const CALL_ID_PATTERN = /^[A-Za-z0-9_-]{6,64}$/;
@@ -43,14 +42,13 @@ const extractCallId = (rawValue: string): string | null => {
 
 const JoinCallPage: React.FC = () => {
   const navigate = useNavigate();
-  const { token } = useAuth();
   const [callCode, setCallCode] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setSubmitting] = useState(false);
 
   const isSubmitDisabled = useMemo(
-    () => !callCode.trim() || !token || isSubmitting,
-    [callCode, isSubmitting, token],
+    () => !callCode.trim() || isSubmitting,
+    [callCode, isSubmitting],
   );
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -61,13 +59,6 @@ const JoinCallPage: React.FC = () => {
 
     if (!normalizedCode) {
       setErrorMessage("Введите ссылку или ID звонка");
-      return;
-    }
-
-    if (!token) {
-      // eslint-disable-next-line no-console
-      console.error("[JoinCall] missing auth token");
-      setErrorMessage("Авторизация не выполнена");
       return;
     }
 
@@ -84,7 +75,7 @@ const JoinCallPage: React.FC = () => {
       // eslint-disable-next-line no-console
       console.log("[JoinCall] resolving call", extractedCallId);
 
-      const response = await getCallById(extractedCallId, token);
+      const response = await getCallById(extractedCallId);
 
       // eslint-disable-next-line no-console
       console.log("[JoinCall] success", response);

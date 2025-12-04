@@ -1,18 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AUTH_STORAGE_KEY, useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/AuthContext";
 import { createCall } from "../services/calls";
 
 const CreateCallPage: React.FC = () => {
   const navigate = useNavigate();
-  const { token, user, isAuthorizing, loginWithTelegram } = useAuth();
+  const { user, isAuthorizing, loginWithTelegram } = useAuth();
   const [isSubmitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log("[Auth] token =", token);
-  }, [token]);
 
   const handleCreateCall = async () => {
     // eslint-disable-next-line no-console
@@ -25,36 +20,7 @@ const CreateCallPage: React.FC = () => {
         await loginWithTelegram();
       }
 
-      let authToken = token;
-
-      if (!authToken) {
-        const rawAuth = localStorage.getItem(AUTH_STORAGE_KEY);
-
-        if (rawAuth) {
-          try {
-            const parsedAuth = JSON.parse(rawAuth) as { token: string };
-            authToken = parsedAuth.token;
-          } catch (parseError) {
-            // eslint-disable-next-line no-console
-            console.error("[CreateCall] failed to parse stored auth", parseError);
-          }
-        }
-      }
-
-      if (!authToken) {
-        // eslint-disable-next-line no-console
-        console.error("[CreateCall] missing auth token");
-        setError("Не удалось авторизоваться. Попробуйте снова.");
-        return;
-      }
-
-      // eslint-disable-next-line no-console
-      console.log("[CreateCall] using auth token", authToken);
-
-      const response = await createCall(
-        { title: null, is_video_enabled: false },
-        authToken,
-      );
+      const response = await createCall({ title: null, is_video_enabled: false });
 
       // eslint-disable-next-line no-console
       console.log("[CreateCall] success", response);
