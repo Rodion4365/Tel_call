@@ -1059,8 +1059,14 @@ const CallPage: React.FC = () => {
       const participantId = String(remoteUser.id);
       let stream = localStreamRef.current;
 
-      if (!stream) {
+      if (!stream || stream.getAudioTracks().length === 0) {
         stream = await ensureLocalAudioStream();
+      }
+
+      if (!stream || stream.getAudioTracks().length === 0) {
+        // eslint-disable-next-line no-console
+        console.warn("[Media] Unable to start offer without local audio stream");
+        return;
       }
 
       const peer = createPeerConnection(participantId, stream);
