@@ -64,10 +64,9 @@ const CallPage: React.FC = () => {
     searchParams.get("join_url") ?? (location.state as LocationState | null)?.join_url ?? "";
 
   const [iceServers, setIceServers] = useState<RTCIceServer[]>([{ urls: "stun:stun.l.google.com:19302" }]);
-  const [audioTrack, setAudioTrack] = useState<MediaStreamTrack | null>(null);
   const [videoTrack, setVideoTrack] = useState<MediaStreamTrack | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [isMicOn, setMicOn] = useState(true);
+  const [isMicOn, setIsMicOn] = useState(true);
   const [isCameraOn, setCameraOn] = useState(false);
   const [isRequestingMic, setIsRequestingMic] = useState(false);
   const [isRequestingCamera, setIsRequestingCamera] = useState(false);
@@ -76,13 +75,12 @@ const CallPage: React.FC = () => {
   const [isToastVisible, setToastVisible] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [callError, setCallError] = useState<string | null>(null);
+  const [callConnected, setCallConnected] = useState(false);
 
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
-  const remoteAudioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const websocketRef = useRef<WebSocket | null>(null);
   const homeRedirectTimeoutRef = useRef<number | null>(null);
-  const hasAutoRequestedMicRef = useRef(false);
   const userInteractedRef = useRef(false);
   const toggleSoundContextRef = useRef<AudioContext | null>(null);
   const micChangeByUserRef = useRef(false);
@@ -93,39 +91,18 @@ const CallPage: React.FC = () => {
   >();
   const clearConnectionsRef = useRef<(() => void) | undefined>();
   const localStreamRef = useRef<MediaStream | null>(null);
-  const remoteAudioContainerRef = useRef<HTMLDivElement | null>(null);
-
-  const rebuildLocalStream = useCallback(
-    (audio: MediaStreamTrack | null = audioTrack, video: MediaStreamTrack | null = videoTrack) => {
-      const tracks = [audio, video].filter(Boolean) as MediaStreamTrack[];
-
-      if (!tracks.length) {
-        localStreamRef.current = null;
-        setLocalStream(null);
-        return null;
-      }
-
-      const stream = new MediaStream(tracks);
-      localStreamRef.current = stream;
-      setLocalStream(stream);
-      return stream;
-    },
-    [audioTrack, videoTrack],
-  );
+  const remoteAudioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
 
   const stopMediaStream = useCallback((stream: MediaStream | null) => {
     stream?.getTracks().forEach((track) => track.stop());
   }, []);
 
   const stopLocalMedia = useCallback(() => {
-    audioTrack?.stop();
-    videoTrack?.stop();
     stopMediaStream(localStreamRef.current);
     localStreamRef.current = null;
     setLocalStream(null);
-    setAudioTrack(null);
     setVideoTrack(null);
-  }, [audioTrack, stopMediaStream, videoTrack]);
+  }, [stopMediaStream]);
 
   const attemptPlayAudio = useCallback((audio: HTMLAudioElement) => {
     audio.muted = false;
@@ -139,43 +116,6 @@ const CallPage: React.FC = () => {
         console.warn("[Call] failed to autoplay remote audio", error);
         setAudioUnlockNeeded(true);
       });
-    }
-  }, []);
-
-  const ensureRemoteAudioElement = useCallback(
-    (participantId: string) => {
-      const container = remoteAudioContainerRef.current;
-
-      if (!container) {
-        return null;
-      }
-
-      let audioElement = remoteAudioElementsRef.current.get(participantId) ?? null;
-
-      if (!audioElement) {
-        audioElement = document.createElement("audio");
-        audioElement.autoplay = true;
-        audioElement.playsInline = true;
-        audioElement.controls = false;
-        audioElement.muted = false;
-        audioElement.volume = 1;
-        audioElement.dataset.participantId = participantId;
-        container.appendChild(audioElement);
-        remoteAudioElementsRef.current.set(participantId, audioElement);
-      }
-
-      return audioElement;
-    },
-    [],
-  );
-
-  const removeRemoteAudioElement = useCallback((participantId: string) => {
-    const existing = remoteAudioElementsRef.current.get(participantId);
-
-    if (existing) {
-      existing.srcObject = null;
-      existing.remove();
-      remoteAudioElementsRef.current.delete(participantId);
     }
   }, []);
 
@@ -351,106 +291,96 @@ const CallPage: React.FC = () => {
     [clearConnections, scheduleNavigateHome],
   );
 
-  const ensureLocalAudioStream = useCallback(
-    async (userInitiated = false): Promise<MediaStream | null> => {
-      if (audioTrack && audioTrack.readyState === "live") {
-        if (!localStreamRef.current || !localStreamRef.current.getAudioTracks().includes(audioTrack)) {
-          rebuildLocalStream(audioTrack, videoTrack);
-        }
+  const ensureLocalAudioStream = useCallback(async (): Promise<MediaStream | null> => {
+    if (localStreamRef.current && localStreamRef.current.getAudioTracks().length > 0) {
+      return localStreamRef.current;
+    }
 
-        setMicOn(audioTrack.enabled);
+    setIsRequestingMic(true);
+    setMediaError(null);
 
-        return localStreamRef.current;
-      }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+      stream.getAudioTracks().forEach((t) => {
+        t.enabled = true;
+      });
+      setIsMicOn(true);
+      peersRef.current.forEach((peer) => {
+        attachLocalTracks(peer, stream);
+      });
+      return stream;
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[Call] failed to get local audio", err);
+      setMediaError("Нет доступа к микрофону");
+      setIsMicOn(false);
+      return null;
+    } finally {
+      setIsRequestingMic(false);
+    }
+  }, [attachLocalTracks]);
 
-      micChangeByUserRef.current = userInitiated;
-      setIsRequestingMic(true);
-      setMediaError(null);
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        const [track] = stream.getAudioTracks();
-
-        if (!track) {
-          throw new Error("No audio track available");
-        }
-
-        track.enabled = true;
-
-        // eslint-disable-next-line no-console
-        console.log("[Media] acquired microphone track", {
-          id: track.id,
-          label: track.label,
-          settings: track.getSettings ? track.getSettings() : undefined,
-          userInitiated,
-        });
-
-        setAudioTrack(track);
-        setMicOn(true);
-
-        const combinedStream = rebuildLocalStream(track, videoTrack) ?? stream;
-        localStreamRef.current = combinedStream;
-        setLocalStream(combinedStream);
-
-        peersRef.current.forEach((peer) => {
-          attachLocalTracks(peer, combinedStream);
-        });
-
-        return combinedStream;
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error("Failed to get microphone access", error);
-        setMediaError("Нет доступа к микрофону");
-        setAudioTrack(null);
-        rebuildLocalStream(null, videoTrack);
-        setMicOn(false);
-        return null;
-      } finally {
-        setIsRequestingMic(false);
-      }
-    },
-    [attachLocalTracks, audioTrack, rebuildLocalStream, videoTrack],
-  );
-
-  const toggleMicrophone = () => {
-    // пользователь кликнул кнопку
+  const toggleMicrophone = async () => {
     micChangeByUserRef.current = true;
 
-    const track = audioTrack;
+    if (!localStreamRef.current || localStreamRef.current.getAudioTracks().length === 0) {
+      const stream = await ensureLocalAudioStream();
+      if (!stream) {
+        return;
+      }
+    }
 
-    if (!track || track.readyState !== "live") {
+    const stream = localStreamRef.current!;
+    const audioTracks = stream.getAudioTracks();
+
+    if (audioTracks.length === 0) {
       // eslint-disable-next-line no-console
-      console.log("[Media] toggle microphone: no valid track, acquiring...");
-      void ensureLocalAudioStream(true);
+      console.warn("[Call] no audio tracks in local stream");
       return;
     }
 
-    const nextState = !track.enabled;
-    track.enabled = nextState;
-    setMicOn(track.enabled);
-
-    // eslint-disable-next-line no-console
-    console.log("[Media] toggle microphone", {
-      nextState: track.enabled,
-      trackId: track.id,
-      readyState: track.readyState,
+    const next = !isMicOn;
+    audioTracks.forEach((track) => {
+      track.enabled = next;
     });
+
+    setIsMicOn(next);
   };
 
   const toggleCamera = async () => {
     if (isCameraOn) {
       // eslint-disable-next-line no-console
       console.log("[Media] turning camera off", { trackId: videoTrack?.id });
-      videoTrack?.stop();
+      const currentStream = localStreamRef.current;
+
+      if (videoTrack) {
+        videoTrack.stop();
+      }
+
+      if (currentStream) {
+        currentStream.getVideoTracks().forEach((track) => currentStream.removeTrack(track));
+      }
+
+      const audioTracks = currentStream?.getAudioTracks() ?? [];
+      const updatedStream = audioTracks.length ? new MediaStream(audioTracks) : null;
+
+      localStreamRef.current = updatedStream;
+      setLocalStream(updatedStream);
       setVideoTrack(null);
       setCameraOn(false);
-      rebuildLocalStream(audioTrack, null);
+
+      peersRef.current.forEach((peer) => {
+        attachLocalTracks(peer, updatedStream);
+      });
       return;
     }
 
     setIsRequestingCamera(true);
 
     try {
+      await ensureLocalAudioStream();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
       const [track] = stream.getVideoTracks();
 
@@ -465,9 +395,18 @@ const CallPage: React.FC = () => {
         label: track.label,
         settings: track.getSettings ? track.getSettings() : undefined,
       });
+
+      const baseTracks = localStreamRef.current?.getTracks() ?? [];
+      const mergedStream = new MediaStream([...baseTracks, track]);
+
+      localStreamRef.current = mergedStream;
+      setLocalStream(mergedStream);
       setVideoTrack(track);
       setCameraOn(true);
-      rebuildLocalStream(audioTrack, track);
+
+      peersRef.current.forEach((peer) => {
+        attachLocalTracks(peer, mergedStream);
+      });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error("Failed to get camera access", error);
@@ -477,13 +416,10 @@ const CallPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (hasAutoRequestedMicRef.current) {
-      return;
-    }
+    if (!callConnected) return;
 
-    hasAutoRequestedMicRef.current = true;
-    void ensureLocalAudioStream(false);
-  }, [ensureLocalAudioStream]);
+    void ensureLocalAudioStream();
+  }, [callConnected, ensureLocalAudioStream]);
 
   useEffect(() => {
     const handleUserInteraction = () => {
@@ -586,40 +522,6 @@ const CallPage: React.FC = () => {
   useEffect(() => {
     fetchIceServers().then(setIceServers);
   }, []);
-
-  useEffect(() => {
-    rebuildLocalStream();
-  }, [rebuildLocalStream]);
-
-  useEffect(() => {
-    const participantIds = new Set<string>();
-
-    participants.forEach((participant) => {
-      if (participant.isCurrentUser || !participant.stream) {
-        removeRemoteAudioElement(participant.id);
-        return;
-      }
-
-      participantIds.add(participant.id);
-      const audioElement = ensureRemoteAudioElement(participant.id);
-
-      if (!audioElement) {
-        return;
-      }
-
-      if (audioElement.srcObject !== participant.stream) {
-        audioElement.srcObject = participant.stream;
-      }
-
-      attemptPlayAudio(audioElement);
-    });
-
-    remoteAudioElementsRef.current.forEach((_, participantId) => {
-      if (!participantIds.has(participantId)) {
-        removeRemoteAudioElement(participantId);
-      }
-    });
-  }, [attemptPlayAudio, ensureRemoteAudioElement, participants, removeRemoteAudioElement]);
 
   useEffect(() => {
     if (!localStream) {
@@ -747,11 +649,16 @@ const CallPage: React.FC = () => {
         remoteStreamsRef.current.delete(participantId);
       }
 
-      removeRemoteAudioElement(participantId);
+      const audioElement = remoteAudioElementsRef.current.get(participantId);
+
+      if (audioElement) {
+        audioElement.srcObject = null;
+        remoteAudioElementsRef.current.delete(participantId);
+      }
 
       removeParticipant(participantId);
     },
-    [removeParticipant, removeRemoteAudioElement],
+    [removeParticipant],
   );
 
   const sendSignalingMessage = useCallback((message: OutgoingSignalingMessage) => {
@@ -807,8 +714,6 @@ const CallPage: React.FC = () => {
         iceServers,
       });
 
-      const audioElement = ensureRemoteAudioElement(participantId);
-
       peer.onicecandidate = (event) => {
         if (event.candidate && !Number.isNaN(targetUserId)) {
           // eslint-disable-next-line no-console
@@ -834,16 +739,6 @@ const CallPage: React.FC = () => {
         }
 
         remoteStreamsRef.current.set(participantId, remoteStream);
-
-        const element = audioElement ?? ensureRemoteAudioElement(participantId);
-
-        if (element && element.srcObject !== remoteStream) {
-          element.srcObject = remoteStream;
-        }
-
-        if (element) {
-          attemptPlayAudio(element);
-        }
 
         updateParticipant({
           id: participantId,
@@ -911,10 +806,8 @@ const CallPage: React.FC = () => {
     },
     [
       attachLocalTracks,
-      attemptPlayAudio,
       cleanupPeer,
       ensureLocalAudioStream,
-      ensureRemoteAudioElement,
       getParticipantColor,
       iceServers,
       sendSignalingMessage,
@@ -1159,11 +1052,22 @@ const CallPage: React.FC = () => {
       handle: getParticipantHandle(user),
       color: getParticipantColor(participantId),
       isCurrentUser: true,
-      isSpeaking: !!audioTrack && isMicOn,
+      isSpeaking: isMicOn && hasActiveAudioTrack(localStreamRef.current),
       hasVideo: !!videoTrack && isCameraOn,
       stream: localStreamRef.current ?? localStream ?? undefined,
     });
-  }, [audioTrack, callError, getParticipantColor, getParticipantHandle, getParticipantName, isCameraOn, isMicOn, localStream, updateParticipant, user, videoTrack]);
+  }, [
+    callError,
+    getParticipantColor,
+    getParticipantHandle,
+    getParticipantName,
+    isCameraOn,
+    isMicOn,
+    localStream,
+    updateParticipant,
+    user,
+    videoTrack,
+  ]);
 
   useEffect(() => {
     if (!callId || !token) {
@@ -1190,6 +1094,7 @@ const CallPage: React.FC = () => {
     socket.onopen = () => {
       // eslint-disable-next-line no-console
       console.log("[WS] signaling socket opened", { url, protocols });
+      setCallConnected(true);
     };
 
     socket.onmessage = (event) => {
@@ -1218,6 +1123,7 @@ const CallPage: React.FC = () => {
       });
 
       websocketRef.current = null;
+      setCallConnected(false);
 
       if (!event.wasClean) {
         handleConnectionErrorRef.current?.("Соединение с сервером закрыто", true, true);
@@ -1230,6 +1136,7 @@ const CallPage: React.FC = () => {
     return () => {
       socket.close();
       websocketRef.current = null;
+      setCallConnected(false);
 
       clearConnectionsRef.current?.();
     };
@@ -1272,12 +1179,6 @@ const CallPage: React.FC = () => {
 
   return (
     <div className="panel call-panel">
-      <div
-        ref={remoteAudioContainerRef}
-        aria-hidden
-        style={{ position: "absolute", width: 0, height: 0, overflow: "hidden" }}
-      />
-
       <div className="call-header">
         <div>
           <p className="eyebrow">Комната звонка</p>
@@ -1353,6 +1254,27 @@ const CallPage: React.FC = () => {
               )}
             </div>
 
+            {!participant.isCurrentUser && participant.stream ? (
+              <audio
+                autoPlay
+                playsInline
+                ref={(el) => {
+                  if (!el) {
+                    remoteAudioElementsRef.current.delete(participant.id);
+                    return;
+                  }
+
+                  remoteAudioElementsRef.current.set(participant.id, el);
+
+                  if (el.srcObject !== participant.stream) {
+                    el.srcObject = participant.stream;
+                  }
+
+                  attemptPlayAudio(el);
+                }}
+              />
+            ) : null}
+
             <div className="call-participant">
               <div>
                 <p className="call-participant__name">{participant.name}</p>
@@ -1426,7 +1348,7 @@ const CallPage: React.FC = () => {
           <button
             type="button"
             className="outline"
-            onClick={() => ensureLocalAudioStream(true)}
+            onClick={() => ensureLocalAudioStream()}
             disabled={isRequestingMic}
           >
             Разрешить микрофон
