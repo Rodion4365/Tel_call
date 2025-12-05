@@ -232,6 +232,12 @@ async def get_current_user(
     return user
 
 
+async def get_current_user_id(current_user: User = Depends(get_current_user)) -> int:
+    """FastAPI dependency that returns the authenticated user's id."""
+
+    return current_user.id
+
+
 async def get_user_from_token(token: str, session: AsyncSession) -> User:
     """Validate a raw bearer token and return the associated user."""
 
