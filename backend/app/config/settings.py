@@ -1,10 +1,27 @@
 import logging
 from functools import lru_cache
-from typing import Optional
+from typing import Annotated, Any, Optional
 from urllib.parse import urlsplit, urlunsplit
 
-from pydantic import AnyUrl, Field, field_validator
+from pydantic import AnyUrl, BeforeValidator, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def parse_csv_string(value: Any) -> list[str]:
+    """Parse comma-separated string or return list as-is."""
+    if value is None or value == "":
+        return []
+
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return []
+        return [item.strip() for item in stripped.split(",") if item.strip()]
+
+    if isinstance(value, list):
+        return value
+
+    return []
 
 
 class Settings(BaseSettings):
@@ -27,11 +44,17 @@ class Settings(BaseSettings):
         validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES",
         description="JWT access token lifetime in minutes (defaults to 30 days)",
     )
-    stun_servers: list[str] = Field(default_factory=list, validation_alias="STUN_SERVERS")
-    turn_servers: list[str] = Field(default_factory=list, validation_alias="TURN_SERVERS")
+    stun_servers: Annotated[list[str], BeforeValidator(parse_csv_string)] = Field(
+        default_factory=list, validation_alias="STUN_SERVERS"
+    )
+    turn_servers: Annotated[list[str], BeforeValidator(parse_csv_string)] = Field(
+        default_factory=list, validation_alias="TURN_SERVERS"
+    )
     turn_username: Optional[str] = Field(default=None, validation_alias="TURN_USERNAME")
     turn_password: Optional[str] = Field(default=None, validation_alias="TURN_PASSWORD")
-    allowed_origins: list[str] = Field(default_factory=list, validation_alias="CORS_ALLOW_ORIGINS")
+    allowed_origins: Annotated[list[str], BeforeValidator(parse_csv_string)] = Field(
+        default_factory=list, validation_alias="CORS_ALLOW_ORIGINS"
+    )
 
     def _mask_secret(self, value: Optional[str]) -> str:
         """Return a masked representation of sensitive values for logging."""
@@ -90,23 +113,6 @@ class Settings(BaseSettings):
 
         allowed = ", ".join(self.allowed_origins) if self.allowed_origins else "*"
         logger.info("CORS allowed origins: %s", allowed)
-
-    @field_validator("stun_servers", "turn_servers", "allowed_origins", mode="before")
-    @classmethod
-    def _split_csv(cls, value: str | list[str] | None) -> list[str]:
-        """Allow comma-separated env values in addition to JSON arrays."""
-
-        if value is None or value == "":
-            return []
-
-        if isinstance(value, str):
-            # Handle empty string or whitespace-only string
-            stripped = value.strip()
-            if not stripped:
-                return []
-            return [item.strip() for item in stripped.split(",") if item.strip()]
-
-        return value
 
     @field_validator("database_url", mode="before")
     @classmethod
