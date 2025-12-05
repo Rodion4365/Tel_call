@@ -37,6 +37,8 @@ class UserResponse(BaseModel):
 class AuthResponse(BaseModel):
     user: UserResponse
     expires_in: int
+    access_token: str  # For Telegram Mini Apps where cookies may not work
+    token_type: str = "bearer"
 
 
 class WebSocketTokenResponse(BaseModel):
@@ -82,13 +84,14 @@ async def authorize_telegram(
     )
     settings = get_settings()
 
-    # Set httpOnly cookie with JWT token
+    # Set httpOnly cookie with JWT token (for browsers that support it)
+    # Also return token in body for Telegram Mini Apps where cookies may be blocked
     response.set_cookie(
         key="access_token",
         value=token,
         httponly=True,
         secure=True,  # Only sent over HTTPS
-        samesite="lax",  # CSRF protection
+        samesite="none",  # Allow in iframe (Telegram Mini App)
         max_age=settings.access_token_expire_minutes * 60,
         path="/",
     )
@@ -98,4 +101,5 @@ async def authorize_telegram(
     return AuthResponse(
         expires_in=settings.access_token_expire_minutes * 60,
         user=user,
+        access_token=token,
     )
