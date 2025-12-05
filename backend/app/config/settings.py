@@ -96,11 +96,15 @@ class Settings(BaseSettings):
     def _split_csv(cls, value: str | list[str] | None) -> list[str]:
         """Allow comma-separated env values in addition to JSON arrays."""
 
-        if value is None:
+        if value is None or value == "":
             return []
 
         if isinstance(value, str):
-            return [item.strip() for item in value.split(",") if item.strip()]
+            # Handle empty string or whitespace-only string
+            stripped = value.strip()
+            if not stripped:
+                return []
+            return [item.strip() for item in stripped.split(",") if item.strip()]
 
         return value
 
