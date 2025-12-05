@@ -3,6 +3,7 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -10,8 +11,11 @@ import { authorizeTelegram } from "../services/auth";
 import { getTelegramWebApp } from "../services/telegram";
 import type { AuthUser } from "../types/auth";
 
+export const AUTH_STORAGE_KEY = "tel-call:auth";
+
 export interface AuthContextValue {
   user: AuthUser | null;
+  token: string | null;
   isAuthorizing: boolean;
   authError: string | null;
   hasTriedAuth: boolean;
@@ -27,15 +31,32 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [isAuthorizing, setIsAuthorizing] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [hasTriedAuth, setHasTriedAuth] = useState(false);
 
+  // Restore auth from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as { token: string; user: AuthUser };
+        setToken(parsed.token);
+        setUser(parsed.user);
+      } catch (error) {
+        console.error("[Auth] failed to parse stored auth", error);
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+      }
+    }
+  }, []);
+
   const clearAuth = useCallback(() => {
     setUser(null);
+    setToken(null);
     setAuthError(null);
     setHasTriedAuth(false);
-    // Token is in httpOnly cookie, cleared by backend on logout
+    localStorage.removeItem(AUTH_STORAGE_KEY);
   }, []);
 
   const loginWithTelegram = useCallback(async () => {
@@ -53,9 +74,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response = await authorizeTelegram();
       setUser(response.user);
+      setToken(response.access_token);
+
+      // Store in localStorage for Telegram Mini Apps where cookies may not work
+      localStorage.setItem(
+        AUTH_STORAGE_KEY,
+        JSON.stringify({
+          token: response.access_token,
+          user: response.user,
+        }),
+      );
 
       // eslint-disable-next-line no-console
-      console.log("[Auth] success - token stored in httpOnly cookie", response.user);
+      console.log("[Auth] success - token stored", response.user);
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error("[Auth] failed to authorize Telegram user", error);
@@ -69,13 +100,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
+      token,
       isAuthorizing,
       authError,
       hasTriedAuth,
       loginWithTelegram,
       clearAuth,
     }),
-    [authError, clearAuth, hasTriedAuth, isAuthorizing, loginWithTelegram, user],
+    [authError, clearAuth, hasTriedAuth, isAuthorizing, loginWithTelegram, token, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

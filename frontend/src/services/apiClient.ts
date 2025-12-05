@@ -1,3 +1,5 @@
+import { AUTH_STORAGE_KEY } from "../contexts/AuthContext";
+
 export interface ApiRequestOptions {
   headers?: Record<string, string>;
 }
@@ -11,12 +13,26 @@ const API_BASE_URL =
 // eslint-disable-next-line no-console
 console.log("[apiClient] API_BASE_URL =", API_BASE_URL);
 
+const getAuthHeaders = (): Record<string, string> => {
+  const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored) as { token: string };
+      return { Authorization: `Bearer ${parsed.token}` };
+    } catch (error) {
+      console.error("[apiClient] failed to parse stored auth", error);
+    }
+  }
+  return {};
+};
+
 export const apiClient = {
   async get<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
     const response = await fetch(`${API_BASE_URL}${path}`, {
       credentials: "include", // Send httpOnly cookies automatically
       headers: {
         "Content-Type": "application/json",
+        ...getAuthHeaders(), // Add Authorization header from localStorage
         ...options.headers,
       },
     });
@@ -34,6 +50,7 @@ export const apiClient = {
       credentials: "include", // Send httpOnly cookies automatically
       headers: {
         "Content-Type": "application/json",
+        ...getAuthHeaders(), // Add Authorization header from localStorage
         ...options.headers,
       },
       body: JSON.stringify(body),
