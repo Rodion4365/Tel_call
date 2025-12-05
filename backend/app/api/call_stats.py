@@ -7,9 +7,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.database import get_session
+from app.models import User
 from app.models.call_stats import CallStats
 from app.models.call import Call
-from app.services.auth import get_current_user_id
+from app.services.auth import get_current_user
 
 router = APIRouter(prefix="/api/call-stats", tags=["Call Stats"])
 logger = logging.getLogger(__name__)
@@ -68,11 +69,11 @@ class CallStatsAggregated(BaseModel):
 @router.post("/", response_model=CallStatsResponse, status_code=status.HTTP_201_CREATED)
 async def create_call_stats(
     stats: CallStatsCreate,
-    user_id: int = Depends(get_current_user_id),
+    user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> CallStatsResponse:
     """Submit call quality statistics."""
-    logger.info(f"Creating call stats for call_id={stats.call_id}, user_id={user_id}")
+    logger.info(f"Creating call stats for call_id={stats.call_id}, user_id={user.id}")
 
     # Verify call exists
     stmt = select(Call).where(Call.call_id == stats.call_id)
@@ -88,7 +89,7 @@ async def create_call_stats(
     # Create stats record
     call_stats = CallStats(
         call_id=stats.call_id,
-        user_id=user_id,
+        user_id=user.id,
         duration_seconds=stats.duration_seconds,
         audio_bitrate_kbps=stats.audio_bitrate_kbps,
         audio_packets_lost=stats.audio_packets_lost,
@@ -113,11 +114,11 @@ async def create_call_stats(
 @router.get("/{call_id}", response_model=CallStatsAggregated)
 async def get_call_stats(
     call_id: str,
-    user_id: int = Depends(get_current_user_id),
+    user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> CallStatsAggregated:
     """Get aggregated statistics for a call."""
-    logger.info(f"Getting stats for call_id={call_id}, user_id={user_id}")
+    logger.info(f"Getting stats for call_id={call_id}, user_id={user.id}")
 
     # Verify call exists
     stmt = select(Call).where(Call.call_id == call_id)
@@ -170,16 +171,16 @@ async def get_call_stats(
 
 @router.get("/", response_model=list[CallStatsResponse])
 async def list_user_call_stats(
-    user_id: int = Depends(get_current_user_id),
+    user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
     limit: int = 50,
 ) -> list[CallStatsResponse]:
     """Get call statistics for current user."""
-    logger.info(f"Listing call stats for user_id={user_id}, limit={limit}")
+    logger.info(f"Listing call stats for user_id={user.id}, limit={limit}")
 
     stmt = (
         select(CallStats)
-        .where(CallStats.user_id == user_id)
+        .where(CallStats.user_id == user.id)
         .order_by(CallStats.created_at.desc())
         .limit(limit)
     )
