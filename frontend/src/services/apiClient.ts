@@ -4,8 +4,8 @@ export interface ApiRequestOptions {
   headers?: Record<string, string>;
 }
 
-// URL бэкенда по умолчанию — твой Render
-const DEFAULT_API_BASE_URL = "https://tel-call-backend.onrender.com";
+// URL бэкенда по умолчанию
+const DEFAULT_API_BASE_URL = "https://www.callwith.ru";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.trim() || DEFAULT_API_BASE_URL;
