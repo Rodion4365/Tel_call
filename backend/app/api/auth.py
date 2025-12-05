@@ -75,9 +75,8 @@ async def authorize_telegram(
     fingerprint = build_init_data_fingerprint(payload.init_data)
     token = create_access_token(str(user.id), fingerprint=fingerprint)
     logger.info(
-        "[authorize_telegram] issued token for user_id=%s, token_prefix=%s, fp=%s",
+        "[authorize_telegram] issued token for user_id=%s, fp=%s",
         user.id,
-        token[:15] + "..." if token else "<empty>",
         fingerprint,
     )
     settings = get_settings()

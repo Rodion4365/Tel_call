@@ -210,10 +210,7 @@ async def get_current_user(
         logger.warning("[get_current_user] no token found in cookie or Authorization header")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
-    logger.info(
-        "[get_current_user] got token_prefix=%s",
-        token[:15] + "..." if token else "<empty>",
-    )
+    logger.info("[get_current_user] received token from %s", "cookie" if request.cookies.get("access_token") else "Authorization header")
 
     settings = get_settings()
     if not settings.secret_key:
