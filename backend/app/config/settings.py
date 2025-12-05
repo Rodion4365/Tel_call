@@ -1,9 +1,9 @@
 import logging
 from functools import lru_cache
-from typing import Any, Optional
+from typing import Optional
 from urllib.parse import urlsplit, urlunsplit
 
-from pydantic import AnyUrl, Field, field_validator, model_validator
+from pydantic import AnyUrl, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,38 +27,34 @@ class Settings(BaseSettings):
         validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES",
         description="JWT access token lifetime in minutes (defaults to 30 days)",
     )
-    stun_servers: list[str] = Field(default_factory=list, validation_alias="STUN_SERVERS")
-    turn_servers: list[str] = Field(default_factory=list, validation_alias="TURN_SERVERS")
+    # Store as strings to avoid pydantic-settings automatic JSON parsing for list[str] types
+    stun_servers_str: str = Field("", validation_alias="STUN_SERVERS")
+    turn_servers_str: str = Field("", validation_alias="TURN_SERVERS")
     turn_username: Optional[str] = Field(default=None, validation_alias="TURN_USERNAME")
     turn_password: Optional[str] = Field(default=None, validation_alias="TURN_PASSWORD")
-    allowed_origins: list[str] = Field(default_factory=list, validation_alias="CORS_ALLOW_ORIGINS")
+    cors_origins_str: str = Field("", validation_alias="CORS_ALLOW_ORIGINS")
 
-    @model_validator(mode="before")
-    @classmethod
-    def parse_csv_env_vars(cls, data: Any) -> Any:
-        """Parse CSV environment variables before pydantic-settings tries to JSON parse them."""
-        if not isinstance(data, dict):
-            return data
-
-        # Helper to parse CSV string to list
-        def parse_csv(value: Any) -> list[str]:
-            if value is None or value == "":
-                return []
-            if isinstance(value, str):
-                stripped = value.strip()
-                if not stripped:
-                    return []
-                return [item.strip() for item in stripped.split(",") if item.strip()]
-            if isinstance(value, list):
-                return value
+    @staticmethod
+    def _parse_csv(value: str) -> list[str]:
+        """Parse comma-separated string into list of strings."""
+        if not value or not value.strip():
             return []
+        return [item.strip() for item in value.split(",") if item.strip()]
 
-        # Parse CSV fields before pydantic-settings attempts JSON parsing
-        for key in ["STUN_SERVERS", "TURN_SERVERS", "CORS_ALLOW_ORIGINS"]:
-            if key in data:
-                data[key] = parse_csv(data[key])
+    @property
+    def stun_servers(self) -> list[str]:
+        """Parse STUN servers from CSV string."""
+        return self._parse_csv(self.stun_servers_str)
 
-        return data
+    @property
+    def turn_servers(self) -> list[str]:
+        """Parse TURN servers from CSV string."""
+        return self._parse_csv(self.turn_servers_str)
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        """Parse CORS allowed origins from CSV string."""
+        return self._parse_csv(self.cors_origins_str)
 
     def _mask_secret(self, value: Optional[str]) -> str:
         """Return a masked representation of sensitive values for logging."""
