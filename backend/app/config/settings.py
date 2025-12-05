@@ -1,27 +1,10 @@
 import logging
 from functools import lru_cache
-from typing import Annotated, Any, Optional
+from typing import Optional
 from urllib.parse import urlsplit, urlunsplit
 
-from pydantic import AnyUrl, BeforeValidator, Field, field_validator
+from pydantic import AnyUrl, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-
-def parse_csv_string(value: Any) -> list[str]:
-    """Parse comma-separated string or return list as-is."""
-    if value is None or value == "":
-        return []
-
-    if isinstance(value, str):
-        stripped = value.strip()
-        if not stripped:
-            return []
-        return [item.strip() for item in stripped.split(",") if item.strip()]
-
-    if isinstance(value, list):
-        return value
-
-    return []
 
 
 class Settings(BaseSettings):
@@ -44,17 +27,33 @@ class Settings(BaseSettings):
         validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES",
         description="JWT access token lifetime in minutes (defaults to 30 days)",
     )
-    stun_servers: Annotated[list[str], BeforeValidator(parse_csv_string)] = Field(
-        default_factory=list, validation_alias="STUN_SERVERS"
-    )
-    turn_servers: Annotated[list[str], BeforeValidator(parse_csv_string)] = Field(
-        default_factory=list, validation_alias="TURN_SERVERS"
-    )
+    # Store as strings to avoid JSON parsing issues
+    _stun_servers: str = Field("", validation_alias="STUN_SERVERS")
+    _turn_servers: str = Field("", validation_alias="TURN_SERVERS")
     turn_username: Optional[str] = Field(default=None, validation_alias="TURN_USERNAME")
     turn_password: Optional[str] = Field(default=None, validation_alias="TURN_PASSWORD")
-    allowed_origins: Annotated[list[str], BeforeValidator(parse_csv_string)] = Field(
-        default_factory=list, validation_alias="CORS_ALLOW_ORIGINS"
-    )
+    _cors_allow_origins: str = Field("", validation_alias="CORS_ALLOW_ORIGINS")
+
+    @property
+    def stun_servers(self) -> list[str]:
+        """Parse STUN servers from comma-separated string."""
+        if not self._stun_servers:
+            return []
+        return [item.strip() for item in self._stun_servers.split(",") if item.strip()]
+
+    @property
+    def turn_servers(self) -> list[str]:
+        """Parse TURN servers from comma-separated string."""
+        if not self._turn_servers:
+            return []
+        return [item.strip() for item in self._turn_servers.split(",") if item.strip()]
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        """Parse CORS allowed origins from comma-separated string."""
+        if not self._cors_allow_origins:
+            return []
+        return [item.strip() for item in self._cors_allow_origins.split(",") if item.strip()]
 
     def _mask_secret(self, value: Optional[str]) -> str:
         """Return a masked representation of sensitive values for logging."""
