@@ -57,7 +57,16 @@ export const WebAppConnectionProvider: React.FC<Props> = ({ children }) => {
         telegramApp.ready();
         telegramApp.expand?.();
 
+        // Wait for initData to be available
+        // Telegram WebApp needs a short delay for initData to populate
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
         if (!isMounted) return;
+
+        // Verify that initData is available
+        if (!telegramApp.initData) {
+          throw new Error("Telegram initData is not available");
+        }
 
         setWebApp(telegramApp);
         setStatus("connected");

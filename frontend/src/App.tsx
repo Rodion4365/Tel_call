@@ -19,13 +19,24 @@ function App(): JSX.Element {
   const handleBack = useCallback(() => navigate(-1), [navigate]);
 
   useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log("[App] Auth state:", {
+      isTelegramReady,
+      isAuthorizing,
+      hasTriedAuth,
+      hasUser: !!user,
+    });
+
     if (!isTelegramReady || isAuthorizing || hasTriedAuth || user) {
       return;
     }
 
+    // eslint-disable-next-line no-console
+    console.log("[App] Starting automatic Telegram authorization");
+
     loginWithTelegram().catch((error) => {
       // eslint-disable-next-line no-console
-      console.error("Auto authorization failed", error);
+      console.error("[App] Auto authorization failed", error);
     });
   }, [hasTriedAuth, isAuthorizing, isTelegramReady, loginWithTelegram, user]);
 
