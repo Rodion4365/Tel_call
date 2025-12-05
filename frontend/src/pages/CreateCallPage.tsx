@@ -13,14 +13,21 @@ const CreateCallPage: React.FC = () => {
 
   const handleCreateCall = async () => {
     // eslint-disable-next-line no-console
-    console.log("[CreateCall] click");
+    console.log("[CreateCall] click", { hasUser: !!user, isAuthorizing });
+
+    if (!user) {
+      // eslint-disable-next-line no-console
+      console.error("[CreateCall] User not authenticated");
+      setError("Необходима авторизация. Пожалуйста, подождите...");
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
     try {
-      if (!user) {
-        await loginWithTelegram();
-      }
+      // eslint-disable-next-line no-console
+      console.log("[CreateCall] Creating call...");
 
       const response = await createCall({ title: null, is_video_enabled: false });
 
@@ -64,9 +71,13 @@ const CreateCallPage: React.FC = () => {
           type="button"
           className="primary"
           onClick={handleCreateCall}
-          disabled={isSubmitting || isAuthorizing}
+          disabled={!user || isSubmitting || isAuthorizing}
         >
-          {isSubmitting ? t("createCallPage.buttonCreating") : t("createCallPage.buttonCreate")}
+          {isAuthorizing
+            ? "Авторизация..."
+            : isSubmitting
+              ? t("createCallPage.buttonCreating")
+              : t("createCallPage.buttonCreate")}
         </button>
         <button type="button" className="outline" onClick={() => navigate("/")} disabled={isSubmitting}>
           {t("common.back")}
