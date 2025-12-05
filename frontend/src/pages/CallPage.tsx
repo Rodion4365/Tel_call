@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useWebAppConnection } from "../contexts/WebAppConnectionContext";
+import { useWebSocketToken } from "../hooks/useWebSocketToken";
 import { fetchIceServers, getWebSocketBaseUrl } from "../services/webrtc";
 import avatarPlaceholder from "../assets/avatar-placeholder.svg";
 
@@ -62,6 +63,7 @@ const CallPage: React.FC = () => {
   const location = useLocation();
   const { token, user } = useAuth();
   const { user: telegramUser } = useWebAppConnection();
+  const { getToken } = useWebSocketToken();
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const joinUrl =
     searchParams.get("join_url") ?? (location.state as LocationState | null)?.join_url ?? "";
@@ -96,6 +98,16 @@ const CallPage: React.FC = () => {
   const clearConnectionsRef = useRef<(() => void) | undefined>();
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
+
+  // eslint-disable-next-line no-console
+  console.log("[CallPage] Rendering", {
+    callId,
+    hasUser: !!user,
+    hasJoinUrl: !!joinUrl,
+    hasToken: !!token,
+    callConnected,
+    callError,
+  });
 
   const stopMediaStream = useCallback((stream: MediaStream | null) => {
     stream?.getTracks().forEach((track) => track.stop());
@@ -1117,7 +1129,16 @@ const CallPage: React.FC = () => {
   ]);
 
   useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log("[CallPage] WebSocket useEffect triggered", {
+      callId,
+      hasUser: !!user,
+      hasGetToken: typeof getToken === "function",
+    });
+
     if (!callId) {
+      // eslint-disable-next-line no-console
+      console.warn("[CallPage] No callId, skipping WebSocket connection");
       return;
     }
 
@@ -1125,8 +1146,12 @@ const CallPage: React.FC = () => {
 
     const connectWebSocket = async () => {
       try {
+        // eslint-disable-next-line no-console
+        console.log("[CallPage] Getting WebSocket token...");
         // Get WebSocket token from httpOnly cookie
         const token = await getToken();
+        // eslint-disable-next-line no-console
+        console.log("[CallPage] Got WebSocket token", { hasToken: !!token });
 
         const baseUrl = getWebSocketBaseUrl();
 
@@ -1188,11 +1213,17 @@ const CallPage: React.FC = () => {
     };
       } catch (error) {
         // eslint-disable-next-line no-console
-        console.error("[Call] failed to get WebSocket token", error);
-        setCallError("Не удалось получить токен для WebSocket");
+        console.error("[CallPage] Failed to connect WebSocket", {
+          error,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          callId,
+        });
+        setCallError("Не удалось подключиться к звонку");
       }
     };
 
+    // eslint-disable-next-line no-console
+    console.log("[CallPage] Starting WebSocket connection...");
     void connectWebSocket();
 
     return () => {
