@@ -2,7 +2,6 @@ import React, { useCallback, useEffect } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import MainPage from "./pages/MainPage";
-import CreateCallPage from "./pages/CreateCallPage";
 import JoinCallPage from "./pages/JoinCallPage";
 import SettingsPage from "./pages/SettingsPage";
 import CallPage from "./pages/CallPage";
@@ -56,7 +55,6 @@ function App(): JSX.Element {
 
       <Routes>
         <Route path="/" element={<MainPage />} />
-        <Route path="/create-call" element={<CreateCallPage />} />
         <Route path="/join-call" element={<JoinCallPage />} />
         <Route path="/call-created/:call_id" element={<CallCreated />} />
         <Route path="/call/:id" element={<CallPage />} />

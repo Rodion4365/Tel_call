@@ -11,15 +11,6 @@
     "createCall": "Create Call",
     "joinCall": "Join Call"
   },
-  "createCallPage": {
-    "title": "Create Call",
-    "description": "Microphone is enabled by default, video is disabled. The link will appear immediately after creation.",
-    "buttonCreate": "Create Call",
-    "buttonCreating": "Creating…",
-    "errorAuth": "Failed to authenticate. Please try again.",
-    "errorCreate": "Failed to create call. Please try again.",
-    "errorCreateWithMessage": "Failed to create call: {{message}}"
-  },
   "joinCallPage": {
     "title": "Join Call",
     "description": "Paste the link or call ID to connect manually.",
