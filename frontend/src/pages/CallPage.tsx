@@ -11,6 +11,7 @@ interface SignalingUser {
   username: string | null;
   first_name: string | null;
   last_name: string | null;
+  photo_url: string | null;
 }
 
 type SignalingMessage =
@@ -37,6 +38,7 @@ interface Participant {
   name: string;
   handle: string;
   color: string;
+  photoUrl?: string | null;
   isCurrentUser?: boolean;
   isSpeaking?: boolean;
   hasVideo?: boolean;
@@ -950,6 +952,7 @@ const CallPage: React.FC = () => {
         name: getParticipantName(fromUser),
         handle: getParticipantHandle(fromUser),
         color: getParticipantColor(participantId),
+        photoUrl: fromUser.photo_url,
       });
     },
     [
@@ -987,6 +990,7 @@ const CallPage: React.FC = () => {
         name: getParticipantName(fromUser),
         handle: getParticipantHandle(fromUser),
         color: getParticipantColor(participantId),
+        photoUrl: fromUser.photo_url,
       });
     },
     [getParticipantColor, getParticipantHandle, getParticipantName, logPeerAudioDebug, updateParticipant],
@@ -1029,6 +1033,7 @@ const CallPage: React.FC = () => {
         name: getParticipantName(remoteUser),
         handle: getParticipantHandle(remoteUser),
         color: getParticipantColor(participantId),
+        photoUrl: remoteUser.photo_url,
       });
     },
   [
@@ -1055,6 +1060,7 @@ const CallPage: React.FC = () => {
         name: getParticipantName(remoteUser),
         handle: getParticipantHandle(remoteUser),
         color: getParticipantColor(participantId),
+        photoUrl: remoteUser.photo_url,
       });
     },
     [getParticipantColor, getParticipantHandle, getParticipantName, updateParticipant],
@@ -1150,6 +1156,7 @@ const CallPage: React.FC = () => {
       name: getParticipantName(user),
       handle: getParticipantHandle(user),
       color: getParticipantColor(participantId),
+      photoUrl: telegramUser?.photo_url,
       isCurrentUser: true,
       isSpeaking: isMicOn && hasActiveAudioTrack(localStreamRef.current),
       hasVideo: !!videoTrack && isCameraOn,
@@ -1163,6 +1170,7 @@ const CallPage: React.FC = () => {
     isCameraOn,
     isMicOn,
     localStream,
+    telegramUser,
     updateParticipant,
     user,
     videoTrack,
@@ -1327,10 +1335,7 @@ const CallPage: React.FC = () => {
           style={{ gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))` }}
         >
           {participants.map((participant) => {
-            const avatarUrl =
-              participant.isCurrentUser && telegramUser?.photo_url
-                ? telegramUser.photo_url
-                : defaultAvatar;
+            const avatarUrl = participant.photoUrl || defaultAvatar;
 
             return (
               <article key={participant.id} className="call-tile" role="listitem" aria-label={participant.name}>
