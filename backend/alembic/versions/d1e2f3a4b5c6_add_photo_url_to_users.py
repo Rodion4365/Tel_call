@@ -7,6 +7,7 @@ Create Date: 2025-12-06 10:30:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 # revision identifiers, used by Alembic.
@@ -17,10 +18,20 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Add photo_url column to users table
-    op.add_column('users', sa.Column('photo_url', sa.String(length=512), nullable=True))
+    # Check if column already exists before adding
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    columns = [col['name'] for col in inspector.get_columns('users')]
+
+    if 'photo_url' not in columns:
+        op.add_column('users', sa.Column('photo_url', sa.String(length=512), nullable=True))
 
 
 def downgrade() -> None:
-    # Remove photo_url column from users table
-    op.drop_column('users', 'photo_url')
+    # Check if column exists before dropping
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    columns = [col['name'] for col in inspector.get_columns('users')]
+
+    if 'photo_url' in columns:
+        op.drop_column('users', 'photo_url')
