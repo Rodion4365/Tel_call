@@ -4,7 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useWebAppConnection } from "../contexts/WebAppConnectionContext";
 import { useWebSocketToken } from "../hooks/useWebSocketToken";
 import { fetchIceServers, getWebSocketBaseUrl } from "../services/webrtc";
-import avatarPlaceholder from "../assets/avatar-placeholder.svg";
+import defaultAvatar from "../assets/default-avatar.svg";
 
 interface SignalingUser {
   id: number;
@@ -1305,13 +1305,6 @@ const CallPage: React.FC = () => {
     navigate("/");
   };
 
-  const getInitials = (name: string) =>
-    name
-      .split(" ")
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase();
-
   return (
     <div className="call-screen">
       <main className="call-page">
@@ -1337,8 +1330,7 @@ const CallPage: React.FC = () => {
             const avatarUrl =
               participant.isCurrentUser && telegramUser?.photo_url
                 ? telegramUser.photo_url
-                : avatarPlaceholder;
-            const initials = getInitials(participant.name);
+                : defaultAvatar;
 
             return (
               <article key={participant.id} className="call-tile" role="listitem" aria-label={participant.name}>
@@ -1364,14 +1356,17 @@ const CallPage: React.FC = () => {
                       }}
                     />
                   ) : (
-                    <>
-                      <img
-                        className="call-tile__image"
-                        src={avatarUrl}
-                        alt={`Аватар ${participant.name}`}
-                      />
-                      <span className="call-tile__initial">{initials}</span>
-                    </>
+                    <img
+                      className="call-tile__image"
+                      src={avatarUrl}
+                      alt={`Аватар ${participant.name}`}
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        if (target.src !== defaultAvatar) {
+                          target.src = defaultAvatar;
+                        }
+                      }}
+                    />
                   )}
 
                   {participant.isCurrentUser ? <span className="call-tile__badge">Вы</span> : null}
