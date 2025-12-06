@@ -1,34 +1,39 @@
-<svg width="300" height="400" viewBox="0 0 300 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="420" height="560" viewBox="0 0 420 560" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!-- Dark navy background -->
-  <rect width="300" height="400" fill="#0f172a"/>
+  <rect width="420" height="560" fill="#0a1628"/>
 
-  <!-- Silhouette of person with suit and tie -->
-  <g transform="translate(150, 200)">
+  <!-- Silhouette of person in business suit -->
+  <g transform="translate(210, 280)">
     <!-- Head -->
-    <ellipse cx="0" cy="-85" rx="45" ry="52" fill="#3f5f7d"/>
+    <ellipse cx="0" cy="-95" rx="60" ry="70" fill="#476d88"/>
 
     <!-- Ears -->
-    <ellipse cx="-42" cy="-75" rx="8" ry="12" fill="#3f5f7d"/>
-    <ellipse cx="42" cy="-75" rx="8" ry="12" fill="#3f5f7d"/>
-
-    <!-- Shoulders and torso -->
-    <path d="M -75 50 Q -75 -20 -50 -40 L -15 -35 L -15 10 Q -15 30 -25 50 Z" fill="#3f5f7d"/>
-    <path d="M 75 50 Q 75 -20 50 -40 L 15 -35 L 15 10 Q 15 30 25 50 Z" fill="#3f5f7d"/>
-
-    <!-- Chest/torso center -->
-    <rect x="-50" y="-40" width="100" height="90" fill="#3f5f7d"/>
+    <ellipse cx="-55" cy="-85" rx="10" ry="15" fill="#476d88"/>
+    <ellipse cx="55" cy="-85" rx="10" ry="15" fill="#476d88"/>
 
     <!-- Neck -->
-    <rect x="-15" y="-35" width="30" height="20" fill="#3f5f7d"/>
+    <rect x="-22" y="-30" width="44" height="35" fill="#476d88"/>
 
-    <!-- Suit jacket -->
-    <path d="M -50 -5 L -20 -5 L -30 50 L -65 50 Z" fill="#2d4a5f"/>
-    <path d="M 50 -5 L 20 -5 L 30 50 L 65 50 Z" fill="#2d4a5f"/>
+    <!-- Shoulders - wider and more angular -->
+    <path d="M -110 90 Q -110 20 -80 -10 L -25 -5 L -25 20 Q -25 50 -35 90 Z" fill="#476d88"/>
+    <path d="M 110 90 Q 110 20 80 -10 L 25 -5 L 25 20 Q 25 50 35 90 Z" fill="#476d88"/>
+
+    <!-- Torso/chest -->
+    <rect x="-80" y="-10" width="160" height="100" fill="#476d88" rx="5"/>
+
+    <!-- Suit jacket lapels - darker -->
+    <path d="M -80 5 L -30 5 L -20 15 L -40 90 L -90 90 Z" fill="#2d4a5f"/>
+    <path d="M 80 5 L 30 5 L 20 15 L 40 90 L 90 90 Z" fill="#2d4a5f"/>
+
+    <!-- Shirt collar -->
+    <path d="M -20 5 L -12 15 L 0 5 L 12 15 L 20 5 L 15 -5 L -15 -5 Z" fill="#476d88"/>
 
     <!-- Tie -->
-    <path d="M 0 -10 L -6 -5 L -4 25 L 0 50 L 4 25 L 6 -5 Z" fill="#1e3a4f"/>
+    <path d="M 0 5 L -8 10 L -6 50 L -4 75 L 0 90 L 4 75 L 6 50 L 8 10 Z" fill="#35576e"/>
+    <path d="M -8 10 L 8 10 L 6 15 L -6 15 Z" fill="#2d4a5f"/>
 
-    <!-- Collar -->
-    <path d="M -15 -5 L -8 5 L 0 -10 L 8 5 L 15 -5 L 10 -15 L -10 -15 Z" fill="#3f5f7d"/>
+    <!-- Suit buttons -->
+    <circle cx="0" cy="35" r="3" fill="#2d4a5f"/>
+    <circle cx="0" cy="55" r="3" fill="#2d4a5f"/>
   </g>
 </svg>
