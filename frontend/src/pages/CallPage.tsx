@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { useWebAppConnection } from "../contexts/WebAppConnectionContext";
 import { useWebSocketToken } from "../hooks/useWebSocketToken";
 import { fetchIceServers, getWebSocketBaseUrl } from "../services/webrtc";
 import defaultAvatar from "../assets/default-avatar.svg";
@@ -15,6 +14,7 @@ interface SignalingUser {
 }
 
 type SignalingMessage =
+  | { type: "call_metadata"; created_at: string | null }
   | { type: "participants_snapshot"; participants: SignalingUser[] }
   | { type: "user_joined"; user: SignalingUser }
   | { type: "user_left"; user: SignalingUser }
@@ -64,7 +64,6 @@ const CallPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { token, user } = useAuth();
-  const { user: telegramUser } = useWebAppConnection();
   const { getToken } = useWebSocketToken();
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const joinUrl =
@@ -555,13 +554,6 @@ const CallPage: React.FC = () => {
   useEffect(() => {
     fetchIceServers().then(setIceServers);
   }, []);
-
-  // Start call timer when connected
-  useEffect(() => {
-    if (callConnected && !callStartTime) {
-      setCallStartTime(Date.now());
-    }
-  }, [callConnected, callStartTime]);
 
   // Update call duration timer every minute
   useEffect(() => {
@@ -1090,6 +1082,14 @@ const CallPage: React.FC = () => {
       // eslint-disable-next-line no-console
       console.log("[Signaling] received", message.type, message);
 
+      if (message.type === "call_metadata") {
+        if (message.created_at) {
+          const createdAtTime = new Date(message.created_at).getTime();
+          setCallStartTime(createdAtTime);
+        }
+        return;
+      }
+
       if (message.type === "participants_snapshot") {
         await Promise.all(message.participants.map((participant) => connectToParticipantIfNeeded(participant)));
         return;
@@ -1156,7 +1156,7 @@ const CallPage: React.FC = () => {
       name: getParticipantName(user),
       handle: getParticipantHandle(user),
       color: getParticipantColor(participantId),
-      photoUrl: telegramUser?.photo_url,
+      photoUrl: user?.photo_url,
       isCurrentUser: true,
       isSpeaking: isMicOn && hasActiveAudioTrack(localStreamRef.current),
       hasVideo: !!videoTrack && isCameraOn,
@@ -1170,7 +1170,6 @@ const CallPage: React.FC = () => {
     isCameraOn,
     isMicOn,
     localStream,
-    telegramUser,
     updateParticipant,
     user,
     videoTrack,
