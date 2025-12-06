@@ -142,13 +142,15 @@ const CallCreated: React.FC = () => {
       <div className="call-created__content">
         <div className="call-created__actions-row">
           <button className="primary" onClick={handleJoinCall} disabled={!call_id}>
-            Присоединиться
+            <span>Присоединиться</span>
           </button>
-          <button className="secondary" onClick={copyLink} disabled={!joinUrl}>
-            Скопировать 🔗
+          <button className="secondary" onClick={handleShare} disabled={!joinUrl}>
+            <span>Поделиться</span>
+            <span>🔗</span>
           </button>
-          <button className="outline" onClick={handleShare} disabled={!joinUrl}>
-            Поделиться 🔗
+          <button className="outline" onClick={copyLink} disabled={!joinUrl}>
+            <span>Скопировать</span>
+            <span>🔗</span>
           </button>
         </div>
       </div>

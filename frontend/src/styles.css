@@ -421,10 +421,22 @@ button:disabled {
   flex: 1;
   align-self: stretch;
   border-radius: 16px;
-  padding: 12px 8px;
-  font-size: 14px;
+  padding: 12px 12px;
+  font-size: clamp(11px, 3.5vw, 14px);
   font-weight: 600;
   min-width: 0;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+@media (max-width: 360px) {
+  .call-created__actions-row button {
+    font-size: clamp(10px, 3.2vw, 12px);
+    padding: 12px 8px;
+  }
 }
 
 .toast {
@@ -498,7 +510,8 @@ button:disabled {
 }
 
 @media (prefers-color-scheme: dark) {
-  .action-secondary {
+  .action-secondary,
+  .secondary {
     background: #e5e7eb;
     color: #0f172a;
     border-color: #cbd5e1;
