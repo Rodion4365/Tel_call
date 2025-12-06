@@ -102,6 +102,9 @@ const MainPage: React.FC = () => {
                 : t("mainPage.createCall")}
           </span>
         </button>
+        <Link className="action-button action-secondary" to="/friends">
+          <span>Позвонить другу 👥</span>
+        </Link>
         <Link className="action-button action-secondary" to="/join-call">
           <span>{t("mainPage.joinCall")}</span>
         </Link>
