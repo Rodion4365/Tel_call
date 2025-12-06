@@ -37,8 +37,11 @@ async def send_call_notification(
     # Формируем текст сообщения
     text = f"Вам звонит {caller_name}"
 
+    # Убираем @ из имени бота, если он есть
+    bot_username = settings.bot_username.lstrip("@")
+
     # Формируем URL для подключения к звонку
-    join_url = f"https://t.me/{settings.bot_username}/app?startapp={call_id}"
+    join_url = f"https://t.me/{bot_username}/app?startapp={call_id}"
 
     # Формируем inline-кнопку
     inline_keyboard = {
