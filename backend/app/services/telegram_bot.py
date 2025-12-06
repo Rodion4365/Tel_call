@@ -41,9 +41,10 @@ async def send_call_notification(
     bot_username = settings.bot_username.lstrip("@")
 
     # Формируем URL для подключения к звонку
-    join_url = f"https://t.me/{bot_username}/app?startapp={call_id}"
+    # Используем прямой URL к Mini App с параметром startapp
+    join_url = f"https://t.me/{bot_username}?startapp={call_id}"
 
-    # Формируем inline-кнопку
+    # Формируем inline-кнопку с типом web_app для открытия Mini App
     inline_keyboard = {
         "inline_keyboard": [
             [{"text": "Принять звонок", "url": join_url}]
