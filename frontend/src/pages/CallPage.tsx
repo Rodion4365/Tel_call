@@ -939,6 +939,13 @@ const CallPage: React.FC = () => {
         sendSignalingMessage({ type: "answer", payload: answer, to_user_id: targetUserId });
       }
 
+      // eslint-disable-next-line no-console
+      console.log("[Participant] Updating remote user from offer", {
+        user_id: fromUser.id,
+        photo_url: fromUser.photo_url,
+        hasPhoto: Boolean(fromUser.photo_url),
+      });
+
       updateParticipant({
         id: participantId,
         name: getParticipantName(fromUser),
@@ -1085,6 +1092,17 @@ const CallPage: React.FC = () => {
       if (message.type === "call_metadata") {
         if (message.created_at) {
           const createdAtTime = new Date(message.created_at).getTime();
+          const now = Date.now();
+          const elapsed = now - createdAtTime;
+          const elapsedMinutes = Math.floor(elapsed / 60000);
+          // eslint-disable-next-line no-console
+          console.log("[CallTimer] Received call_metadata", {
+            created_at: message.created_at,
+            createdAtTime,
+            now,
+            elapsed,
+            elapsedMinutes,
+          });
           setCallStartTime(createdAtTime);
         }
         return;
@@ -1150,6 +1168,13 @@ const CallPage: React.FC = () => {
     }
 
     const participantId = String(user.id);
+
+    // eslint-disable-next-line no-console
+    console.log("[Participant] Updating current user", {
+      user_id: user?.id,
+      photo_url: user?.photo_url,
+      hasPhoto: Boolean(user?.photo_url),
+    });
 
     updateParticipant({
       id: participantId,
