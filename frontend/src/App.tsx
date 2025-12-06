@@ -6,6 +6,7 @@ import JoinCallPage from "./pages/JoinCallPage";
 import SettingsPage from "./pages/SettingsPage";
 import CallPage from "./pages/CallPage";
 import CallCreated from "./pages/CallCreated";
+import FriendsPage from "./pages/FriendsPage";
 import { useTelegramBackButton } from "./hooks/useTelegramBackButton";
 import { useTelegramWebApp } from "./hooks/useTelegramWebApp";
 import { useAuth } from "./contexts/AuthContext";
@@ -55,6 +56,7 @@ function App(): JSX.Element {
 
       <Routes>
         <Route path="/" element={<MainPage />} />
+        <Route path="/friends" element={<FriendsPage />} />
         <Route path="/join-call" element={<JoinCallPage />} />
         <Route path="/call-created/:call_id" element={<CallCreated />} />
         <Route path="/call/:id" element={<CallPage />} />

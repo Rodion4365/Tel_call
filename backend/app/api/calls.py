@@ -11,8 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.database import get_session
 from app.config.settings import get_settings
 from app.models import Call, CallStatus, User
+from app.models.participant import Participant
 from app.services.auth import get_current_user
 from app.services.signaling import notify_call_ended
+from app.services.telegram_bot import send_call_notification
 
 router = APIRouter(prefix="/api/calls", tags=["Calls"])
 limiter = Limiter(key_func=get_remote_address)
@@ -39,6 +41,10 @@ class CallResponse(BaseModel):
 
 class JoinCallRequest(BaseModel):
     call_code: str = Field(..., min_length=1, max_length=255)
+
+
+class CallFriendRequest(BaseModel):
+    friend_id: int = Field(..., description="Internal user ID of the friend to call")
 
 
 def _make_aware(dt: datetime | None) -> datetime | None:
@@ -244,6 +250,101 @@ async def join_call_by_code(
 
     if error_detail:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_detail)
+
+    join_url = _build_join_url(call.call_id)
+    return CallResponse(
+        call_id=call.call_id,
+        title=call.title,
+        is_video_enabled=call.is_video_enabled,
+        status=call.status,
+        created_at=call.created_at,
+        expires_at=call.expires_at,
+        join_url=join_url,
+    )
+
+
+@router.post("/friend", response_model=CallResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
+async def call_friend(
+    request: Request,
+    payload: CallFriendRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> CallResponse:
+    """Create a new call with a friend and send them a notification."""
+
+    # Проверяем, что friend_id существует и не совпадает с текущим пользователем
+    if payload.friend_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot call yourself",
+        )
+
+    # Получаем пользователя-друга
+    result = await session.execute(select(User).where(User.id == payload.friend_id))
+    friend = result.scalar_one_or_none()
+
+    if not friend:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Friend not found",
+        )
+
+    # Создаём новый звонок
+    expires_at = datetime.now(tz=timezone.utc) + timedelta(hours=24)
+    call = Call(
+        creator_user_id=current_user.id,
+        title=None,
+        is_video_enabled=False,
+        expires_at=expires_at,
+    )
+    session.add(call)
+
+    try:
+        await session.commit()
+    except SQLAlchemyError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database unavailable",
+        ) from exc
+
+    await session.refresh(call)
+
+    # Добавляем участников звонка
+    # Инициатор звонка
+    caller_participant = Participant(
+        call_id=call.id,
+        user_id=current_user.id,
+    )
+    session.add(caller_participant)
+
+    # Друг, которому звоним
+    friend_participant = Participant(
+        call_id=call.id,
+        user_id=friend.id,
+    )
+    session.add(friend_participant)
+
+    try:
+        await session.commit()
+    except SQLAlchemyError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to add participants",
+        ) from exc
+
+    # Формируем имя звонящего для уведомления
+    caller_name = current_user.username or current_user.first_name or "Кто-то"
+
+    # Отправляем пуш-уведомление другу
+    # Используем call_id (не внутренний id), так как это то, что будет использоваться для подключения
+    await send_call_notification(
+        telegram_user_id=friend.telegram_user_id,
+        caller_name=caller_name,
+        call_id=call.call_id,
+    )
 
     join_url = _build_join_url(call.call_id)
     return CallResponse(
