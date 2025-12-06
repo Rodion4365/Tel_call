@@ -661,6 +661,19 @@ button:disabled {
   gap: 12px;
 }
 
+.call-timer {
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(0, 0, 0, 0.35);
+  padding: 6px 12px;
+  border-radius: 12px;
+  display: inline-block;
+  margin: 0 auto 8px;
+  backdrop-filter: blur(8px);
+}
+
 .call-grid {
   display: grid;
   gap: 8px;
@@ -730,7 +743,7 @@ button:disabled {
 
 .call-toolbar {
   position: fixed;
-  bottom: 12px;
+  bottom: 40px;
   left: 0;
   right: 0;
   padding: 0 16px;
