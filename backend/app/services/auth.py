@@ -100,12 +100,14 @@ async def get_or_create_user(session: AsyncSession, telegram_user: dict[str, Any
         user.username = telegram_user.get("username")
         user.first_name = telegram_user.get("first_name")
         user.last_name = telegram_user.get("last_name")
+        user.photo_url = telegram_user.get("photo_url")
     else:
         user = User(
             telegram_user_id=telegram_user_id,
             username=telegram_user.get("username"),
             first_name=telegram_user.get("first_name"),
             last_name=telegram_user.get("last_name"),
+            photo_url=telegram_user.get("photo_url"),
         )
         session.add(user)
 
