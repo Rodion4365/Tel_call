@@ -82,6 +82,8 @@ const CallPage: React.FC = () => {
   const [callError, setCallError] = useState<string | null>(null);
   const [callConnected, setCallConnected] = useState(false);
   const [gridColumns, setGridColumns] = useState(1);
+  const [callStartTime, setCallStartTime] = useState<number | null>(null);
+  const [callDurationMinutes, setCallDurationMinutes] = useState(0);
 
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
@@ -306,6 +308,8 @@ const CallPage: React.FC = () => {
     (message: string, navigateHome = false, preserveExistingMessage = false) => {
       setCallError((current) => (preserveExistingMessage && current ? current : message));
       clearConnections();
+      setCallStartTime(null);
+      setCallDurationMinutes(0);
 
       if (navigateHome) {
         scheduleNavigateHome();
@@ -548,6 +552,42 @@ const CallPage: React.FC = () => {
 
   useEffect(() => {
     fetchIceServers().then(setIceServers);
+  }, []);
+
+  // Start call timer when connected
+  useEffect(() => {
+    if (callConnected && !callStartTime) {
+      setCallStartTime(Date.now());
+    }
+  }, [callConnected, callStartTime]);
+
+  // Update call duration timer every minute
+  useEffect(() => {
+    if (!callStartTime) {
+      setCallDurationMinutes(0);
+      return;
+    }
+
+    const updateDuration = () => {
+      const elapsedMs = Date.now() - callStartTime;
+      const elapsedMinutes = Math.floor(elapsedMs / 60000);
+      setCallDurationMinutes(elapsedMinutes);
+    };
+
+    // Update immediately
+    updateDuration();
+
+    // Then update every minute
+    const interval = setInterval(updateDuration, 60000);
+
+    return () => clearInterval(interval);
+  }, [callStartTime]);
+
+  // Format duration as HH:MM
+  const formatCallDuration = useCallback((minutes: number): string => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
   }, []);
 
   const participantCount = participants.length;
@@ -1259,6 +1299,8 @@ const CallPage: React.FC = () => {
     websocketRef.current?.close();
     clearConnections();
     stopLocalMedia();
+    setCallStartTime(null);
+    setCallDurationMinutes(0);
 
     navigate("/");
   };
@@ -1279,6 +1321,12 @@ const CallPage: React.FC = () => {
             <p className="alert__description">Попробуйте переподключиться или вернуться назад.</p>
           </div>
         ) : null}
+
+        {callStartTime && (
+          <div className="call-timer" aria-label="Длительность звонка">
+            {formatCallDuration(callDurationMinutes)}
+          </div>
+        )}
 
         <section
           className="call-grid"

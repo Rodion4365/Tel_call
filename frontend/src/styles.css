@@ -421,10 +421,22 @@ button:disabled {
   flex: 1;
   align-self: stretch;
   border-radius: 16px;
-  padding: 12px 8px;
-  font-size: 14px;
+  padding: 12px 12px;
+  font-size: clamp(11px, 3.5vw, 14px);
   font-weight: 600;
   min-width: 0;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+@media (max-width: 360px) {
+  .call-created__actions-row button {
+    font-size: clamp(10px, 3.2vw, 12px);
+    padding: 12px 8px;
+  }
 }
 
 .toast {
@@ -498,7 +510,8 @@ button:disabled {
 }
 
 @media (prefers-color-scheme: dark) {
-  .action-secondary {
+  .action-secondary,
+  .secondary {
     background: #e5e7eb;
     color: #0f172a;
     border-color: #cbd5e1;
@@ -648,6 +661,19 @@ button:disabled {
   gap: 12px;
 }
 
+.call-timer {
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(0, 0, 0, 0.35);
+  padding: 6px 12px;
+  border-radius: 12px;
+  display: inline-block;
+  margin: 0 auto 8px;
+  backdrop-filter: blur(8px);
+}
+
 .call-grid {
   display: grid;
   gap: 8px;
@@ -717,7 +743,7 @@ button:disabled {
 
 .call-toolbar {
   position: fixed;
-  bottom: 12px;
+  bottom: 40px;
   left: 0;
   right: 0;
   padding: 0 16px;
