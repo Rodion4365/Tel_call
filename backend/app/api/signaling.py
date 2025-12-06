@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from app.config.database import session_scope
 from app.models import Call, CallStatus, User
+from app.models.participant import Participant
 from app.services.auth import get_user_from_token
 from app.services.signaling import call_room_manager
 
@@ -132,6 +133,41 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
     serialized_user = _serialize_user(user)
     await room.add_participant(user.id, websocket, serialized_user)
 
+    # Сохраняем участника в БД для истории звонков
+    participant_db_id: int | None = None
+    async with session_scope() as session:
+        # Проверяем, есть ли уже запись об участии (без left_at)
+        result = await session.execute(
+            select(Participant).where(
+                Participant.call_id == call.id,
+                Participant.user_id == user.id,
+                Participant.left_at.is_(None),
+            )
+        )
+        existing_participant = result.scalar_one_or_none()
+
+        if not existing_participant:
+            # Создаём новую запись
+            participant = Participant(call_id=call.id, user_id=user.id)
+            session.add(participant)
+            await session.commit()
+            await session.refresh(participant)
+            participant_db_id = participant.id
+            logger.info(
+                "Created participant record id=%s for user_id=%s in call_id=%s",
+                participant.id,
+                user.id,
+                call_id,
+            )
+        else:
+            participant_db_id = existing_participant.id
+            logger.info(
+                "Reusing existing participant record id=%s for user_id=%s in call_id=%s",
+                existing_participant.id,
+                user.id,
+                call_id,
+            )
+
     logger.info(
         "WebSocket accepted for call %s; user_id=%s username=%s", call_id, user.id, user.username
     )
@@ -216,6 +252,23 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
         logger.exception("Unhandled error in signaling loop for user %s in call %s", user.id, call_id)
         await websocket.close(code=1011, reason="Internal server error")
     finally:
+        # Обновляем время выхода участника из звонка
+        if participant_db_id is not None:
+            async with session_scope() as session:
+                result = await session.execute(
+                    select(Participant).where(Participant.id == participant_db_id)
+                )
+                participant = result.scalar_one_or_none()
+                if participant and participant.left_at is None:
+                    participant.left_at = datetime.now(tz=timezone.utc)
+                    await session.commit()
+                    logger.info(
+                        "Updated participant record id=%s left_at for user_id=%s in call_id=%s",
+                        participant_db_id,
+                        user.id,
+                        call_id,
+                    )
+
         await room.remove_participant(user.id)
         await room.broadcast({"type": "user_left", "user": _serialize_user(user)}, sender_id=user.id)
         await call_room_manager.cleanup_room(call_id)
