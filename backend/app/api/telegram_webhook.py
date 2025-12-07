@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.database import get_session, session_scope
 from app.config.settings import get_settings
 from app.models import Call, User
-from app.services.telegram_bot import answer_inline_query, send_welcome_message
+from app.services.telegram_bot import answer_inline_query, send_help_message, send_welcome_message
 
 router = APIRouter(prefix="/api/telegram", tags=["Telegram"])
 logger = logging.getLogger(__name__)
@@ -115,18 +115,29 @@ async def handle_inline_query(inline_query: dict[str, Any]) -> None:
 
 
 async def handle_message(message: dict[str, Any]) -> None:
-    """Handle incoming messages (e.g., /start command)."""
+    """Handle incoming messages (e.g., /start and /help commands)."""
 
     text = message.get("text", "")
     from_user = message.get("from", {})
     telegram_user_id = from_user.get("id")
+    first_name = from_user.get("first_name")
 
     if not telegram_user_id:
         return
 
     # Обработка команды /start
     if text.startswith("/start"):
+        # Регистрируем или обновляем пользователя
         await register_or_update_user(from_user)
+
+        # ТЗ 3: Отправляем приветственное сообщение при каждом /start
+        await send_welcome_message(telegram_user_id, first_name)
+        return
+
+    # ТЗ 4: Обработка команды /help
+    if text.startswith("/help"):
+        await send_help_message(telegram_user_id)
+        return
 
 
 async def register_or_update_user(telegram_user: dict[str, Any]) -> None:
@@ -139,8 +150,6 @@ async def register_or_update_user(telegram_user: dict[str, Any]) -> None:
 
     if not telegram_user_id:
         return
-
-    is_new_user = False
 
     async with session_scope() as db_session:
         # Проверяем, существует ли пользователь
@@ -164,11 +173,6 @@ async def register_or_update_user(telegram_user: dict[str, Any]) -> None:
                 last_name=last_name,
             )
             db_session.add(user)
-            is_new_user = True
             logger.info("Registered new user telegram_user_id=%s", telegram_user_id)
 
         await db_session.commit()
-
-    # Отправляем приветственное сообщение только новым пользователям
-    if is_new_user:
-        await send_welcome_message(telegram_user_id, first_name)

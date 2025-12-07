@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
-import { useNavigation } from "../contexts/NavigationContext";
 import { callFriend, deleteFriends, Friend, getFriends } from "../services/friends";
 import defaultAvatar from "../assets/default-avatar.svg";
 
@@ -10,7 +9,6 @@ const FriendsPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, isAuthorizing } = useAuth();
-  const { registerCurrentPath } = useNavigation();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [filteredFriends, setFilteredFriends] = useState<Friend[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -23,11 +21,6 @@ const FriendsPage: React.FC = () => {
   const [selectedFriends, setSelectedFriends] = useState<Set<number>>(new Set());
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // Register this path in navigation stack
-  useEffect(() => {
-    registerCurrentPath();
-  }, [registerCurrentPath]);
 
   // Загрузка списка друзей
   useEffect(() => {

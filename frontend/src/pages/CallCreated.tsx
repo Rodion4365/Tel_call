@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { useNavigation } from "../contexts/NavigationContext";
 import { getTelegramWebApp } from "../services/telegram";
 
 interface LocationState {
@@ -15,7 +14,6 @@ const CallCreated: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { registerCurrentPath } = useNavigation();
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const joinUrl = searchParams.get("join_url") ?? (location.state as LocationState | null)?.join_url ?? "";
 
@@ -27,11 +25,6 @@ const CallCreated: React.FC = () => {
 
   const [isToastVisible, setToastVisible] = useState(false);
   const [isShareModalOpen, setShareModalOpen] = useState(false);
-
-  // Register this path in navigation stack
-  useEffect(() => {
-    registerCurrentPath();
-  }, [registerCurrentPath]);
 
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
