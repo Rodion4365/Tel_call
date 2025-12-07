@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { callFriend, Friend, getFriends } from "../services/friends";
+import { callFriend, deleteFriends, Friend, getFriends } from "../services/friends";
 import defaultAvatar from "../assets/default-avatar.svg";
 
 const FriendsPage: React.FC = () => {
@@ -13,6 +13,12 @@ const FriendsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [callingFriendId, setCallingFriendId] = useState<number | null>(null);
+
+  // Режим редактирования
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedFriends, setSelectedFriends] = useState<Set<number>>(new Set());
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Загрузка списка друзей
   useEffect(() => {
@@ -62,6 +68,13 @@ const FriendsPage: React.FC = () => {
   }, []);
 
   const handleFriendClick = async (friend: Friend) => {
+    // В режиме редактирования - только выбираем/снимаем выбор
+    if (isEditMode) {
+      toggleFriendSelection(friend.id);
+      return;
+    }
+
+    // В обычном режиме - звоним
     if (!user) {
       setError("Необходима авторизация");
       return;
@@ -99,6 +112,72 @@ const FriendsPage: React.FC = () => {
     }
   };
 
+  const toggleEditMode = () => {
+    setIsEditMode(!isEditMode);
+    setSelectedFriends(new Set());
+    setError(null);
+  };
+
+  const toggleFriendSelection = (friendId: number) => {
+    setSelectedFriends((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(friendId)) {
+        newSet.delete(friendId);
+      } else {
+        newSet.add(friendId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleDeleteClick = () => {
+    if (selectedFriends.size === 0) return;
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (selectedFriends.size === 0) return;
+
+    setIsDeleting(true);
+    setError(null);
+
+    try {
+      const friendIds = Array.from(selectedFriends);
+      await deleteFriends(friendIds);
+
+      // Обновляем список друзей
+      const updatedFriends = friends.filter((f) => !selectedFriends.has(f.id));
+      setFriends(updatedFriends);
+      setFilteredFriends(
+        updatedFriends.filter((f) => {
+          if (!searchQuery.trim()) return true;
+          const query = searchQuery.toLowerCase();
+          const displayName = f.display_name?.toLowerCase() || "";
+          const username = f.username?.toLowerCase() || "";
+          return displayName.includes(query) || username.includes(query);
+        })
+      );
+
+      // Сбрасываем состояние
+      setSelectedFriends(new Set());
+      setIsEditMode(false);
+      setShowDeleteModal(false);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[FriendsPage] Failed to delete friends", err);
+      setError("Не удалось удалить друзей, попробуйте ещё раз");
+      setShowDeleteModal(false);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setIsEditMode(false);
+    setSelectedFriends(new Set());
+  };
+
   const getDisplayName = (friend: Friend): string => {
     return friend.display_name || friend.username || "Без имени";
   };
@@ -112,6 +191,14 @@ const FriendsPage: React.FC = () => {
       <div className="friends-page">
         <header className="friends-header">
           <h1 className="friends-title">Друзья</h1>
+          <button
+            className={`edit-button ${isEditMode ? "active" : ""}`}
+            onClick={toggleEditMode}
+            disabled={isLoading || isAuthorizing || friends.length === 0}
+            aria-label="Режим редактирования"
+          >
+            ✏️
+          </button>
         </header>
 
         <div className="friends-search">
@@ -141,27 +228,73 @@ const FriendsPage: React.FC = () => {
           </p>
         ) : (
           <div className="friends-list">
-            {filteredFriends.map((friend) => (
-              <button
-                key={friend.id}
-                className="friend-item"
-                onClick={() => handleFriendClick(friend)}
-                disabled={callingFriendId !== null}
-              >
-                <div className="friend-avatar">
-                  <img src={getAvatarUrl(friend)} alt={getDisplayName(friend)} />
-                </div>
-                <div className="friend-info">
-                  <div className="friend-name">{getDisplayName(friend)}</div>
-                  {friend.username ? <div className="friend-username">@{friend.username}</div> : null}
-                </div>
-                {callingFriendId === friend.id ? (
-                  <div className="friend-calling">Звоним...</div>
-                ) : null}
-              </button>
-            ))}
+            {filteredFriends.map((friend) => {
+              const isSelected = selectedFriends.has(friend.id);
+              return (
+                <button
+                  key={friend.id}
+                  className={`friend-item ${isEditMode ? "edit-mode" : ""} ${isSelected ? "selected" : ""}`}
+                  onClick={() => handleFriendClick(friend)}
+                  disabled={callingFriendId !== null || isDeleting}
+                >
+                  {isEditMode ? (
+                    <div className={`selection-circle ${isSelected ? "checked" : ""}`}>
+                      {isSelected ? "✓" : ""}
+                    </div>
+                  ) : null}
+                  <div className="friend-avatar">
+                    <img src={getAvatarUrl(friend)} alt={getDisplayName(friend)} />
+                  </div>
+                  <div className="friend-info">
+                    <div className="friend-name">{getDisplayName(friend)}</div>
+                    {friend.username ? <div className="friend-username">@{friend.username}</div> : null}
+                  </div>
+                  {callingFriendId === friend.id ? (
+                    <div className="friend-calling">Звоним...</div>
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
         )}
+
+        {/* Кнопка удаления (только в режиме редактирования) */}
+        {isEditMode ? (
+          <div className="delete-button-container">
+            <button
+              className="delete-button"
+              onClick={handleDeleteClick}
+              disabled={selectedFriends.size === 0 || isDeleting}
+            >
+              Удалить
+            </button>
+          </div>
+        ) : null}
+
+        {/* Модальное окно подтверждения удаления */}
+        {showDeleteModal ? (
+          <div className="modal-overlay" onClick={handleDeleteCancel}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <h2 className="modal-title">Вы уверены, что хотите удалить друзей?</h2>
+              <div className="modal-buttons">
+                <button
+                  className="modal-button modal-button-confirm"
+                  onClick={handleDeleteConfirm}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Удаление..." : "Да"}
+                </button>
+                <button
+                  className="modal-button modal-button-cancel"
+                  onClick={handleDeleteCancel}
+                  disabled={isDeleting}
+                >
+                  Нет
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

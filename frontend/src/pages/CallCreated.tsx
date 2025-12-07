@@ -101,18 +101,34 @@ const CallCreated: React.FC = () => {
   };
 
   const shareViaTelegram = () => {
-    if (!joinUrl) {
+    if (!joinUrl || !call_id) {
       return false;
     }
 
     // eslint-disable-next-line no-console
-    console.log("[ShareCall] telegram share");
+    console.log("[ShareCall] telegram share via inline query");
 
+    const telegramWebApp = getTelegramWebApp();
+
+    // Используем switchInlineQuery для отправки сообщения с кнопкой через inline mode
+    if (telegramWebApp?.switchInlineQuery) {
+      // Формируем inline query с ID звонка
+      const inlineQuery = `call_${call_id}`;
+
+      try {
+        telegramWebApp.switchInlineQuery(inlineQuery, ["users", "groups", "channels"]);
+        return true;
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("[ShareCall] switchInlineQuery failed", error);
+      }
+    }
+
+    // Fallback: используем старый способ через share URL
     const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(joinUrl)}&text=${encodeURIComponent(
       shareText,
     )}`;
 
-    const telegramWebApp = getTelegramWebApp();
     if (telegramWebApp?.openTelegramLink) {
       telegramWebApp.openTelegramLink(telegramShareUrl);
       return true;

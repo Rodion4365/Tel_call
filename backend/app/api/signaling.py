@@ -6,9 +6,11 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.database import session_scope
 from app.models import Call, CallStatus, User
+from app.models.friend_link import FriendLink
 from app.models.participant import Participant
 from app.services.auth import get_user_from_token
 from app.services.signaling import call_room_manager
@@ -52,6 +54,39 @@ def _make_aware(dt: datetime | None) -> datetime | None:
         # Assume naive datetime is UTC
         return dt.replace(tzinfo=timezone.utc)
     return dt
+
+
+async def _create_or_update_friend_link(
+    session: AsyncSession, user_id: int, friend_id: int
+) -> None:
+    """Create or update a friend link between two users."""
+    if user_id == friend_id:
+        return  # Не создаём связь с самим собой
+
+    # Симметричная связь: всегда min в user_id_1, max в user_id_2
+    user_id_1 = min(user_id, friend_id)
+    user_id_2 = max(user_id, friend_id)
+
+    result = await session.execute(
+        select(FriendLink).where(
+            FriendLink.user_id_1 == user_id_1, FriendLink.user_id_2 == user_id_2
+        )
+    )
+    existing_link = result.scalar_one_or_none()
+
+    if existing_link:
+        # Обновляем updated_at
+        existing_link.updated_at = datetime.now(tz=timezone.utc)
+        logger.debug(
+            "Updated friend_link between user_id_1=%s and user_id_2=%s", user_id_1, user_id_2
+        )
+    else:
+        # Создаём новую связь
+        friend_link = FriendLink(user_id_1=user_id_1, user_id_2=user_id_2)
+        session.add(friend_link)
+        logger.info(
+            "Created friend_link between user_id_1=%s and user_id_2=%s", user_id_1, user_id_2
+        )
 
 
 def _serialize_user(user: User) -> dict[str, Any]:
@@ -164,6 +199,29 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
             logger.info(
                 "Reusing existing participant record id=%s for user_id=%s in call_id=%s",
                 existing_participant.id,
+                user.id,
+                call_id,
+            )
+
+    # Создаём/обновляем friend_links между текущим пользователем и другими участниками звонка
+    async with session_scope() as session:
+        # Получаем всех других участников этого звонка
+        result = await session.execute(
+            select(Participant.user_id)
+            .where(Participant.call_id == call.id, Participant.user_id != user.id)
+            .distinct()
+        )
+        other_user_ids = [row[0] for row in result.fetchall()]
+
+        # Создаём/обновляем связи с каждым участником
+        for friend_id in other_user_ids:
+            await _create_or_update_friend_link(session, user.id, friend_id)
+
+        if other_user_ids:
+            await session.commit()
+            logger.info(
+                "Created/updated %s friend_link(s) for user_id=%s in call_id=%s",
+                len(other_user_ids),
                 user.id,
                 call_id,
             )
