@@ -803,7 +803,10 @@ button:disabled {
 }
 
 .friends-header {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
   padding: 10px 0;
 }
 
@@ -813,6 +816,38 @@ button:disabled {
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--text-primary);
+}
+
+.edit-button {
+  position: absolute;
+  right: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  border: none;
+  background: var(--panel);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.edit-button:hover:not(:disabled) {
+  background: #2563eb;
+  transform: scale(1.05);
+}
+
+.edit-button.active {
+  background: #2563eb;
+  color: white;
+}
+
+.edit-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .friends-search {
@@ -913,4 +948,146 @@ button:disabled {
   font-size: 14px;
   font-weight: 600;
   color: #2563eb;
+}
+
+/* Режим редактирования */
+.selection-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  border: 2px solid var(--border);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  color: white;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.selection-circle.checked {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.friend-item.edit-mode {
+  padding-left: 12px;
+}
+
+.friend-item.selected {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.05);
+}
+
+/* Кнопка удаления */
+.delete-button-container {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px;
+  background: var(--bg-color);
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+  z-index: 10;
+}
+
+.delete-button {
+  width: 100%;
+  max-width: 520px;
+  padding: 16px 24px;
+  border-radius: 12px;
+  border: none;
+  background: #dc2626;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.delete-button:hover:not(:disabled) {
+  background: #b91c1c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+
+.delete-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Модальное окно */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.modal-content {
+  background: var(--bg-color);
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: var(--shadow);
+}
+
+.modal-title {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.modal-button {
+  flex: 1;
+  padding: 14px 20px;
+  border-radius: 12px;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-button-confirm {
+  background: #dc2626;
+  color: white;
+}
+
+.modal-button-confirm:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.modal-button-cancel {
+  background: var(--panel);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.modal-button-cancel:hover:not(:disabled) {
+  background: var(--border);
+}
+
+.modal-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

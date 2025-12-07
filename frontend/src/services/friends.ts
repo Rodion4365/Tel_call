@@ -25,6 +25,11 @@ export interface CallFriendResponse {
   expires_at: string | null;
 }
 
+export interface DeleteFriendsResponse {
+  deleted_ids: number[];
+  not_found_ids: number[];
+}
+
 export const getFriends = async (params?: GetFriendsParams): Promise<Friend[]> => {
   const queryParams = new URLSearchParams();
 
@@ -46,4 +51,8 @@ export const getFriends = async (params?: GetFriendsParams): Promise<Friend[]> =
 
 export const callFriend = async (friendId: number): Promise<CallFriendResponse> => {
   return apiClient.post<CallFriendResponse>("/api/calls/friend", { friend_id: friendId });
+};
+
+export const deleteFriends = async (friendIds: number[]): Promise<DeleteFriendsResponse> => {
+  return apiClient.post<DeleteFriendsResponse>("/api/friends/delete", { friend_ids: friendIds });
 };
