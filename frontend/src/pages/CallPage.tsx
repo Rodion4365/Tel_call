@@ -377,6 +377,37 @@ const CallPage: React.FC = () => {
     setIsMicOn(next);
   };
 
+  const renegotiatePeer = useCallback(
+    async (participantId: string) => {
+      const peer = peersRef.current.get(participantId);
+      if (!peer) {
+        return;
+      }
+
+      const targetUserId = Number.parseInt(participantId, 10);
+      if (Number.isNaN(targetUserId)) {
+        return;
+      }
+
+      try {
+        // eslint-disable-next-line no-console
+        console.log("[RTC] renegotiating peer connection", { participantId });
+        const offer = await peer.createOffer();
+        await peer.setLocalDescription(offer);
+        sendSignalingMessage({ type: "offer", payload: offer, to_user_id: targetUserId });
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("[RTC] failed to renegotiate peer", { participantId, error });
+      }
+    },
+    [sendSignalingMessage],
+  );
+
+  const renegotiateAllPeers = useCallback(async () => {
+    const peerIds = Array.from(peersRef.current.keys());
+    await Promise.all(peerIds.map((id) => renegotiatePeer(id)));
+  }, [renegotiatePeer]);
+
   const toggleCamera = async () => {
     if (isCameraOn) {
       // eslint-disable-next-line no-console
@@ -402,6 +433,9 @@ const CallPage: React.FC = () => {
       peersRef.current.forEach((peer) => {
         attachLocalTracks(peer, updatedStream);
       });
+
+      // Renegotiate all peer connections to notify others about video removal
+      await renegotiateAllPeers();
       return;
     }
 
@@ -435,9 +469,14 @@ const CallPage: React.FC = () => {
       peersRef.current.forEach((peer) => {
         attachLocalTracks(peer, mergedStream);
       });
+
+      // Renegotiate all peer connections to notify others about new video track
+      await renegotiateAllPeers();
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error("Failed to get camera access", error);
+      setMediaError("Нет доступа к камере");
+      setCameraOn(false);
     } finally {
       setIsRequestingCamera(false);
     }
