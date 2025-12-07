@@ -22,13 +22,16 @@ def upgrade() -> None:
     conn = op.get_bind()
     inspector = inspect(conn)
 
-    # Get existing indexes for each table
-    friend_links_indexes = {idx['name'] for idx in inspector.get_indexes('friend_links')}
-    participants_indexes = {idx['name'] for idx in inspector.get_indexes('participants')}
-    call_stats_indexes = {idx['name'] for idx in inspector.get_indexes('call_stats')}
+    # Get existing tables
+    existing_tables = inspector.get_table_names()
+
+    # Get existing indexes for each table (only if table exists)
+    friend_links_indexes = {idx['name'] for idx in inspector.get_indexes('friend_links')} if 'friend_links' in existing_tables else set()
+    participants_indexes = {idx['name'] for idx in inspector.get_indexes('participants')} if 'participants' in existing_tables else set()
+    call_stats_indexes = {idx['name'] for idx in inspector.get_indexes('call_stats')} if 'call_stats' in existing_tables else set()
 
     # 1. Add index on friend_links.updated_at for sorting recent friends
-    if 'ix_friend_links_updated_at' not in friend_links_indexes:
+    if 'friend_links' in existing_tables and 'ix_friend_links_updated_at' not in friend_links_indexes:
         op.create_index(
             'ix_friend_links_updated_at',
             'friend_links',
@@ -37,30 +40,31 @@ def upgrade() -> None:
         )
 
     # 2. Add indexes on participants table for call and user lookups
-    if 'ix_participants_call_id' not in participants_indexes:
-        op.create_index(
-            'ix_participants_call_id',
-            'participants',
-            ['call_id']
-        )
+    if 'participants' in existing_tables:
+        if 'ix_participants_call_id' not in participants_indexes:
+            op.create_index(
+                'ix_participants_call_id',
+                'participants',
+                ['call_id']
+            )
 
-    if 'ix_participants_user_id' not in participants_indexes:
-        op.create_index(
-            'ix_participants_user_id',
-            'participants',
-            ['user_id']
-        )
+        if 'ix_participants_user_id' not in participants_indexes:
+            op.create_index(
+                'ix_participants_user_id',
+                'participants',
+                ['user_id']
+            )
 
-    # Composite index for finding specific participant in a call
-    if 'ix_participants_call_user' not in participants_indexes:
-        op.create_index(
-            'ix_participants_call_user',
-            'participants',
-            ['call_id', 'user_id']
-        )
+        # Composite index for finding specific participant in a call
+        if 'ix_participants_call_user' not in participants_indexes:
+            op.create_index(
+                'ix_participants_call_user',
+                'participants',
+                ['call_id', 'user_id']
+            )
 
-    # 3. Add index on call_stats.user_id for user statistics lookups
-    if 'ix_call_stats_user_id' not in call_stats_indexes:
+    # 3. Add index on call_stats.user_id for user statistics lookups (skip if table doesn't exist)
+    if 'call_stats' in existing_tables and 'ix_call_stats_user_id' not in call_stats_indexes:
         op.create_index(
             'ix_call_stats_user_id',
             'call_stats',
@@ -73,23 +77,27 @@ def downgrade() -> None:
     conn = op.get_bind()
     inspector = inspect(conn)
 
-    # Get existing indexes for each table
-    friend_links_indexes = {idx['name'] for idx in inspector.get_indexes('friend_links')}
-    participants_indexes = {idx['name'] for idx in inspector.get_indexes('participants')}
-    call_stats_indexes = {idx['name'] for idx in inspector.get_indexes('call_stats')}
+    # Get existing tables
+    existing_tables = inspector.get_table_names()
 
-    # Drop indexes in reverse order
-    if 'ix_call_stats_user_id' in call_stats_indexes:
+    # Get existing indexes for each table (only if table exists)
+    friend_links_indexes = {idx['name'] for idx in inspector.get_indexes('friend_links')} if 'friend_links' in existing_tables else set()
+    participants_indexes = {idx['name'] for idx in inspector.get_indexes('participants')} if 'participants' in existing_tables else set()
+    call_stats_indexes = {idx['name'] for idx in inspector.get_indexes('call_stats')} if 'call_stats' in existing_tables else set()
+
+    # Drop indexes in reverse order (only if tables exist)
+    if 'call_stats' in existing_tables and 'ix_call_stats_user_id' in call_stats_indexes:
         op.drop_index('ix_call_stats_user_id', table_name='call_stats')
 
-    if 'ix_participants_call_user' in participants_indexes:
-        op.drop_index('ix_participants_call_user', table_name='participants')
+    if 'participants' in existing_tables:
+        if 'ix_participants_call_user' in participants_indexes:
+            op.drop_index('ix_participants_call_user', table_name='participants')
 
-    if 'ix_participants_user_id' in participants_indexes:
-        op.drop_index('ix_participants_user_id', table_name='participants')
+        if 'ix_participants_user_id' in participants_indexes:
+            op.drop_index('ix_participants_user_id', table_name='participants')
 
-    if 'ix_participants_call_id' in participants_indexes:
-        op.drop_index('ix_participants_call_id', table_name='participants')
+        if 'ix_participants_call_id' in participants_indexes:
+            op.drop_index('ix_participants_call_id', table_name='participants')
 
-    if 'ix_friend_links_updated_at' in friend_links_indexes:
+    if 'friend_links' in existing_tables and 'ix_friend_links_updated_at' in friend_links_indexes:
         op.drop_index('ix_friend_links_updated_at', table_name='friend_links')
