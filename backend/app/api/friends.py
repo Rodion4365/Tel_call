@@ -2,7 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy import and_, case, delete, func, or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.database import get_session
@@ -118,28 +118,41 @@ async def delete_friends(
 ) -> DeleteFriendsResponse:
     """Delete friend links between current user and specified friends."""
 
+    if not request.friend_ids:
+        return DeleteFriendsResponse(deleted_ids=[], not_found_ids=[])
+
+    # Формируем пары (user_id_1, user_id_2) для всех friend_ids
+    user_id_pairs = [
+        (min(current_user.id, friend_id), max(current_user.id, friend_id))
+        for friend_id in request.friend_ids
+    ]
+
+    # Сначала проверяем какие записи существуют (один SELECT вместо N)
+    result = await session.execute(
+        select(FriendLink.user_id_1, FriendLink.user_id_2).where(
+            tuple_(FriendLink.user_id_1, FriendLink.user_id_2).in_(user_id_pairs)
+        )
+    )
+    existing_pairs = set(result.all())
+
+    # Определяем какие friend_ids были найдены, а какие нет
     deleted_ids: list[int] = []
     not_found_ids: list[int] = []
 
     for friend_id in request.friend_ids:
-        # Определяем пару (user_id_1, user_id_2)
-        user_id_1 = min(current_user.id, friend_id)
-        user_id_2 = max(current_user.id, friend_id)
-
-        # Ищем запись в friend_links
-        result = await session.execute(
-            select(FriendLink).where(
-                FriendLink.user_id_1 == user_id_1, FriendLink.user_id_2 == user_id_2
-            )
-        )
-        friend_link = result.scalar_one_or_none()
-
-        if friend_link:
-            # Удаляем запись
-            await session.delete(friend_link)
+        pair = (min(current_user.id, friend_id), max(current_user.id, friend_id))
+        if pair in existing_pairs:
             deleted_ids.append(friend_id)
         else:
             not_found_ids.append(friend_id)
+
+    # Удаляем все найденные записи одним запросом (один DELETE вместо N)
+    if existing_pairs:
+        await session.execute(
+            delete(FriendLink).where(
+                tuple_(FriendLink.user_id_1, FriendLink.user_id_2).in_(existing_pairs)
+            )
+        )
 
     # Коммитим все изменения
     await session.commit()
