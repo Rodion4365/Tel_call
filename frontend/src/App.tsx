@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect } from "react";
-import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { Route, Routes, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
 import MainPage from "./pages/MainPage";
 import JoinCallPage from "./pages/JoinCallPage";
@@ -10,13 +10,14 @@ import FriendsPage from "./pages/FriendsPage";
 import { useTelegramBackButton } from "./hooks/useTelegramBackButton";
 import { useTelegramWebApp } from "./hooks/useTelegramWebApp";
 import { useAuth } from "./contexts/AuthContext";
+import { NavigationProvider, useNavigation } from "./contexts/NavigationContext";
 
-function App(): JSX.Element {
-  const navigate = useNavigate();
+function AppContent(): JSX.Element {
   const location = useLocation();
   const { isReady: isTelegramReady, webApp } = useTelegramWebApp();
   const { user, authError, isAuthorizing, hasTriedAuth, loginWithTelegram } = useAuth();
-  const handleBack = useCallback(() => navigate(-1), [navigate]);
+  const { navigateBack } = useNavigation();
+  const handleBack = useCallback(() => navigateBack(), [navigateBack]);
 
   useEffect(() => {
     // eslint-disable-next-line no-console
@@ -63,6 +64,14 @@ function App(): JSX.Element {
         <Route path="/settings" element={<SettingsPage />} />
       </Routes>
     </Layout>
+  );
+}
+
+function App(): JSX.Element {
+  return (
+    <NavigationProvider>
+      <AppContent />
+    </NavigationProvider>
   );
 }
 
