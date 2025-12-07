@@ -9,6 +9,8 @@ import React, {
 } from "react";
 import { getTelegramWebApp } from "../services/telegram";
 import type { TelegramWebApp, TelegramWebAppUser } from "../types/telegram";
+import { useTelegramTheme } from "../hooks/useTelegramTheme";
+import { useTelegramLanguage } from "../hooks/useTelegramLanguage";
 
 export type WebAppStatus = "idle" | "connecting" | "connected" | "error";
 
@@ -40,6 +42,12 @@ interface Props {
 export const WebAppConnectionProvider: React.FC<Props> = ({ children }) => {
   const [status, setStatus] = useState<WebAppStatus>("idle");
   const [webApp, setWebApp] = useState<TelegramWebApp | null>(null);
+
+  // Применить тему Telegram к приложению
+  useTelegramTheme(webApp);
+
+  // Установить язык из Telegram при первом запуске
+  useTelegramLanguage(webApp);
 
   useEffect(() => {
     let isMounted = true;

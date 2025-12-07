@@ -32,7 +32,7 @@ const SettingsPage: React.FC = () => {
       <header className="settings__header">
         <div>
           <p className="eyebrow">{t("settingsPage.title")}</p>
-          <h1 className="settings__title">Ваш профиль и звонки</h1>
+          <h1 className="settings__title">{t("settingsPage.subtitle")}</h1>
         </div>
       </header>
 
@@ -70,18 +70,18 @@ const SettingsPage: React.FC = () => {
         <div className="settings__section-header">
           <div>
             <p id="profile-section" className="eyebrow">
-              Профиль
+              {t("settingsPage.profileSection")}
             </p>
-            <h2 className="settings__section-title">Данные аккаунта</h2>
+            <h2 className="settings__section-title">{t("settingsPage.profileTitle")}</h2>
           </div>
         </div>
         <div className="settings__rows">
           <div className="settings__row">
-            <span className="settings__label">Имя</span>
+            <span className="settings__label">{t("settingsPage.firstName")}</span>
             <span className="settings__value">{telegramUser?.first_name ?? "—"}</span>
           </div>
           <div className="settings__row">
-            <span className="settings__label">Username</span>
+            <span className="settings__label">{t("settingsPage.username")}</span>
             <span className="settings__value">
               {telegramUser?.username ? `@${telegramUser.username}` : "—"}
             </span>
@@ -96,16 +96,16 @@ const SettingsPage: React.FC = () => {
         <div className="settings__section-header">
           <div>
             <p id="defaults-section" className="eyebrow">
-              Настройки по умолчанию
+              {t("settingsPage.defaultsSection")}
             </p>
-            <h2 className="settings__section-title">Параметры звонка</h2>
+            <h2 className="settings__section-title">{t("settingsPage.defaultsTitle")}</h2>
           </div>
         </div>
         <div className="settings__rows">
           <div className="settings__row">
             <div>
-              <p className="settings__label">Микрофон</p>
-              <p className="muted">Включён по умолчанию</p>
+              <p className="settings__label">{t("settingsPage.microphone")}</p>
+              <p className="muted">{t("settingsPage.microphoneDefault")}</p>
             </div>
             <button
               type="button"
@@ -126,13 +126,13 @@ const SettingsPage: React.FC = () => {
         <div className="settings__section-header">
           <div>
             <p id="security-section" className="eyebrow">
-              Безопасность
+              {t("settingsPage.securitySection")}
             </p>
-            <h2 className="settings__section-title">Шифрование</h2>
+            <h2 className="settings__section-title">{t("settingsPage.securityTitle")}</h2>
           </div>
         </div>
         <p className="muted">
-          Звонки защищены WebRTC (DTLS-SRTP). Видео и аудио не записываются.
+          {t("settingsPage.securityDescription")}
         </p>
       </section>
 

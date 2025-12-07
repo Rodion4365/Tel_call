@@ -1,19 +1,32 @@
 :root {
-  color: #0f172a;
-  background-color: #ffffff;
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Fallback значения для случая, когда Telegram themeParams не доступны */
+  /* Эти значения будут переопределены JavaScript из Telegram WebApp */
   --bg-color: #ffffff;
   --text-primary: #0f172a;
   --text-muted: #475569;
   --panel: #f8fafc;
   --border: #e2e8f0;
   --shadow: 0 14px 38px rgba(15, 23, 42, 0.12);
+
+  /* Telegram theme variables (устанавливаются из JS) */
+  --tg-bg: var(--bg-color);
+  --tg-text: var(--text-primary);
+  --tg-hint: var(--text-muted);
+  --tg-button: #2563eb;
+  --tg-button-text: #ffffff;
+  --tg-bg-secondary: var(--panel);
+  --tg-link: #2563eb;
+  --tg-accent: #2563eb;
+
+  color: var(--text-primary);
+  background-color: var(--bg-color);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    color: #f8fafc;
-    background-color: #0b1220;
+    /* Fallback значения для темной темы */
     --bg-color: #0b1220;
     --text-primary: #f8fafc;
     --text-muted: #cbd5e1;
@@ -200,9 +213,9 @@ a:hover {
 }
 
 .action-primary {
-  background: #2563eb;
-  color: #ffffff;
-  border-color: #1d4ed8;
+  background: var(--tg-button, #2563eb);
+  color: var(--tg-button-text, #ffffff);
+  border-color: var(--tg-button, #1d4ed8);
 }
 
 .action-secondary {
@@ -307,8 +320,8 @@ button {
   align-self: flex-start;
   padding: 10px 14px;
   border-radius: 10px;
-  background: #2563eb;
-  color: white;
+  background: var(--tg-button, #2563eb);
+  color: var(--tg-button-text, white);
   border: none;
   font-weight: 700;
   cursor: pointer;
@@ -361,9 +374,9 @@ button:disabled {
 }
 
 .primary {
-  background: #2563eb;
-  color: #ffffff;
-  border: 1px solid #1d4ed8;
+  background: var(--tg-button, #2563eb);
+  color: var(--tg-button-text, #ffffff);
+  border: 1px solid var(--tg-button, #1d4ed8);
 }
 
 .secondary {
@@ -606,8 +619,8 @@ button:disabled {
 }
 
 .toggle--on {
-  background: #2563eb;
-  border-color: #1d4ed8;
+  background: var(--tg-button, #2563eb);
+  border-color: var(--tg-button, #1d4ed8);
 }
 
 .toggle--on .toggle__thumb {
@@ -691,7 +704,7 @@ button:disabled {
   width: 100%;
   border-radius: 16px;
   overflow: hidden;
-  background: #1d4ed8;
+  background: var(--tg-button, #1d4ed8);
   aspect-ratio: 3 / 4;
   display: flex;
   align-items: center;
@@ -770,8 +783,8 @@ button:disabled {
 }
 
 .call-btn--active {
-  background: #2563eb;
-  color: #ffffff;
+  background: var(--tg-button, #2563eb);
+  color: var(--tg-button-text, #ffffff);
 }
 
 .call-btn--danger {
@@ -836,12 +849,12 @@ button:disabled {
 }
 
 .edit-button:hover:not(:disabled) {
-  background: #2563eb;
+  background: var(--tg-button, #2563eb);
   transform: scale(1.05);
 }
 
 .edit-button.active {
-  background: #2563eb;
+  background: var(--tg-button, #2563eb);
   color: white;
 }
 
@@ -867,7 +880,7 @@ button:disabled {
 }
 
 .friends-search-input:focus {
-  border-color: #2563eb;
+  border-color: var(--tg-button, #2563eb);
 }
 
 .friends-search-input::placeholder {
@@ -897,7 +910,7 @@ button:disabled {
 .friend-item:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow);
-  border-color: #2563eb;
+  border-color: var(--tg-button, #2563eb);
 }
 
 .friend-item:disabled {
@@ -917,7 +930,7 @@ button:disabled {
   border-radius: 24px;
   overflow: hidden;
   flex-shrink: 0;
-  background: linear-gradient(135deg, #2563eb, #60a5fa);
+  background: linear-gradient(135deg, var(--tg-button, #2563eb), #60a5fa);
 }
 
 .friend-avatar img {
@@ -947,7 +960,7 @@ button:disabled {
 .friend-calling {
   font-size: 14px;
   font-weight: 600;
-  color: #2563eb;
+  color: var(--tg-button, #2563eb);
 }
 
 /* Режим редактирования */
@@ -968,8 +981,8 @@ button:disabled {
 }
 
 .selection-circle.checked {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: var(--tg-button, #2563eb);
+  border-color: var(--tg-button, #2563eb);
 }
 
 .friend-item.edit-mode {
@@ -977,8 +990,8 @@ button:disabled {
 }
 
 .friend-item.selected {
-  border-color: #2563eb;
-  background: rgba(37, 99, 235, 0.05);
+  border-color: var(--tg-button, #2563eb);
+  background: color-mix(in srgb, var(--tg-button, #2563eb) 5%, transparent);
 }
 
 /* Кнопка удаления */
