@@ -93,10 +93,10 @@ async def handle_inline_query(inline_query: dict[str, Any]) -> None:
         {
             "type": "article",
             "id": f"call_{call_id}",
-            "title": f"{caller_name} приглашает в звонок",
+            "title": f'Звонок от "{caller_name}"',
             "description": "Нажмите, чтобы отправить приглашение",
             "input_message_content": {
-                "message_text": f"{caller_name} приглашает вас в звонок!",
+                "message_text": f'Звонок от "{caller_name}"\nПрисоединиться к звонку:',
             },
             "reply_markup": {
                 "inline_keyboard": [
