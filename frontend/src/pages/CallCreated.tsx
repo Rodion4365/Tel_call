@@ -161,14 +161,17 @@ const CallCreated: React.FC = () => {
       <div className="call-created__content">
         <div className="call-created__actions-row">
           <button className="primary" onClick={handleJoinCall} disabled={!call_id}>
-            <span>{t("callCreatedPage.joinButton")}</span>
+            <span className="button-text-full">{t("callCreatedPage.joinButton")}</span>
+            <span className="button-text-short">{t("callCreatedPage.joinButtonShort")}</span>
           </button>
           <button className="secondary" onClick={handleShare} disabled={!joinUrl}>
-            <span>{t("callCreatedPage.shareButton")}</span>
+            <span className="button-text-full">{t("callCreatedPage.shareButton")}</span>
+            <span className="button-text-short">{t("callCreatedPage.shareButtonShort")}</span>
             <span>🔗</span>
           </button>
           <button className="outline" onClick={copyLink} disabled={!joinUrl}>
-            <span>{t("callCreatedPage.copyLinkButton")}</span>
+            <span className="button-text-full">{t("callCreatedPage.copyLinkButton")}</span>
+            <span className="button-text-short">{t("callCreatedPage.copyLinkButtonShort")}</span>
             <span>🔗</span>
           </button>
         </div>

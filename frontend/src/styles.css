@@ -434,21 +434,51 @@ button:disabled {
   flex: 1;
   align-self: stretch;
   border-radius: 16px;
-  padding: 12px 12px;
-  font-size: clamp(11px, 3.5vw, 14px);
+  padding: 12px 10px;
+  font-size: clamp(12px, 3.5vw, 14px);
   font-weight: 600;
   min-width: 0;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
 }
 
-@media (max-width: 360px) {
+/* По умолчанию показываем полный текст */
+.call-created__actions-row button .button-text-full {
+  display: inline;
+}
+
+.call-created__actions-row button .button-text-short {
+  display: none;
+}
+
+/* На маленьких экранах показываем короткий текст */
+@media (max-width: 380px) {
   .call-created__actions-row button {
-    font-size: clamp(10px, 3.2vw, 12px);
+    font-size: clamp(11px, 3.2vw, 13px);
     padding: 12px 8px;
+    gap: 3px;
+  }
+
+  .call-created__actions-row button .button-text-full {
+    display: none;
+  }
+
+  .call-created__actions-row button .button-text-short {
+    display: inline;
+  }
+}
+
+/* Для очень маленьких экранов еще меньше отступы */
+@media (max-width: 340px) {
+  .call-created__actions-row button {
+    font-size: clamp(10px, 3vw, 12px);
+    padding: 12px 6px;
+    gap: 2px;
   }
 }
 
