@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.database import get_session, session_scope
 from app.config.settings import get_settings
 from app.models import Call, User
-from app.services.telegram_bot import answer_inline_query
+from app.services.telegram_bot import answer_inline_query, send_welcome_message
 
 router = APIRouter(prefix="/api/telegram", tags=["Telegram"])
 logger = logging.getLogger(__name__)
@@ -140,6 +140,8 @@ async def register_or_update_user(telegram_user: dict[str, Any]) -> None:
     if not telegram_user_id:
         return
 
+    is_new_user = False
+
     async with session_scope() as db_session:
         # Проверяем, существует ли пользователь
         result = await db_session.execute(
@@ -162,6 +164,11 @@ async def register_or_update_user(telegram_user: dict[str, Any]) -> None:
                 last_name=last_name,
             )
             db_session.add(user)
+            is_new_user = True
             logger.info("Registered new user telegram_user_id=%s", telegram_user_id)
 
         await db_session.commit()
+
+    # Отправляем приветственное сообщение только новым пользователям
+    if is_new_user:
+        await send_welcome_message(telegram_user_id, first_name)
