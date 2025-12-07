@@ -1,15 +1,22 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useNavigation } from "../contexts/NavigationContext";
 import { getCallById } from "../services/calls";
 import { extractCallId, isValidCallId } from "../utils/callId";
 
 const JoinCallPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { registerCurrentPath } = useNavigation();
   const [callCode, setCallCode] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setSubmitting] = useState(false);
+
+  // Register this path in navigation stack
+  useEffect(() => {
+    registerCurrentPath();
+  }, [registerCurrentPath]);
 
   const isSubmitDisabled = useMemo(
     () => !callCode.trim() || isSubmitting,
