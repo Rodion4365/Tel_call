@@ -5,7 +5,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
-from sqlalchemy import select
+from sqlalchemy import select, tuple_
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.database import session_scope
@@ -59,7 +60,10 @@ def _make_aware(dt: datetime | None) -> datetime | None:
 async def _create_or_update_friend_link(
     session: AsyncSession, user_id: int, friend_id: int
 ) -> None:
-    """Create or update a friend link between two users."""
+    """Create or update a friend link between two users.
+
+    DEPRECATED: Use _batch_create_or_update_friend_links for better performance.
+    """
     if user_id == friend_id:
         return  # Не создаём связь с самим собой
 
@@ -87,6 +91,48 @@ async def _create_or_update_friend_link(
         logger.info(
             "Created friend_link between user_id_1=%s and user_id_2=%s", user_id_1, user_id_2
         )
+
+
+async def _batch_create_or_update_friend_links(
+    session: AsyncSession, user_id: int, friend_ids: list[int]
+) -> None:
+    """Batch create or update friend links between user and multiple friends.
+
+    This is much more efficient than calling _create_or_update_friend_link in a loop,
+    as it uses a single INSERT ... ON CONFLICT DO UPDATE query instead of N queries.
+    """
+    if not friend_ids:
+        return
+
+    # Фильтруем user_id из списка друзей (не создаём связь с самим собой)
+    friend_ids = [fid for fid in friend_ids if fid != user_id]
+    if not friend_ids:
+        return
+
+    # Формируем пары (user_id_1, user_id_2) для всех друзей
+    now = datetime.now(tz=timezone.utc)
+    values = [
+        {
+            "user_id_1": min(user_id, friend_id),
+            "user_id_2": max(user_id, friend_id),
+            "created_at": now,
+            "updated_at": now,
+        }
+        for friend_id in friend_ids
+    ]
+
+    # Используем INSERT ... ON CONFLICT DO UPDATE для PostgreSQL (upsert)
+    # Это создаст новые записи или обновит updated_at для существующих
+    stmt = insert(FriendLink).values(values)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["user_id_1", "user_id_2"],
+        set_={"updated_at": now},
+    )
+
+    await session.execute(stmt)
+    logger.info(
+        "Batch created/updated %s friend_link(s) for user_id=%s", len(friend_ids), user_id
+    )
 
 
 def _serialize_user(user: User) -> dict[str, Any]:
@@ -213,11 +259,9 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
         )
         other_user_ids = [row[0] for row in result.fetchall()]
 
-        # Создаём/обновляем связи с каждым участником
-        for friend_id in other_user_ids:
-            await _create_or_update_friend_link(session, user.id, friend_id)
-
+        # Создаём/обновляем связи с каждым участником одним batch запросом
         if other_user_ids:
+            await _batch_create_or_update_friend_links(session, user.id, other_user_ids)
             await session.commit()
             logger.info(
                 "Created/updated %s friend_link(s) for user_id=%s in call_id=%s",

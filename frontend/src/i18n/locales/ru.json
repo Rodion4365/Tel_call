@@ -51,11 +51,22 @@
   },
   "callCreatedPage": {
     "title": "Звонок создан",
+    "description": "Поделитесь ссылкой и присоединитесь к звонку",
     "shareTitle": "Поделитесь ссылкой для подключения",
     "copyButton": "Скопировать ссылку",
     "copiedButton": "Скопировано",
     "shareButton": "Поделиться",
     "joinButton": "Присоединиться",
+    "copyLinkButton": "Скопировать",
+    "linkCopied": "Ссылка скопирована",
+    "modalTitle": "Поделиться ссылкой",
+    "modalClose": "Закрыть",
+    "modalCloseAria": "Закрыть модалку",
+    "invitationLink": "Ссылка приглашения",
+    "sendToTelegram": "Отправить в Telegram",
+    "shareDescription": "Можно отправить в WhatsApp, Telegram, Email...",
+    "callFromUser": "Звонок от \"{{displayName}}\"",
+    "joinCallMessage": "Присоединиться к звонку:",
     "backToMain": "На главную"
   },
   "callPage": {

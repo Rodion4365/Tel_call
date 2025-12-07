@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { getTelegramWebApp } from "../services/telegram";
@@ -8,6 +9,7 @@ interface LocationState {
 }
 
 const CallCreated: React.FC = () => {
+  const { t } = useTranslation();
   const { call_id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -16,10 +18,10 @@ const CallCreated: React.FC = () => {
   const joinUrl = searchParams.get("join_url") ?? (location.state as LocationState | null)?.join_url ?? "";
 
   const shareTitle = useMemo(() => {
-    const displayName = user?.first_name || user?.username || "Пользователь";
-    return `Звонок от "${displayName}"`;
-  }, [user]);
-  const shareText = useMemo(() => `${shareTitle}\nПрисоединиться к звонку:`, [shareTitle]);
+    const displayName = user?.first_name || user?.username || t("friendsPage.nameless");
+    return t("callCreatedPage.callFromUser", { displayName });
+  }, [user, t]);
+  const shareText = useMemo(() => `${shareTitle}\n${t("callCreatedPage.joinCallMessage")}`, [shareTitle, t]);
 
   const [isToastVisible, setToastVisible] = useState(false);
   const [isShareModalOpen, setShareModalOpen] = useState(false);
@@ -67,6 +69,7 @@ const CallCreated: React.FC = () => {
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error("[ShareCall] failed to copy link", error);
+      // Fallback: show modal if clipboard API fails
       setShareModalOpen(true);
     }
   };
@@ -151,52 +154,52 @@ const CallCreated: React.FC = () => {
   return (
     <div className="panel call-created">
       <div className="call-created__header">
-        <p className="eyebrow">Звонок создан</p>
-        <h1 className="call-created__title">Поделитесь ссылкой и присоединитесь к звонку</h1>
+        <p className="eyebrow">{t("callCreatedPage.title")}</p>
+        <h1 className="call-created__title">{t("callCreatedPage.description")}</h1>
       </div>
 
       <div className="call-created__content">
         <div className="call-created__actions-row">
           <button className="primary" onClick={handleJoinCall} disabled={!call_id}>
-            <span>Присоединиться</span>
+            <span>{t("callCreatedPage.joinButton")}</span>
           </button>
           <button className="secondary" onClick={handleShare} disabled={!joinUrl}>
-            <span>Поделиться</span>
+            <span>{t("callCreatedPage.shareButton")}</span>
             <span>🔗</span>
           </button>
           <button className="outline" onClick={copyLink} disabled={!joinUrl}>
-            <span>Скопировать</span>
+            <span>{t("callCreatedPage.copyLinkButton")}</span>
             <span>🔗</span>
           </button>
         </div>
       </div>
 
-      {isToastVisible && <div className="toast">Ссылка скопирована</div>}
+      {isToastVisible && <div className="toast">{t("callCreatedPage.linkCopied")}</div>}
 
       {isShareModalOpen && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <div className="modal">
             <div className="modal__header">
-              <h2>Поделиться ссылкой</h2>
-              <button className="ghost-button" onClick={closeModal} aria-label="Закрыть модалку">
-                Закрыть
+              <h2>{t("callCreatedPage.modalTitle")}</h2>
+              <button className="ghost-button" onClick={closeModal} aria-label={t("callCreatedPage.modalCloseAria")}>
+                {t("callCreatedPage.modalClose")}
               </button>
             </div>
 
             <div className="modal__body">
               <label className="form-field">
-                <span>Ссылка приглашения</span>
+                <span>{t("callCreatedPage.invitationLink")}</span>
                 <input type="url" value={joinUrl} readOnly />
               </label>
               <div className="modal__actions">
                 <button className="secondary" onClick={copyLink} disabled={!joinUrl}>
-                  Скопировать
+                  {t("callCreatedPage.copyLinkButton")}
                 </button>
                 <button className="outline" onClick={handleTelegramShare} disabled={!joinUrl}>
-                  Отправить в Telegram
+                  {t("callCreatedPage.sendToTelegram")}
                 </button>
               </div>
-              <p className="muted">Можно отправить в WhatsApp, Telegram, Email...</p>
+              <p className="muted">{t("callCreatedPage.shareDescription")}</p>
             </div>
           </div>
         </div>

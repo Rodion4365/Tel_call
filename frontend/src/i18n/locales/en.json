@@ -51,11 +51,22 @@
   },
   "callCreatedPage": {
     "title": "Call Created",
+    "description": "Share the link and join the call",
     "shareTitle": "Share the link to join",
     "copyButton": "Copy Link",
     "copiedButton": "Copied",
     "shareButton": "Share",
     "joinButton": "Join",
+    "copyLinkButton": "Copy",
+    "linkCopied": "Link copied",
+    "modalTitle": "Share Link",
+    "modalClose": "Close",
+    "modalCloseAria": "Close modal",
+    "invitationLink": "Invitation Link",
+    "sendToTelegram": "Send to Telegram",
+    "shareDescription": "You can send it via WhatsApp, Telegram, Email...",
+    "callFromUser": "Call from \"{{displayName}}\"",
+    "joinCallMessage": "Join the call:",
     "backToMain": "Back to Main"
   },
   "callPage": {
