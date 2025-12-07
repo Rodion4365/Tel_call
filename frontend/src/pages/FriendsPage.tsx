@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { callFriend, deleteFriends, Friend, getFriends } from "../services/friends";
 import defaultAvatar from "../assets/default-avatar.svg";
 
 const FriendsPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, isAuthorizing } = useAuth();
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -37,7 +39,7 @@ const FriendsPage: React.FC = () => {
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error("[FriendsPage] Failed to load friends", err);
-        setError("Не удалось загрузить список друзей");
+        setError(t("friendsPage.errorLoad"));
       } finally {
         setIsLoading(false);
       }
@@ -76,7 +78,7 @@ const FriendsPage: React.FC = () => {
 
     // В обычном режиме - звоним
     if (!user) {
-      setError("Необходима авторизация");
+      setError(t("friendsPage.errorAuthRequired"));
       return;
     }
 
@@ -103,8 +105,8 @@ const FriendsPage: React.FC = () => {
 
       const message =
         err instanceof Error && err.message
-          ? `Не удалось начать звонок: ${err.message}`
-          : "Не удалось начать звонок. Попробуйте ещё раз.";
+          ? t("friendsPage.errorCallWithMessage", { message: err.message })
+          : t("friendsPage.errorCall");
 
       setError(message);
     } finally {
@@ -165,7 +167,7 @@ const FriendsPage: React.FC = () => {
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("[FriendsPage] Failed to delete friends", err);
-      setError("Не удалось удалить друзей, попробуйте ещё раз");
+      setError(t("friendsPage.errorDelete"));
       setShowDeleteModal(false);
     } finally {
       setIsDeleting(false);
@@ -179,7 +181,7 @@ const FriendsPage: React.FC = () => {
   };
 
   const getDisplayName = (friend: Friend): string => {
-    return friend.display_name || friend.username || "Без имени";
+    return friend.display_name || friend.username || t("friendsPage.nameless");
   };
 
   const getAvatarUrl = (friend: Friend): string => {
@@ -190,12 +192,12 @@ const FriendsPage: React.FC = () => {
     <div className="app-container">
       <div className="friends-page">
         <header className="friends-header">
-          <h1 className="friends-title">Друзья</h1>
+          <h1 className="friends-title">{t("friendsPage.title")}</h1>
           <button
             className={`edit-button ${isEditMode ? "active" : ""}`}
             onClick={toggleEditMode}
             disabled={isLoading || isAuthorizing || friends.length === 0}
-            aria-label="Режим редактирования"
+            aria-label={t("friendsPage.editMode")}
           >
             ✏️
           </button>
@@ -205,7 +207,7 @@ const FriendsPage: React.FC = () => {
           <input
             type="text"
             className="friends-search-input"
-            placeholder="Поиск по имени или никнейму"
+            placeholder={t("friendsPage.searchPlaceholder")}
             value={searchQuery}
             onChange={handleSearchChange}
             disabled={isLoading || isAuthorizing}
@@ -220,11 +222,11 @@ const FriendsPage: React.FC = () => {
 
         {isLoading ? (
           <p className="muted" style={{ textAlign: "center", margin: "2rem 0" }}>
-            Загрузка...
+            {t("common.loading")}
           </p>
         ) : filteredFriends.length === 0 ? (
           <p className="muted" style={{ textAlign: "center", margin: "2rem 0" }}>
-            {searchQuery ? "Ничего не найдено" : "У вас пока нет друзей"}
+            {searchQuery ? t("friendsPage.nothingFound") : t("friendsPage.noFriends")}
           </p>
         ) : (
           <div className="friends-list">
@@ -250,7 +252,7 @@ const FriendsPage: React.FC = () => {
                     {friend.username ? <div className="friend-username">@{friend.username}</div> : null}
                   </div>
                   {callingFriendId === friend.id ? (
-                    <div className="friend-calling">Звоним...</div>
+                    <div className="friend-calling">{t("friendsPage.calling")}</div>
                   ) : null}
                 </button>
               );
@@ -266,7 +268,7 @@ const FriendsPage: React.FC = () => {
               onClick={handleDeleteClick}
               disabled={selectedFriends.size === 0 || isDeleting}
             >
-              Удалить
+              {t("common.delete")}
             </button>
           </div>
         ) : null}
@@ -275,21 +277,21 @@ const FriendsPage: React.FC = () => {
         {showDeleteModal ? (
           <div className="modal-overlay" onClick={handleDeleteCancel}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-              <h2 className="modal-title">Вы уверены, что хотите удалить друзей?</h2>
+              <h2 className="modal-title">{t("friendsPage.deleteConfirmTitle")}</h2>
               <div className="modal-buttons">
                 <button
                   className="modal-button modal-button-confirm"
                   onClick={handleDeleteConfirm}
                   disabled={isDeleting}
                 >
-                  {isDeleting ? "Удаление..." : "Да"}
+                  {isDeleting ? t("friendsPage.deleting") : t("common.yes")}
                 </button>
                 <button
                   className="modal-button modal-button-cancel"
                   onClick={handleDeleteCancel}
                   disabled={isDeleting}
                 >
-                  Нет
+                  {t("common.no")}
                 </button>
               </div>
             </div>

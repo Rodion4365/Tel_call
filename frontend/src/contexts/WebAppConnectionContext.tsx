@@ -10,6 +10,7 @@ import React, {
 import { getTelegramWebApp } from "../services/telegram";
 import type { TelegramWebApp, TelegramWebAppUser } from "../types/telegram";
 import { useTelegramTheme } from "../hooks/useTelegramTheme";
+import { useTelegramLanguage } from "../hooks/useTelegramLanguage";
 
 export type WebAppStatus = "idle" | "connecting" | "connected" | "error";
 
@@ -44,6 +45,9 @@ export const WebAppConnectionProvider: React.FC<Props> = ({ children }) => {
 
   // Применить тему Telegram к приложению
   useTelegramTheme(webApp);
+
+  // Установить язык из Telegram при первом запуске
+  useTelegramLanguage(webApp);
 
   useEffect(() => {
     let isMounted = true;

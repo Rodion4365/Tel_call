@@ -4,12 +4,39 @@
     "settings": "Settings",
     "loading": "Loading...",
     "error": "Error",
-    "success": "Success"
+    "success": "Success",
+    "yes": "Yes",
+    "no": "No",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "close": "Close"
   },
   "mainPage": {
     "title": "Calls",
     "createCall": "Create Call",
-    "joinCall": "Join Call"
+    "joinCall": "Join Call",
+    "callFriend": "Call a Friend 👥",
+    "authorizing": "Authorizing...",
+    "creating": "Creating...",
+    "errorAuthRequired": "Authorization required. Please wait...",
+    "errorCreateCall": "Failed to create call. Please try again.",
+    "errorCreateCallWithMessage": "Failed to create call: {{message}}"
+  },
+  "friendsPage": {
+    "title": "Friends",
+    "searchPlaceholder": "Search by name or username",
+    "editMode": "Edit mode",
+    "noFriends": "You don't have any friends yet",
+    "nothingFound": "Nothing found",
+    "calling": "Calling...",
+    "errorLoad": "Failed to load friends list",
+    "errorAuthRequired": "Authorization required",
+    "errorCall": "Failed to start call. Please try again.",
+    "errorCallWithMessage": "Failed to start call: {{message}}",
+    "errorDelete": "Failed to delete friends, please try again",
+    "deleteConfirmTitle": "Are you sure you want to delete friends?",
+    "deleting": "Deleting...",
+    "nameless": "No name"
   },
   "joinCallPage": {
     "title": "Join Call",
@@ -27,6 +54,7 @@
     "shareTitle": "Share the link to join",
     "copyButton": "Copy Link",
     "copiedButton": "Copied",
+    "shareButton": "Share",
     "joinButton": "Join",
     "backToMain": "Back to Main"
   },
@@ -47,10 +75,21 @@
   },
   "settingsPage": {
     "title": "Settings",
+    "subtitle": "Your profile and calls",
     "language": "Language",
     "languageRu": "Русский",
     "languageEn": "English",
-    "close": "Close"
+    "profileSection": "Profile",
+    "profileTitle": "Account Data",
+    "firstName": "First Name",
+    "username": "Username",
+    "defaultsSection": "Default Settings",
+    "defaultsTitle": "Call Parameters",
+    "microphone": "Microphone",
+    "microphoneDefault": "Enabled by default",
+    "securitySection": "Security",
+    "securityTitle": "Encryption",
+    "securityDescription": "Calls are secured with WebRTC (DTLS-SRTP). Video and audio are not recorded."
   },
   "auth": {
     "notAuthenticated": "Not authenticated",

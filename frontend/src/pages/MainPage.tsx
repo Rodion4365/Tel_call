@@ -33,7 +33,7 @@ const MainPage: React.FC = () => {
     if (!user) {
       // eslint-disable-next-line no-console
       console.error("[MainPage] User not authenticated");
-      setError("Необходима авторизация. Пожалуйста, подождите...");
+      setError(t("mainPage.errorAuthRequired"));
       return;
     }
 
@@ -61,8 +61,8 @@ const MainPage: React.FC = () => {
 
       const message =
         err instanceof Error && err.message
-          ? `Не удалось создать звонок: ${err.message}`
-          : "Не удалось создать звонок. Попробуйте еще раз.";
+          ? t("mainPage.errorCreateCallWithMessage", { message: err.message })
+          : t("mainPage.errorCreateCall");
 
       setError(message);
     } finally {
@@ -96,14 +96,14 @@ const MainPage: React.FC = () => {
           <CameraIcon />
           <span>
             {isAuthorizing
-              ? "Авторизация..."
+              ? t("mainPage.authorizing")
               : isCreating
-                ? "Создаём..."
+                ? t("mainPage.creating")
                 : t("mainPage.createCall")}
           </span>
         </button>
         <Link className="action-button action-secondary" to="/friends">
-          <span>Позвонить другу 👥</span>
+          <span>{t("mainPage.callFriend")}</span>
         </Link>
         <Link className="action-button action-secondary" to="/join-call">
           <span>{t("mainPage.joinCall")}</span>
