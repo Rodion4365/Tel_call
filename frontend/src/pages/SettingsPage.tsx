@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useNavigation } from "../contexts/NavigationContext";
 import { getTelegramUser } from "../services/telegram";
 
 const MICROPHONE_STORAGE_KEY = "tel-call:microphone-enabled";
@@ -9,14 +8,8 @@ const MICROPHONE_STORAGE_KEY = "tel-call:microphone-enabled";
 const SettingsPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { registerCurrentPath } = useNavigation();
   const telegramUser = useMemo(() => getTelegramUser(), []);
   const [isMicrophoneEnabled, setIsMicrophoneEnabled] = useState(true);
-
-  // Register this path in navigation stack
-  useEffect(() => {
-    registerCurrentPath();
-  }, [registerCurrentPath]);
 
   useEffect(() => {
     const storedValue = localStorage.getItem(MICROPHONE_STORAGE_KEY);

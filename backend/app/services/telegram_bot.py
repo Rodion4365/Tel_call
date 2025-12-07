@@ -93,18 +93,9 @@ async def send_welcome_message(telegram_user_id: int, first_name: str | None = N
         logger.error("BOT_USERNAME is not configured, cannot send welcome message")
         return False
 
-    # Формируем приветственное сообщение
-    greeting = f"Привет{f', {first_name}' if first_name else ''}! 👋"
-    text = f"""{greeting}
-
-Я помогу вам создавать звонки и общаться с друзьями.
-
-Возможности:
-📞 Создание звонков одним нажатием
-👥 Быстрые звонки друзьям из истории
-🔗 Удобная отправка приглашений
-
-Нажмите кнопку ниже, чтобы начать!"""
+    # ТЗ 3: Приветственное сообщение на команду /start
+    text = """Добро пожаловать в Call with bot!
+Теперь вы сможете создавать звонки и разговаривать в Telegram."""
 
     # Убираем @ из имени бота, если он есть
     bot_username = settings.bot_username.lstrip("@")
@@ -115,7 +106,7 @@ async def send_welcome_message(telegram_user_id: int, first_name: str | None = N
     # Формируем inline-кнопку для открытия mini app
     inline_keyboard = {
         "inline_keyboard": [
-            [{"text": "Создать звонок 📞", "url": mini_app_url}]
+            [{"text": "Открыть приложение", "url": mini_app_url}]
         ]
     }
 
@@ -156,6 +147,70 @@ async def send_welcome_message(telegram_user_id: int, first_name: str | None = N
     except Exception as exc:
         logger.exception(
             "Unexpected error sending welcome message to user %s: %s",
+            telegram_user_id,
+            str(exc),
+        )
+        return False
+
+
+async def send_help_message(telegram_user_id: int) -> bool:
+    """
+    Send help message to user.
+
+    Args:
+        telegram_user_id: Telegram user ID to send message to
+
+    Returns:
+        True if successful, False otherwise
+    """
+    settings = get_settings()
+
+    if not settings.bot_token:
+        logger.error("BOT_TOKEN is not configured, cannot send help message")
+        return False
+
+    # ТЗ 4: Обработка команды /help
+    text = """Если вы столкнулись с проблемами при работе бота, напишите нам: @call_with_support
+
+Ваше обращение будет рассмотрено в течение 24 часов."""
+
+    # Отправляем сообщение через Telegram Bot API
+    api_url = f"https://api.telegram.org/bot{settings.bot_token}/sendMessage"
+
+    payload: dict[str, Any] = {
+        "chat_id": telegram_user_id,
+        "text": text,
+        "parse_mode": "Markdown",  # Для поддержки кликабельной ссылки @call_with_support
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(api_url, json=payload, timeout=10.0)
+            response.raise_for_status()
+
+            logger.info("Successfully sent help message to user %s", telegram_user_id)
+            return True
+
+    except httpx.HTTPStatusError as exc:
+        logger.error(
+            "Failed to send help message to user %s: HTTP %s - %s",
+            telegram_user_id,
+            exc.response.status_code,
+            exc.response.text,
+        )
+        return False
+
+    except httpx.RequestError as exc:
+        logger.error(
+            "Failed to send help message to user %s: %s",
+            telegram_user_id,
+            str(exc),
+        )
+        return False
+
+    except Exception as exc:
+        logger.exception(
+            "Unexpected error sending help message to user %s: %s",
             telegram_user_id,
             str(exc),
         )

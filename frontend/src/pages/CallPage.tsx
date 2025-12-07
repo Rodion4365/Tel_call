@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { useNavigation } from "../contexts/NavigationContext";
 import { useWebSocketToken } from "../hooks/useWebSocketToken";
 import { fetchIceServers, getWebSocketBaseUrl } from "../services/webrtc";
 import defaultAvatar from "../assets/default-avatar.svg";
@@ -65,7 +64,6 @@ const CallPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { token, user } = useAuth();
-  const { registerCurrentPath } = useNavigation();
   const { getToken } = useWebSocketToken();
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const joinUrl =
@@ -113,11 +111,6 @@ const CallPage: React.FC = () => {
     callConnected,
     callError,
   });
-
-  // Register this path in navigation stack
-  useEffect(() => {
-    registerCurrentPath();
-  }, [registerCurrentPath]);
 
   const stopMediaStream = useCallback((stream: MediaStream | null) => {
     stream?.getTracks().forEach((track) => track.stop());
@@ -1348,6 +1341,7 @@ const CallPage: React.FC = () => {
     void connectWebSocket();
 
     return () => {
+      // ТЗ 2: При переходе в другой звонок по новой ссылке - выходим из текущего
       if (socket) {
         socket.close();
       }
@@ -1355,8 +1349,15 @@ const CallPage: React.FC = () => {
       setCallConnected(false);
 
       clearConnectionsRef.current?.();
+
+      // Останавливаем локальные медиа потоки при переходе в новый звонок
+      stopLocalMedia();
+
+      // Сбрасываем таймер
+      setCallStartTime(null);
+      setCallDurationMinutes(0);
     };
-  }, [callId, getToken]);
+  }, [callId, getToken, stopLocalMedia]);
 
   const copyLink = async () => {
     if (!joinUrl) {
