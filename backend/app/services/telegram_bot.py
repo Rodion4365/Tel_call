@@ -10,6 +10,68 @@ from app.config.settings import get_settings
 logger = logging.getLogger(__name__)
 
 
+async def answer_inline_query(
+    inline_query_id: str, results: list[dict[str, Any]], cache_time: int = 300
+) -> bool:
+    """
+    Answer an inline query with results.
+
+    Args:
+        inline_query_id: Unique identifier for the inline query
+        results: List of inline query results
+        cache_time: Time in seconds to cache results (default 300)
+
+    Returns:
+        True if successful, False otherwise
+    """
+    settings = get_settings()
+
+    if not settings.bot_token:
+        logger.error("BOT_TOKEN is not configured, cannot answer inline query")
+        return False
+
+    api_url = f"https://api.telegram.org/bot{settings.bot_token}/answerInlineQuery"
+
+    payload: dict[str, Any] = {
+        "inline_query_id": inline_query_id,
+        "results": results,
+        "cache_time": cache_time,
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(api_url, json=payload, timeout=10.0)
+            response.raise_for_status()
+
+            logger.info("Successfully answered inline query %s", inline_query_id)
+            return True
+
+    except httpx.HTTPStatusError as exc:
+        logger.error(
+            "Failed to answer inline query %s: HTTP %s - %s",
+            inline_query_id,
+            exc.response.status_code,
+            exc.response.text,
+        )
+        return False
+
+    except httpx.RequestError as exc:
+        logger.error(
+            "Failed to answer inline query %s: %s",
+            inline_query_id,
+            str(exc),
+        )
+        return False
+
+    except Exception as exc:
+        logger.exception(
+            "Unexpected error answering inline query %s: %s",
+            inline_query_id,
+            str(exc),
+        )
+        return False
+
+
 async def send_call_notification(
     telegram_user_id: int, caller_name: str, call_id: str
 ) -> bool:

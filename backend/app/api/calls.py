@@ -66,7 +66,7 @@ def _build_join_url(call_id: str) -> str:
 
     # Убираем @ из имени бота, если он есть
     bot_username = settings.bot_username.lstrip("@")
-    return f"https://t.me/{bot_username}/app?startapp={call_id}"
+    return f"https://t.me/{bot_username}?startapp={call_id}"
 
 
 @router.post("/", response_model=CallResponse, status_code=status.HTTP_201_CREATED)
