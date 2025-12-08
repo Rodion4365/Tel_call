@@ -14,7 +14,7 @@ interface SignalingUser {
 }
 
 type SignalingMessage =
-  | { type: "call_metadata"; created_at: string | null }
+  | { type: "call_metadata"; room_start_time: string }
   | { type: "participants_snapshot"; participants: SignalingUser[] }
   | { type: "user_joined"; user: SignalingUser }
   | { type: "user_left"; user: SignalingUser }
@@ -85,6 +85,7 @@ const CallPage: React.FC = () => {
   const [gridColumns, setGridColumns] = useState(1);
   const [callStartTime, setCallStartTime] = useState<number | null>(null);
   const [callDurationMinutes, setCallDurationMinutes] = useState(0);
+  const [isConnecting, setIsConnecting] = useState(true);
 
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
@@ -101,6 +102,9 @@ const CallPage: React.FC = () => {
   const clearConnectionsRef = useRef<(() => void) | undefined>();
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
+  const audioContextsRef = useRef<Map<string, { context: AudioContext; analyser: AnalyserNode; dataArray: Uint8Array }>>(new Map());
+  const speakingCheckIntervalRef = useRef<number | null>(null);
+  const connectionSoundPlayedRef = useRef(false);
 
   // eslint-disable-next-line no-console
   console.log("[CallPage] Rendering", {
@@ -539,6 +543,38 @@ const CallPage: React.FC = () => {
     }
   }, []);
 
+  const playConnectionSound = useCallback(() => {
+    try {
+      if (!toggleSoundContextRef.current) {
+        toggleSoundContextRef.current = new AudioContext();
+      }
+
+      const context = toggleSoundContextRef.current;
+      void context.resume();
+
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+
+      oscillator.type = "sine";
+      oscillator.frequency.value = 1200;
+      gain.gain.value = 0.08;
+
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+
+      const now = context.currentTime;
+      const duration = 0.2;
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      oscillator.start(now);
+      oscillator.stop(now + duration);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn("Failed to play connection sound", error);
+    }
+  }, []);
+
   useEffect(() => {
     if (!micChangeByUserRef.current) {
       return;
@@ -547,6 +583,15 @@ const CallPage: React.FC = () => {
     micChangeByUserRef.current = false;
     playToggleSound();
   }, [isMicOn, playToggleSound]);
+
+  // Воспроизвести звук при установлении соединения
+  useEffect(() => {
+    if (callConnected && callStartTime && !connectionSoundPlayedRef.current) {
+      connectionSoundPlayedRef.current = true;
+      setIsConnecting(false);
+      playConnectionSound();
+    }
+  }, [callConnected, callStartTime, playConnectionSound]);
 
   useEffect(() => {
     const remoteAudioElements = remoteAudioElementsRef.current;
@@ -791,6 +836,13 @@ const CallPage: React.FC = () => {
         remoteAudioElementsRef.current.delete(participantId);
       }
 
+      // Cleanup audio context
+      const audioContextData = audioContextsRef.current.get(participantId);
+      if (audioContextData) {
+        audioContextData.context.close();
+        audioContextsRef.current.delete(participantId);
+      }
+
       removeParticipant(participantId);
     },
     [removeParticipant],
@@ -874,6 +926,24 @@ const CallPage: React.FC = () => {
         }
 
         remoteStreamsRef.current.set(participantId, remoteStream);
+
+        // Настройка audio analyser для детектора говорящего
+        if (event.track.kind === "audio" && !audioContextsRef.current.has(participantId)) {
+          try {
+            const audioContext = new AudioContext();
+            const source = audioContext.createMediaStreamSource(new MediaStream([event.track]));
+            const analyser = audioContext.createAnalyser();
+            analyser.fftSize = 512;
+            analyser.smoothingTimeConstant = 0.8;
+            source.connect(analyser);
+
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            audioContextsRef.current.set(participantId, { context: audioContext, analyser, dataArray });
+          } catch (error) {
+            // eslint-disable-next-line no-console
+            console.warn("[Audio] Failed to create audio analyser for participant", participantId, error);
+          }
+        }
 
         updateParticipant({
           id: participantId,
@@ -1132,21 +1202,13 @@ const CallPage: React.FC = () => {
       console.log("[Signaling] received", message.type, message);
 
       if (message.type === "call_metadata") {
-        if (message.created_at) {
-          const createdAtTime = new Date(message.created_at).getTime();
-          const now = Date.now();
-          const elapsed = now - createdAtTime;
-          const elapsedMinutes = Math.floor(elapsed / 60000);
-          // eslint-disable-next-line no-console
-          console.log("[CallTimer] Received call_metadata", {
-            created_at: message.created_at,
-            createdAtTime,
-            now,
-            elapsed,
-            elapsedMinutes,
-          });
-          setCallStartTime(createdAtTime);
-        }
+        const roomStartTime = new Date(message.room_start_time).getTime();
+        // eslint-disable-next-line no-console
+        console.log("[CallTimer] Received call_metadata", {
+          room_start_time: message.room_start_time,
+          roomStartTime,
+        });
+        setCallStartTime(roomStartTime);
         return;
       }
 
@@ -1198,6 +1260,48 @@ const CallPage: React.FC = () => {
     handleConnectionErrorRef.current = handleConnectionError;
     clearConnectionsRef.current = clearConnections;
   });
+
+  // Интервал для проверки говорящих участников
+  useEffect(() => {
+    if (!callConnected) return;
+
+    const SPEAKING_THRESHOLD = 15; // Порог громкости для определения речи
+    const CHECK_INTERVAL = 100; // Проверяем каждые 100ms
+
+    const checkSpeaking = () => {
+      // Проверяем удаленных участников
+      audioContextsRef.current.forEach((audioData, participantId) => {
+        const { analyser, dataArray } = audioData;
+        analyser.getByteFrequencyData(dataArray);
+
+        // Вычисляем среднюю громкость
+        const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
+        const isSpeaking = average > SPEAKING_THRESHOLD;
+
+        updateParticipant({ id: participantId, isSpeaking });
+      });
+
+      // Проверяем текущего пользователя
+      if (user && isMicOn && localStreamRef.current) {
+        const audioTracks = localStreamRef.current.getAudioTracks();
+        if (audioTracks.length > 0) {
+          updateParticipant({
+            id: String(user.id),
+            isSpeaking: hasActiveAudioTrack(localStreamRef.current)
+          });
+        }
+      }
+    };
+
+    speakingCheckIntervalRef.current = window.setInterval(checkSpeaking, CHECK_INTERVAL);
+
+    return () => {
+      if (speakingCheckIntervalRef.current) {
+        clearInterval(speakingCheckIntervalRef.current);
+        speakingCheckIntervalRef.current = null;
+      }
+    };
+  }, [callConnected, isMicOn, updateParticipant, user]);
 
   useEffect(() => {
     if (!user) {
@@ -1399,6 +1503,7 @@ const CallPage: React.FC = () => {
 
         {callStartTime && (
           <div className="call-timer" aria-label="Длительность звонка">
+            {isConnecting && <div className="call-timer__loader" />}
             {formatCallDuration(callDurationMinutes)}
           </div>
         )}
@@ -1416,6 +1521,7 @@ const CallPage: React.FC = () => {
                 <div
                   className="call-tile__video"
                   data-self={participant.isCurrentUser ? "true" : undefined}
+                  data-speaking={participant.isSpeaking ? "true" : undefined}
                 >
                   {participant.hasVideo && participant.stream ? (
                     <video

@@ -274,10 +274,10 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
         "WebSocket accepted for call %s; user_id=%s username=%s", call_id, user.id, user.username
     )
 
-    # Send call metadata including created_at timestamp
+    # Send call metadata including room start time (when first participant joined)
     await websocket.send_json({
         "type": "call_metadata",
-        "created_at": call.created_at.isoformat() if call.created_at else None,
+        "room_start_time": room.start_time.isoformat(),
     })
 
     existing_participants = await room.list_participants(exclude_user_id=user.id)

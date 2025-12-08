@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import WebSocket
@@ -26,6 +27,8 @@ class CallRoom:
         self.call_id = call_id
         self._participants: dict[int, ParticipantConnection] = {}
         self._lock = asyncio.Lock()
+        # Время начала комнаты (когда первый участник вошел)
+        self.start_time = datetime.now(tz=timezone.utc)
 
     @property
     def is_empty(self) -> bool:
