@@ -3,15 +3,16 @@
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from aiogram.types import Update
+from fastapi import APIRouter
 from pydantic import BaseModel
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.database import get_session, session_scope
+from app.config.database import session_scope
 from app.config.settings import get_settings
-from app.models import Call, User
-from app.services.telegram_bot import answer_inline_query, send_help_message, send_welcome_message
+from app.models import Call
+from app.services.bot_handlers import get_bot, get_dispatcher
+from app.services.telegram_bot import answer_inline_query
 
 router = APIRouter(prefix="/api/telegram", tags=["Telegram"])
 logger = logging.getLogger(__name__)
@@ -43,13 +44,20 @@ async def telegram_webhook(
         await handle_inline_query(update.inline_query)
         return {"ok": True}
 
-    # Обработка обычных сообщений (для команды /start и /help)
-    if update.message:
-        logger.info("Processing message: %s", update.message.get("text", ""))
-        await handle_message(update.message)
-        return {"ok": True}
+    # Обработка всех остальных updates через aiogram dispatcher
+    # Это включает команды /start, /help и другие сообщения
+    bot = get_bot()
+    dp = get_dispatcher()
 
-    logger.warning("Unknown update type: %s", update.model_dump())
+    # Конвертируем pydantic модель в aiogram Update
+    aiogram_update = Update(**update.model_dump())
+
+    try:
+        await dp.feed_update(bot=bot, update=aiogram_update)
+        logger.info("Successfully processed update through aiogram dispatcher")
+    except Exception as e:
+        logger.exception("Error processing update through aiogram: %s", str(e))
+
     return {"ok": True}
 
 
@@ -118,65 +126,3 @@ async def handle_inline_query(inline_query: dict[str, Any]) -> None:
     await answer_inline_query(inline_query_id, results)
 
 
-async def handle_message(message: dict[str, Any]) -> None:
-    """Handle incoming messages (e.g., /start and /help commands)."""
-
-    text = message.get("text", "")
-    from_user = message.get("from", {})
-    telegram_user_id = from_user.get("id")
-    first_name = from_user.get("first_name")
-
-    if not telegram_user_id:
-        return
-
-    # Обработка команды /start
-    if text.startswith("/start"):
-        # Регистрируем или обновляем пользователя
-        await register_or_update_user(from_user)
-
-        # ТЗ 3: Отправляем приветственное сообщение при каждом /start
-        await send_welcome_message(telegram_user_id, first_name)
-        return
-
-    # ТЗ 4: Обработка команды /help
-    if text.startswith("/help"):
-        await send_help_message(telegram_user_id)
-        return
-
-
-async def register_or_update_user(telegram_user: dict[str, Any]) -> None:
-    """Register new user or update existing user data."""
-
-    telegram_user_id = telegram_user.get("id")
-    username = telegram_user.get("username")
-    first_name = telegram_user.get("first_name")
-    last_name = telegram_user.get("last_name")
-
-    if not telegram_user_id:
-        return
-
-    async with session_scope() as db_session:
-        # Проверяем, существует ли пользователь
-        result = await db_session.execute(
-            select(User).where(User.telegram_user_id == telegram_user_id)
-        )
-        user = result.scalar_one_or_none()
-
-        if user:
-            # Обновляем данные существующего пользователя
-            user.username = username
-            user.first_name = first_name
-            user.last_name = last_name
-            logger.info("Updated user data for telegram_user_id=%s", telegram_user_id)
-        else:
-            # Создаём нового пользователя
-            user = User(
-                telegram_user_id=telegram_user_id,
-                username=username,
-                first_name=first_name,
-                last_name=last_name,
-            )
-            db_session.add(user)
-            logger.info("Registered new user telegram_user_id=%s", telegram_user_id)
-
-        await db_session.commit()
