@@ -46,7 +46,49 @@ export const getFriends = async (params?: GetFriendsParams): Promise<Friend[]> =
   const queryString = queryParams.toString();
   const path = `/api/friends${queryString ? `?${queryString}` : ""}`;
 
-  return apiClient.get<Friend[]>(path);
+  // eslint-disable-next-line no-console
+  console.log("[getFriends] Requesting friends list:", { path, params });
+
+  try {
+    const friends = await apiClient.get<Friend[]>(path);
+
+    // eslint-disable-next-line no-console
+    console.log("[getFriends] Received friends:", friends.length, "friends");
+
+    // Валидация данных
+    const validFriends = friends.filter((friend, idx) => {
+      if (!friend || typeof friend !== 'object') {
+        // eslint-disable-next-line no-console
+        console.warn(`[getFriends] Friend at index ${idx} is not an object:`, friend);
+        return false;
+      }
+
+      if (!friend.id) {
+        // eslint-disable-next-line no-console
+        console.warn(`[getFriends] Friend at index ${idx} has no id:`, friend);
+        return false;
+      }
+
+      if (!friend.telegram_user_id) {
+        // eslint-disable-next-line no-console
+        console.warn(`[getFriends] Friend at index ${idx} has no telegram_user_id:`, friend);
+        return false;
+      }
+
+      return true;
+    });
+
+    if (validFriends.length !== friends.length) {
+      // eslint-disable-next-line no-console
+      console.warn(`[getFriends] Filtered out ${friends.length - validFriends.length} invalid friends`);
+    }
+
+    return validFriends;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("[getFriends] Error fetching friends:", error);
+    throw error;
+  }
 };
 
 export const callFriend = async (friendId: number): Promise<CallFriendResponse> => {

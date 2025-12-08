@@ -55,10 +55,26 @@ export const apiClient = {
     if (!response.ok) {
       // eslint-disable-next-line no-console
       console.error("[apiClient.get] Request failed", path, response.status);
+
+      // Пытаемся получить тело ответа для диагностики
+      try {
+        const errorText = await response.text();
+        // eslint-disable-next-line no-console
+        console.error("[apiClient.get] Error response body:", errorText.substring(0, 500));
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error("[apiClient.get] Could not read error response body");
+      }
+
       throw new Error(`Request failed with status ${response.status}`);
     }
 
-    return (await response.json()) as T;
+    const data = (await response.json()) as T;
+
+    // eslint-disable-next-line no-console
+    console.log("[apiClient.get] Response:", path, "- data type:", Array.isArray(data) ? `array[${(data as unknown[]).length}]` : typeof data);
+
+    return data;
   },
 
   async post<T>(path: string, body: unknown, options: ApiRequestOptions = {}): Promise<T> {
