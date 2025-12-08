@@ -85,6 +85,8 @@ async def send_welcome_message(telegram_user_id: int, first_name: str | None = N
     """
     settings = get_settings()
 
+    logger.info("[send_welcome_message] Starting to send welcome message to user_id=%s", telegram_user_id)
+
     if not settings.bot_token:
         logger.error("BOT_TOKEN is not configured, cannot send welcome message")
         return False
@@ -93,15 +95,28 @@ async def send_welcome_message(telegram_user_id: int, first_name: str | None = N
         logger.error("BOT_USERNAME is not configured, cannot send welcome message")
         return False
 
+    logger.info("[send_welcome_message] BOT_TOKEN=%s..., BOT_USERNAME=%s",
+                settings.bot_token[:10] if settings.bot_token else "None",
+                settings.bot_username)
+
     # ТЗ 3: Приветственное сообщение на команду /start
     text = """Добро пожаловать в Call with bot!
 Теперь вы сможете создавать звонки и разговаривать в Telegram."""
 
-    # Убираем @ из имени бота, если он есть
-    bot_username = settings.bot_username.lstrip("@")
+    # Убираем @ и пробелы из имени бота
+    bot_username = settings.bot_username.strip().lstrip("@").strip()
+
+    logger.info("[send_welcome_message] Cleaned bot_username=%s (original: %s)",
+                bot_username, settings.bot_username)
+
+    if not bot_username:
+        logger.error("[send_welcome_message] BOT_USERNAME is empty after cleaning")
+        return False
 
     # Формируем URL для открытия mini app
     mini_app_url = f"https://t.me/{bot_username}/app"
+
+    logger.info("[send_welcome_message] mini_app_url=%s", mini_app_url)
 
     # Формируем inline-кнопку для открытия mini app
     inline_keyboard = {
@@ -113,6 +128,8 @@ async def send_welcome_message(telegram_user_id: int, first_name: str | None = N
     # Отправляем сообщение через Telegram Bot API
     api_url = f"https://api.telegram.org/bot{settings.bot_token}/sendMessage"
 
+    logger.info("[send_welcome_message] api_url=%s", api_url[:60] + "...")
+
     payload: dict[str, Any] = {
         "chat_id": telegram_user_id,
         "text": text,
@@ -120,8 +137,11 @@ async def send_welcome_message(telegram_user_id: int, first_name: str | None = N
     }
 
     try:
+        logger.info("[send_welcome_message] Sending HTTP POST to Telegram API...")
         async with httpx.AsyncClient() as client:
             response = await client.post(api_url, json=payload, timeout=10.0)
+            logger.info("[send_welcome_message] Response status: %s", response.status_code)
+            logger.info("[send_welcome_message] Response body: %s", response.text[:200])
             response.raise_for_status()
 
             logger.info("Successfully sent welcome message to user %s", telegram_user_id)
@@ -129,7 +149,7 @@ async def send_welcome_message(telegram_user_id: int, first_name: str | None = N
 
     except httpx.HTTPStatusError as exc:
         logger.error(
-            "Failed to send welcome message to user %s: HTTP %s - %s",
+            "[send_welcome_message] Failed to send welcome message to user %s: HTTP %s - %s",
             telegram_user_id,
             exc.response.status_code,
             exc.response.text,
@@ -138,7 +158,7 @@ async def send_welcome_message(telegram_user_id: int, first_name: str | None = N
 
     except httpx.RequestError as exc:
         logger.error(
-            "Failed to send welcome message to user %s: %s",
+            "[send_welcome_message] Failed to send welcome message to user %s: %s",
             telegram_user_id,
             str(exc),
         )
@@ -146,7 +166,7 @@ async def send_welcome_message(telegram_user_id: int, first_name: str | None = N
 
     except Exception as exc:
         logger.exception(
-            "Unexpected error sending welcome message to user %s: %s",
+            "[send_welcome_message] Unexpected error sending welcome message to user %s: %s",
             telegram_user_id,
             str(exc),
         )
@@ -165,9 +185,14 @@ async def send_help_message(telegram_user_id: int) -> bool:
     """
     settings = get_settings()
 
+    logger.info("[send_help_message] Starting to send help message to user_id=%s", telegram_user_id)
+
     if not settings.bot_token:
         logger.error("BOT_TOKEN is not configured, cannot send help message")
         return False
+
+    logger.info("[send_help_message] BOT_TOKEN=%s...",
+                settings.bot_token[:10] if settings.bot_token else "None")
 
     # ТЗ 4: Обработка команды /help
     text = """Если вы столкнулись с проблемами при работе бота, напишите нам: @call_with_support
@@ -177,6 +202,8 @@ async def send_help_message(telegram_user_id: int) -> bool:
     # Отправляем сообщение через Telegram Bot API
     api_url = f"https://api.telegram.org/bot{settings.bot_token}/sendMessage"
 
+    logger.info("[send_help_message] api_url=%s", api_url[:60] + "...")
+
     payload: dict[str, Any] = {
         "chat_id": telegram_user_id,
         "text": text,
@@ -184,8 +211,11 @@ async def send_help_message(telegram_user_id: int) -> bool:
     }
 
     try:
+        logger.info("[send_help_message] Sending HTTP POST to Telegram API...")
         async with httpx.AsyncClient() as client:
             response = await client.post(api_url, json=payload, timeout=10.0)
+            logger.info("[send_help_message] Response status: %s", response.status_code)
+            logger.info("[send_help_message] Response body: %s", response.text[:200])
             response.raise_for_status()
 
             logger.info("Successfully sent help message to user %s", telegram_user_id)
@@ -193,7 +223,7 @@ async def send_help_message(telegram_user_id: int) -> bool:
 
     except httpx.HTTPStatusError as exc:
         logger.error(
-            "Failed to send help message to user %s: HTTP %s - %s",
+            "[send_help_message] Failed to send help message to user %s: HTTP %s - %s",
             telegram_user_id,
             exc.response.status_code,
             exc.response.text,
@@ -202,7 +232,7 @@ async def send_help_message(telegram_user_id: int) -> bool:
 
     except httpx.RequestError as exc:
         logger.error(
-            "Failed to send help message to user %s: %s",
+            "[send_help_message] Failed to send help message to user %s: %s",
             telegram_user_id,
             str(exc),
         )
@@ -210,7 +240,7 @@ async def send_help_message(telegram_user_id: int) -> bool:
 
     except Exception as exc:
         logger.exception(
-            "Unexpected error sending help message to user %s: %s",
+            "[send_help_message] Unexpected error sending help message to user %s: %s",
             telegram_user_id,
             str(exc),
         )
