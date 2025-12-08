@@ -103,8 +103,15 @@ async def send_welcome_message(telegram_user_id: int, first_name: str | None = N
     text = """Добро пожаловать в Call with bot!
 Теперь вы сможете создавать звонки и разговаривать в Telegram."""
 
-    # Убираем @ из имени бота, если он есть
-    bot_username = settings.bot_username.lstrip("@")
+    # Убираем @ и пробелы из имени бота
+    bot_username = settings.bot_username.strip().lstrip("@").strip()
+
+    logger.info("[send_welcome_message] Cleaned bot_username=%s (original: %s)",
+                bot_username, settings.bot_username)
+
+    if not bot_username:
+        logger.error("[send_welcome_message] BOT_USERNAME is empty after cleaning")
+        return False
 
     # Формируем URL для открытия mini app
     mini_app_url = f"https://t.me/{bot_username}/app"
