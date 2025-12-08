@@ -33,12 +33,39 @@ const FriendsPage: React.FC = () => {
       setError(null);
 
       try {
+        // eslint-disable-next-line no-console
+        console.log("[FriendsPage] Loading friends list...");
         const friendsList = await getFriends({ limit: 100 });
-        setFriends(friendsList);
-        setFilteredFriends(friendsList);
+
+        // eslint-disable-next-line no-console
+        console.log("[FriendsPage] Loaded friends:", friendsList.length, "friends");
+
+        // Защита: фильтруем друзей с корректными данными
+        const validFriends = friendsList.filter((friend) => {
+          if (!friend || !friend.id) {
+            // eslint-disable-next-line no-console
+            console.warn("[FriendsPage] Skipping invalid friend:", friend);
+            return false;
+          }
+          return true;
+        });
+
+        setFriends(validFriends);
+        setFilteredFriends(validFriends);
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error("[FriendsPage] Failed to load friends", err);
+
+        // Подробное логирование ошибки
+        if (err instanceof Error) {
+          // eslint-disable-next-line no-console
+          console.error("[FriendsPage] Error details:", {
+            name: err.name,
+            message: err.message,
+            stack: err.stack,
+          });
+        }
+
         setError(t("friendsPage.errorLoad"));
       } finally {
         setIsLoading(false);
@@ -46,7 +73,7 @@ const FriendsPage: React.FC = () => {
     };
 
     loadFriends();
-  }, [user]);
+  }, [user, t]);
 
   // Фильтрация друзей по поисковому запросу
   useEffect(() => {
@@ -181,11 +208,33 @@ const FriendsPage: React.FC = () => {
   };
 
   const getDisplayName = (friend: Friend): string => {
-    return friend.display_name || friend.username || t("friendsPage.nameless");
+    // Защита от некорректных данных
+    if (!friend) {
+      return t("friendsPage.nameless");
+    }
+
+    // Приоритет: display_name -> username -> telegram_user_id -> "Безымянный"
+    if (friend.display_name?.trim()) {
+      return friend.display_name.trim();
+    }
+
+    if (friend.username?.trim()) {
+      return friend.username.trim();
+    }
+
+    // Fallback на telegram_user_id если есть
+    if (friend.telegram_user_id) {
+      return `User ${friend.telegram_user_id}`;
+    }
+
+    return t("friendsPage.nameless");
   };
 
   const getAvatarUrl = (friend: Friend): string => {
-    return friend.photo_url || defaultAvatar;
+    if (!friend || !friend.photo_url) {
+      return defaultAvatar;
+    }
+    return friend.photo_url;
   };
 
   return (
@@ -249,7 +298,9 @@ const FriendsPage: React.FC = () => {
                   </div>
                   <div className="friend-info">
                     <div className="friend-name">{getDisplayName(friend)}</div>
-                    {friend.username ? <div className="friend-username">@{friend.username}</div> : null}
+                    {friend.username?.trim() ? (
+                      <div className="friend-username">@{friend.username.trim()}</div>
+                    ) : null}
                   </div>
                   {callingFriendId === friend.id ? (
                     <div className="friend-calling">{t("friendsPage.calling")}</div>

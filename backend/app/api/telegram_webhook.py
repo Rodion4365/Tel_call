@@ -34,14 +34,18 @@ async def telegram_webhook(
     """Handle incoming Telegram updates (inline queries, messages, etc.)."""
 
     logger.info("Received Telegram update: %s", update.update_id)
+    logger.info("Update content: message=%s, inline_query=%s",
+                bool(update.message), bool(update.inline_query))
 
     # Обработка inline query (для кнопки "Поделиться")
     if update.inline_query:
+        logger.info("Processing inline query")
         await handle_inline_query(update.inline_query)
         return {"ok": True}
 
-    # Обработка обычных сообщений (для команды /start)
+    # Обработка обычных сообщений (для команды /start и /help)
     if update.message:
+        logger.info("Processing message: %s", update.message.get("text", ""))
         await handle_message(update.message)
         return {"ok": True}
 
