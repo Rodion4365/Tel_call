@@ -110,7 +110,7 @@ async def cmd_help(message: types.Message) -> None:
 Ваше обращение будет рассмотрено в течение 24 часов."""
 
     try:
-        await message.answer(text, parse_mode="Markdown")
+        await message.answer(text)
         logger.info("[cmd_help] Successfully sent help message to user_id=%s", message.from_user.id)
     except Exception as e:
         logger.exception("[cmd_help] Failed to send help message: %s", str(e))
