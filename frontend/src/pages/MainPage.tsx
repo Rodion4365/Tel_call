@@ -4,45 +4,9 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { createCall } from "../services/calls";
 
-const SettingsIcon: React.FC = () => (
-  <svg className="settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-    <path
-      d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M19.4 14a1 1 0 0 0 .19 1.09l.06.06a1.8 1.8 0 0 1-2.55 2.55l-.06-.06A1 1 0 0 0 16 17.4a6.1 6.1 0 0 1-1.1.64 1 1 0 0 0-.6.92V20a1.8 1.8 0 0 1-3.6 0v-.04a1 1 0 0 0-.6-.92A6.1 6.1 0 0 1 9 17.4a1 1 0 0 0-1.04.24l-.06.06a1.8 1.8 0 1 1-2.55-2.55l.06-.06A1 1 0 0 0 5 14a6.1 6.1 0 0 1-.64-1.1 1 1 0 0 0-.92-.6H3a1.8 1.8 0 0 1 0-3.6h.04a1 1 0 0 0 .92-.6A6.1 6.1 0 0 1 5 9a1 1 0 0 0-.24-1.04l-.06-.06A1.8 1.8 0 0 1 7.25 5.3l.06.06A1 1 0 0 0 8.4 5a6.1 6.1 0 0 1 1.1-.64 1 1 0 0 0 .6-.92V3a1.8 1.8 0 0 1 3.6 0v.04a1 1 0 0 0 .6.92A6.1 6.1 0 0 1 16 5a1 1 0 0 0 1.04-.24l.06-.06a1.8 1.8 0 1 1 2.55 2.55l-.06.06A1 1 0 0 0 19.4 9c.25.35.47.72.64 1.1a1 1 0 0 0 .92.6H21a1.8 1.8 0 0 1 0 3.6h-.04a1 1 0 0 0-.92.6 6.1 6.1 0 0 1-.64 1.1Z"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-const VideoIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-    <rect x="3.5" y="5" width="12" height="14" rx="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M15.5 10.5 20 7.8v8.4l-4.5-2.7" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const UserPlusIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-    <circle cx="9" cy="8" r="3.2" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M4.5 18.5C5.3 15.9 7.7 14 10 14c2.3 0 4.7 1.9 5.5 4.5" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M18 8v5M15.5 10.5H20.5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const PhoneIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-    <path
-      d="M6.5 4.5 8.8 4a1.6 1.6 0 0 1 1.8 1l1 2.6a1.6 1.6 0 0 1-.5 1.8l-1.1.9a9.8 9.8 0 0 0 4.6 4.6l.9-1.1a1.6 1.6 0 0 1 1.8-.5l2.6 1a1.6 1.6 0 0 1 1 1.8l-.5 2.3a2 2 0 0 1-1.9 1.5A14.5 14.5 0 0 1 4.9 6.4a2 2 0 0 1 1.6-1.9Z"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
+const CameraIcon: React.FC = () => (
+  <svg className="action-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M4 6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-1.382l3.105 1.553A1 1 0 0 0 20 15.277V8.723a1 1 0 0 0-1.895-.894L15 9.382V8a2 2 0 0 0-2-2Z" />
   </svg>
 );
 
@@ -50,7 +14,7 @@ const SettingsButton: React.FC = () => {
   const { t } = useTranslation();
   return (
     <Link to="/settings" className="settings-button" aria-label={t("common.settings")}>
-      <SettingsIcon />
+      ⚙️
     </Link>
   );
 };
@@ -107,31 +71,29 @@ const MainPage: React.FC = () => {
   };
 
   return (
-    <div className="main-screen calls-layout">
+    <div className="main-screen">
       <header className="top-bar">
+        <div />
         <SettingsButton />
       </header>
 
-      <div className="content-wrapper">
-        <div className="title-block">
-          <h1 className="main-title">{t("mainPage.title")}</h1>
-        </div>
+      <header className="main-header">
+        <h1 className="main-title">{t("mainPage.title")}</h1>
+      </header>
 
-        {error ? (
-          <p className="status status-offline" role="alert" style={{ textAlign: "center" }}>
-            {error}
-          </p>
-        ) : null}
+      {error ? (
+        <p className="status status-offline" role="alert" style={{ textAlign: "center", margin: "1rem" }}>
+          {error}
+        </p>
+      ) : null}
 
+      <div className="main-actions">
         <button
-          className="primary-button"
+          className="action-button action-primary"
           onClick={handleCreateCall}
           disabled={!user || isCreating || isAuthorizing}
-          type="button"
         >
-          <span className="primary-icon">
-            <VideoIcon />
-          </span>
+          <CameraIcon />
           <span>
             {isAuthorizing
               ? t("mainPage.authorizing")
@@ -140,22 +102,12 @@ const MainPage: React.FC = () => {
                 : t("mainPage.createCall")}
           </span>
         </button>
-
-        <div className="actions-grid">
-          <Link className="secondary-card" to="/friends">
-            <span className="secondary-icon-wrapper">
-              <UserPlusIcon />
-            </span>
-            <span>{t("mainPage.callFriend")}</span>
-          </Link>
-
-          <Link className="secondary-card" to="/join-call">
-            <span className="secondary-icon-wrapper">
-              <PhoneIcon />
-            </span>
-            <span>{t("mainPage.joinCall")}</span>
-          </Link>
-        </div>
+        <Link className="action-button action-secondary" to="/friends">
+          <span>{t("mainPage.callFriend")}</span>
+        </Link>
+        <Link className="action-button action-secondary" to="/join-call">
+          <span>{t("mainPage.joinCall")}</span>
+        </Link>
       </div>
     </div>
   );
