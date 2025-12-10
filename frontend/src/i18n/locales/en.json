@@ -14,8 +14,8 @@
   "mainPage": {
     "title": "Calls",
     "createCall": "Create Call",
-    "joinCall": "Join",
-    "callFriend": "Call a Friend",
+    "joinCall": "Join Call",
+    "callFriend": "Call a Friend 👥",
     "authorizing": "Authorizing...",
     "creating": "Creating...",
     "errorAuthRequired": "Authorization required. Please wait...",
