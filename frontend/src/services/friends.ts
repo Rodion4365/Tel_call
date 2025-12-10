@@ -45,8 +45,18 @@ export const getFriends = async (params?: GetFriendsParams): Promise<Friend[]> =
 
   const queryString = queryParams.toString();
   const path = `/api/friends${queryString ? `?${queryString}` : ""}`;
+  // eslint-disable-next-line no-console
+  console.log("[friends.getFriends] Requesting friends", { params, path });
 
-  return apiClient.get<Friend[]>(path);
+  const friends = await apiClient.get<Friend[]>(path);
+
+  // eslint-disable-next-line no-console
+  console.log("[friends.getFriends] Received friends", {
+    count: friends.length,
+    sample: friends.slice(0, 3),
+  });
+
+  return friends;
 };
 
 export const callFriend = async (friendId: number): Promise<CallFriendResponse> => {
