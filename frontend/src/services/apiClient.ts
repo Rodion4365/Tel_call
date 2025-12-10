@@ -13,6 +13,31 @@ const API_BASE_URL =
 // eslint-disable-next-line no-console
 console.log("[apiClient] API_BASE_URL =", API_BASE_URL);
 
+const logResponseError = async (
+  method: string,
+  path: string,
+  response: Response
+): Promise<never> => {
+  let responseText: string | undefined;
+
+  try {
+    responseText = await response.text();
+  } catch (parseError) {
+    // eslint-disable-next-line no-console
+    console.warn(`[apiClient.${method}] Failed to read error body for ${path}`, parseError);
+  }
+
+  // eslint-disable-next-line no-console
+  console.error(`[apiClient.${method}] Request failed`, {
+    path,
+    status: response.status,
+    statusText: response.statusText,
+    body: responseText,
+  });
+
+  throw new Error(`Request failed with status ${response.status}`);
+};
+
 const getAuthHeaders = (): Record<string, string> => {
   const stored = localStorage.getItem(AUTH_STORAGE_KEY);
   // eslint-disable-next-line no-console
@@ -53,9 +78,7 @@ export const apiClient = {
     });
 
     if (!response.ok) {
-      // eslint-disable-next-line no-console
-      console.error("[apiClient.get] Request failed", path, response.status);
-      throw new Error(`Request failed with status ${response.status}`);
+      return logResponseError("get", path, response);
     }
 
     return (await response.json()) as T;
@@ -80,9 +103,7 @@ export const apiClient = {
     });
 
     if (!response.ok) {
-      // eslint-disable-next-line no-console
-      console.error("[apiClient.post] Request failed", path, response.status);
-      throw new Error(`Request failed with status ${response.status}`);
+      return logResponseError("post", path, response);
     }
 
     return (await response.json()) as T;

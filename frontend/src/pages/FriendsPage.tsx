@@ -24,8 +24,13 @@ const FriendsPage: React.FC = () => {
 
   // Загрузка списка друзей
   useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log("[FriendsPage] Effect triggered - user:", user?.id, "isAuthorizing:", isAuthorizing);
+
     const loadFriends = async () => {
       if (!user) {
+        // eslint-disable-next-line no-console
+        console.warn("[FriendsPage] Cannot load friends - no user");
         return;
       }
 
@@ -73,7 +78,7 @@ const FriendsPage: React.FC = () => {
     };
 
     loadFriends();
-  }, [user, t]);
+  }, [user, t, isAuthorizing]);
 
   // Фильтрация друзей по поисковому запросу
   useEffect(() => {
