@@ -170,7 +170,7 @@ a:hover {
 .settings-icon {
   width: 20px;
   height: 20px;
-  stroke-width: 1.75;
+  stroke-width: 1.6;
 }
 
 .main-header {
@@ -233,10 +233,9 @@ a:hover {
 
 .secondary-actions {
   display: grid;
-  width: clamp(70mm, 100%, 520px);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
-  min-width: 0;
 }
 
 .action-tile {
@@ -253,7 +252,6 @@ a:hover {
   color: #e4e4e7;
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease,
     background 0.15s ease, color 0.15s ease;
-  min-width: 0;
 }
 
 .action-tile:hover {

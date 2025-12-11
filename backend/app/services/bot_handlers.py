@@ -116,6 +116,9 @@ async def cmd_help(message: types.Message) -> None:
         logger.exception("[cmd_help] Failed to send help message: %s", str(e))
 
 
+logger.info("Bot handlers module loaded. Registered handlers: /start, /help")
+
+
 def get_bot() -> Bot:
     """Get bot instance."""
     return bot
