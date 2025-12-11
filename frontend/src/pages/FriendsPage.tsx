@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { Pencil, Search } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { callFriend, deleteFriends, Friend, getFriends } from "../services/friends";
 import defaultAvatar from "../assets/default-avatar.svg";
@@ -253,19 +254,22 @@ const FriendsPage: React.FC = () => {
             disabled={isLoading || isAuthorizing || friends.length === 0}
             aria-label={t("friendsPage.editMode")}
           >
-            ✏️
+            <Pencil className="edit-icon" aria-hidden="true" />
           </button>
         </header>
 
         <div className="friends-search">
-          <input
-            type="text"
-            className="friends-search-input"
-            placeholder={t("friendsPage.searchPlaceholder")}
-            value={searchQuery}
-            onChange={handleSearchChange}
-            disabled={isLoading || isAuthorizing}
-          />
+          <div className="friends-search-wrapper">
+            <Search className="friends-search-icon" aria-hidden="true" />
+            <input
+              type="text"
+              className="friends-search-input has-icon"
+              placeholder={t("friendsPage.searchPlaceholder")}
+              value={searchQuery}
+              onChange={handleSearchChange}
+              disabled={isLoading || isAuthorizing}
+            />
+          </div>
         </div>
 
         {error ? (

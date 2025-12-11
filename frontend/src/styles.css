@@ -974,11 +974,16 @@ button:disabled {
   background: var(--panel);
   color: var(--text-primary);
   cursor: pointer;
-  font-size: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
+}
+
+.edit-icon {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.5;
 }
 
 .edit-button:hover:not(:disabled) {
@@ -1000,6 +1005,20 @@ button:disabled {
   width: 100%;
 }
 
+.friends-search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.friends-search-icon {
+  position: absolute;
+  left: 14px;
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+}
+
 .friends-search-input {
   width: 100%;
   padding: 14px 16px;
@@ -1014,6 +1033,10 @@ button:disabled {
 
 .friends-search-input:focus {
   border-color: var(--tg-button, #2563eb);
+}
+
+.friends-search-input.has-icon {
+  padding-left: 44px;
 }
 
 .friends-search-input::placeholder {
