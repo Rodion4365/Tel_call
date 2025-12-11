@@ -2,7 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import and_, case, delete, func, or_, select, tuple_
+from sqlalchemy import and_, delete, or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.database import get_session
@@ -49,22 +49,21 @@ async def get_friends(
     logger.info("[get_friends] Request from user_id=%s, query=%s, limit=%s, offset=%s",
                 current_user.id, query, limit, offset)
 
-    # Определяем friend_id в зависимости от того, где находится current_user
-    # Если current_user.id в user_id_1, то friend_id = user_id_2, иначе friend_id = user_id_1
-    friend_id_expr = case(
-        (FriendLink.user_id_1 == current_user.id, FriendLink.user_id_2),
-        else_=FriendLink.user_id_1,
-    )
-
     # Основной запрос
     stmt = (
         select(User, FriendLink.updated_at.label("last_call_at"))
-        .join(FriendLink, User.id == friend_id_expr)
-        .where(
+        .join(
+            FriendLink,
             or_(
-                FriendLink.user_id_1 == current_user.id,
-                FriendLink.user_id_2 == current_user.id,
-            )
+                and_(
+                    FriendLink.user_id_1 == current_user.id,
+                    User.id == FriendLink.user_id_2,
+                ),
+                and_(
+                    FriendLink.user_id_2 == current_user.id,
+                    User.id == FriendLink.user_id_1,
+                ),
+            ),
         )
     )
 
