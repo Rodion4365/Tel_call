@@ -18,22 +18,14 @@ export default function FriendsPageNew() {
 
   useEffect(() => {
     const loadFriends = async () => {
-      if (!user) {
-        return;
-      }
+      if (!user) return;
 
       setIsLoading(true);
       setError(null);
 
       try {
         const friendsList = await getFriends({ limit: 100 });
-        const validFriends = friendsList.filter((friend) => {
-          if (!friend || !friend.id) {
-            return false;
-          }
-          return true;
-        });
-
+        const validFriends = friendsList.filter((friend) => friend && friend.id);
         setFriends(validFriends);
         setFilteredFriends(validFriends);
       } catch (err) {
@@ -68,10 +60,7 @@ export default function FriendsPageNew() {
   }, []);
 
   const handleFriendClick = async (friend: Friend) => {
-    if (!user) {
-      setError("Необходима авторизация");
-      return;
-    }
+    if (!user || callingFriendId) return;
 
     setCallingFriendId(friend.id);
     setError(null);
@@ -88,22 +77,10 @@ export default function FriendsPageNew() {
   };
 
   const getDisplayName = (friend: Friend): string => {
-    if (!friend) {
-      return "Безымянный";
-    }
-
-    if (friend.display_name?.trim()) {
-      return friend.display_name.trim();
-    }
-
-    if (friend.username?.trim()) {
-      return friend.username.trim();
-    }
-
-    if (friend.telegram_user_id) {
-      return `User ${friend.telegram_user_id}`;
-    }
-
+    if (!friend) return "Безымянный";
+    if (friend.display_name?.trim()) return friend.display_name.trim();
+    if (friend.username?.trim()) return friend.username.trim();
+    if (friend.telegram_user_id) return `User ${friend.telegram_user_id}`;
     return "Безымянный";
   };
 
@@ -111,7 +88,6 @@ export default function FriendsPageNew() {
     <MobileFrame>
       <div className="h-full w-full bg-gradient-to-b from-[#0f111a] to-black text-white font-sans flex flex-col">
         <TopBar showBack={true} backTo="/" />
-
         <div className="flex-1 px-4 pt-8 max-w-md mx-auto w-full flex flex-col items-center">
           <div className="w-full flex items-center justify-between mb-6">
             <h1 className="text-3xl font-bold text-white">Друзья</h1>
@@ -119,7 +95,7 @@ export default function FriendsPageNew() {
                 <Pencil className="w-8 h-8 rounded-full border border-[#8B78E6]/30 p-1.5" />
             </button>
           </div>
-
+          {/* Search Bar */}
           <div className="w-full relative mb-8">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500">
                   <Search className="w-5 h-5" />
@@ -129,17 +105,17 @@ export default function FriendsPageNew() {
                   placeholder="Поиск по имени или никнейму"
                   value={searchQuery}
                   onChange={handleSearchChange}
-                  disabled={isLoading || isAuthorizing}
+                  disabled={isLoading}
                   className="w-full h-12 bg-zinc-900/60 border border-zinc-800/60 rounded-2xl pl-12 pr-4 text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#7C66DC]/50 transition-colors"
               />
           </div>
-
+          {/* Error State Button */}
           {error && (
             <button className="w-full bg-[#FFF0E0] text-[#FF8A65] py-4 px-6 rounded-3xl font-medium text-center mb-12">
                 {error}
             </button>
           )}
-
+          {/* Empty State / Loading */}
           {isLoading ? (
             <div className="text-zinc-500 text-center">
                 Загрузка...
@@ -155,12 +131,12 @@ export default function FriendsPageNew() {
                   key={friend.id}
                   onClick={() => handleFriendClick(friend)}
                   disabled={callingFriendId !== null}
-                  className="w-full bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4 flex items-center gap-4 hover:bg-zinc-800/60 transition-colors disabled:opacity-50"
+                  className="w-full bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4 flex items-center gap-4 hover:bg-zinc-800/60 transition-colors disabled:opacity-50 text-left"
                 >
                   <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center text-white font-semibold">
                     {getDisplayName(friend).charAt(0).toUpperCase()}
                   </div>
-                  <div className="flex-1 text-left">
+                  <div className="flex-1">
                     <div className="text-white font-medium">{getDisplayName(friend)}</div>
                     {friend.username?.trim() && (
                       <div className="text-zinc-500 text-sm">@{friend.username.trim()}</div>
