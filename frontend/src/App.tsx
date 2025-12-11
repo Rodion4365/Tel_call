@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
-import MainPage from "./pages/MainPage";
-import JoinCallPage from "./pages/JoinCallPage";
-import SettingsPage from "./pages/SettingsPage";
+import CallsPage from "./pages/CallsPage";
+import JoinCallPageNew from "./pages/JoinCallPageNew";
+import SettingsPageNew from "./pages/SettingsPageNew";
 import CallPage from "./pages/CallPage";
-import CallCreated from "./pages/CallCreated";
-import FriendsPage from "./pages/FriendsPage";
+import ShareCallPageNew from "./pages/ShareCallPageNew";
+import FriendsPageNew from "./pages/FriendsPageNew";
+import TermsPage from "./pages/TermsPage";
 import { useTelegramBackButton } from "./hooks/useTelegramBackButton";
 import { useTelegramWebApp } from "./hooks/useTelegramWebApp";
 import { useAuth } from "./contexts/AuthContext";
@@ -56,12 +57,13 @@ function AppContent(): JSX.Element {
       ) : null}
 
       <Routes>
-        <Route path="/" element={<MainPage />} />
-        <Route path="/friends" element={<FriendsPage />} />
-        <Route path="/join-call" element={<JoinCallPage />} />
-        <Route path="/call-created/:call_id" element={<CallCreated />} />
+        <Route path="/" element={<CallsPage />} />
+        <Route path="/friends" element={<FriendsPageNew />} />
+        <Route path="/join-call" element={<JoinCallPageNew />} />
+        <Route path="/call-created/:callId" element={<ShareCallPageNew />} />
         <Route path="/call/:id" element={<CallPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/settings" element={<SettingsPageNew />} />
+        <Route path="/terms" element={<TermsPage />} />
       </Routes>
     </Layout>
   );
