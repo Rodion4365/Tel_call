@@ -1,5 +1,8 @@
 import os
 
+import sys
+from pathlib import Path
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -9,6 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 os.environ.setdefault("BOT_TOKEN", "123456:TESTTOKEN")
 os.environ.setdefault("BOT_USERNAME", "test_bot")
 os.environ.setdefault("SECRET_KEY", "test-secret")
+
+# Ensure the application package is importable regardless of the current working directory
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 from app.main import app
 from app.config.database import Base, get_session

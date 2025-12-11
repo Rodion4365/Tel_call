@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Index
+from sqlalchemy import DateTime, ForeignKey, Index, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.config.database import Base
@@ -14,24 +14,21 @@ def utc_now() -> datetime:
 
 
 class FriendLink(Base):
-    """Represents a friendship connection between two users."""
+    """Represents a directional friendship connection between two users."""
 
     __tablename__ = "friend_links"
 
-    # Симметричная связь: всегда min(user_id) в user_id_1, max(user_id) в user_id_2
-    user_id_1: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
-    )
-    user_id_2: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    friend_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now
     )
 
     __table_args__ = (
-        # Индекс для быстрого поиска друзей пользователя
-        Index("ix_friend_links_user_id_1", "user_id_1"),
-        Index("ix_friend_links_user_id_2", "user_id_2"),
+        UniqueConstraint("user_id", "friend_id", name="uq_friend_links_user_friend"),
+        Index("ix_friend_links_user_id", "user_id"),
+        Index("ix_friend_links_friend_id", "friend_id"),
+        Index("ix_friend_links_updated_at", "updated_at"),
     )
