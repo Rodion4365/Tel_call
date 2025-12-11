@@ -4,6 +4,7 @@ import Layout from "./components/Layout";
 import MainPage from "./pages/MainPage";
 import JoinCallPage from "./pages/JoinCallPage";
 import SettingsPage from "./pages/SettingsPage";
+import TermsPage from "./pages/TermsPage";
 import CallPage from "./pages/CallPage";
 import CallCreated from "./pages/CallCreated";
 import FriendsPage from "./pages/FriendsPage";
@@ -62,6 +63,7 @@ function AppContent(): JSX.Element {
         <Route path="/call-created/:call_id" element={<CallCreated />} />
         <Route path="/call/:id" element={<CallPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/terms" element={<TermsPage />} />
       </Routes>
     </Layout>
   );
