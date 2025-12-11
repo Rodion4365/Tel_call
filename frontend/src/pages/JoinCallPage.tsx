@@ -61,36 +61,56 @@ const JoinCallPage: React.FC = () => {
   };
 
   return (
-    <div className="panel">
-      <h1>{t("joinCallPage.title")}</h1>
-      <p>{t("joinCallPage.description")}</p>
-      <form className="form" onSubmit={handleSubmit}>
-        <label className="form-field">
-          <span>{t("joinCallPage.inputLabel")}</span>
-          <input
-            type="text"
-            placeholder={t("joinCallPage.inputPlaceholder")}
-            value={callCode}
-            onChange={(event) => setCallCode(event.target.value)}
-            autoComplete="off"
-          />
-        </label>
+    <div className="join-call-screen">
+      <div className="join-call-top-bar">
+        <span className="join-call-top-bar__indicator" aria-hidden="true" />
+      </div>
 
-        {errorMessage ? (
-          <p className="status status-offline" role="alert">
-            {errorMessage}
-          </p>
-        ) : null}
+      <div className="join-call-layout">
+        <div className="join-call-card">
+          <div className="join-call-card__header">
+            <h1 className="join-call-title">{t("joinCallPage.title")}</h1>
+            <p className="join-call-subtitle">{t("joinCallPage.description")}</p>
+          </div>
 
-        <div className="form-actions">
-          <button type="submit" className="primary" disabled={isSubmitDisabled}>
-            {t("joinCallPage.buttonJoin")}
-          </button>
-          <button type="button" className="outline" onClick={() => navigate(-1)}>
-            {t("common.back")}
-          </button>
+          <form className="join-call-form" onSubmit={handleSubmit}>
+            <label className="join-call-field">
+              <span className="join-call-label">{t("joinCallPage.inputLabel")}</span>
+              <input
+                type="text"
+                placeholder={t("joinCallPage.inputPlaceholder")}
+                value={callCode}
+                onChange={(event) => setCallCode(event.target.value)}
+                autoComplete="off"
+                className="join-call-input"
+              />
+            </label>
+
+            {errorMessage ? (
+              <p className="join-call-error" role="alert">
+                {errorMessage}
+              </p>
+            ) : null}
+
+            <div className="join-call-actions">
+              <button
+                type="submit"
+                className="join-call-button join-call-button--primary"
+                disabled={isSubmitDisabled}
+              >
+                {t("joinCallPage.buttonJoin")}
+              </button>
+              <button
+                type="button"
+                className="join-call-button join-call-button--secondary"
+                onClick={() => navigate(-1)}
+              >
+                {t("common.back")}
+              </button>
+            </div>
+          </form>
         </div>
-      </form>
+      </div>
     </div>
   );
 };
