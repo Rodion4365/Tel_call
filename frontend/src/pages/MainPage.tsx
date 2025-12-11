@@ -1,20 +1,15 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { Video, UserPlus, Phone, Settings } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { createCall } from "../services/calls";
-
-const CameraIcon: React.FC = () => (
-  <svg className="action-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-    <path d="M4 6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-1.382l3.105 1.553A1 1 0 0 0 20 15.277V8.723a1 1 0 0 0-1.895-.894L15 9.382V8a2 2 0 0 0-2-2Z" />
-  </svg>
-);
 
 const SettingsButton: React.FC = () => {
   const { t } = useTranslation();
   return (
     <Link to="/settings" className="settings-button" aria-label={t("common.settings")}>
-      ⚙️
+      <Settings className="settings-icon" />
     </Link>
   );
 };
@@ -89,25 +84,36 @@ const MainPage: React.FC = () => {
 
       <div className="main-actions">
         <button
-          className="action-button action-primary"
+          className="primary-action"
           onClick={handleCreateCall}
           disabled={!user || isCreating || isAuthorizing}
         >
-          <CameraIcon />
-          <span>
-            {isAuthorizing
-              ? t("mainPage.authorizing")
-              : isCreating
-                ? t("mainPage.creating")
-                : t("mainPage.createCall")}
-          </span>
+          <Video className="action-icon" />
+          <div className="action-text">
+            <span className="action-label">
+              {isAuthorizing
+                ? t("mainPage.authorizing")
+                : isCreating
+                  ? t("mainPage.creating")
+                  : t("mainPage.createCall")}
+            </span>
+          </div>
         </button>
-        <Link className="action-button action-secondary" to="/friends">
-          <span>{t("mainPage.callFriend")}</span>
-        </Link>
-        <Link className="action-button action-secondary" to="/join-call">
-          <span>{t("mainPage.joinCall")}</span>
-        </Link>
+
+        <div className="secondary-actions">
+          <Link className="action-tile" to="/friends">
+            <span className="action-icon-badge">
+              <UserPlus className="action-icon" />
+            </span>
+            <span className="action-tile-label">{t("mainPage.callFriend")}</span>
+          </Link>
+          <Link className="action-tile" to="/join-call">
+            <span className="action-icon-badge">
+              <Phone className="action-icon" />
+            </span>
+            <span className="action-tile-label">{t("mainPage.joinCall")}</span>
+          </Link>
+        </div>
       </div>
     </div>
   );
