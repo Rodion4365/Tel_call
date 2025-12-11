@@ -29,7 +29,7 @@ export const useTelegramLanguage = (webApp: TelegramWebApp | null): void => {
 
     // Telegram может передавать язык в формате "ru" или "en"
     // Также могут быть варианты типа "ru-RU", "en-US"
-    const telegramLanguage = (webApp.initDataUnsafe.user as any).language_code;
+    const telegramLanguage = webApp.initDataUnsafe.user.language_code;
 
     if (!telegramLanguage) {
       // eslint-disable-next-line no-console
