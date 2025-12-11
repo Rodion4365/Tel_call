@@ -14,6 +14,7 @@ from app.config.database import Base, engine
 from app.config.logging import configure_logging
 from app.config.settings import get_settings
 import app.models  # noqa: F401  # Ensure models are registered with metadata
+import app.services.bot_handlers  # noqa: F401  # Register bot handlers on startup
 
 
 settings = get_settings()
