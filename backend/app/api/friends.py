@@ -2,7 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import case, delete, or_, select, tuple_
+from sqlalchemy import delete, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.database import get_session
@@ -49,20 +49,19 @@ async def get_friends(
     logger.info("[get_friends] Request from user_id=%s, query=%s, limit=%s, offset=%s",
                 current_user.id, query, limit, offset)
 
-    # Определяем идентификатор друга для каждой записи friend_links
+    # Определяем идентификатор друга через объединение двух выборок, избегая case()
     friends_subquery = (
         select(
+            FriendLink.user_id_2.label("friend_id"),
             FriendLink.updated_at.label("last_call_at"),
-            case(
-                (FriendLink.user_id_1 == current_user.id, FriendLink.user_id_2),
-                (FriendLink.user_id_2 == current_user.id, FriendLink.user_id_1),
-            ).label("friend_id"),
         )
-        .where(
-            or_(
-                FriendLink.user_id_1 == current_user.id,
-                FriendLink.user_id_2 == current_user.id,
+        .where(FriendLink.user_id_1 == current_user.id)
+        .union_all(
+            select(
+                FriendLink.user_id_1.label("friend_id"),
+                FriendLink.updated_at.label("last_call_at"),
             )
+            .where(FriendLink.user_id_2 == current_user.id)
         )
         .subquery()
     )
