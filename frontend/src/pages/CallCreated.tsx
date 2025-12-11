@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { getTelegramWebApp } from "../services/telegram";
+import { Copy, Link2 } from "lucide-react";
 
 interface LocationState {
   join_url?: string;
@@ -152,32 +153,38 @@ const CallCreated: React.FC = () => {
   const closeModal = () => setShareModalOpen(false);
 
   return (
-    <div className="panel call-created">
-      <div className="call-created__header">
-        <p className="eyebrow">{t("callCreatedPage.title")}</p>
-        <h1 className="call-created__title">{t("callCreatedPage.description")}</h1>
+    <div className="call-created-screen">
+      <div className="call-created-top-bar">
+        <span className="call-created-top-bar__indicator" aria-hidden="true" />
       </div>
 
-      <div className="call-created__content">
-        <div className="call-created__actions-row">
-          <button className="primary" onClick={handleJoinCall} disabled={!call_id}>
-            <span className="button-text-full">{t("callCreatedPage.joinButton")}</span>
-            <span className="button-text-short">{t("callCreatedPage.joinButtonShort")}</span>
-          </button>
-          <button className="secondary" onClick={handleShare} disabled={!joinUrl}>
-            <span className="button-text-full">{t("callCreatedPage.shareButton")}</span>
-            <span className="button-text-short">{t("callCreatedPage.shareButtonShort")}</span>
-            <span>🔗</span>
-          </button>
-          <button className="outline" onClick={copyLink} disabled={!joinUrl}>
-            <span className="button-text-full">{t("callCreatedPage.copyLinkButton")}</span>
-            <span className="button-text-short">{t("callCreatedPage.copyLinkButtonShort")}</span>
-            <span>🔗</span>
-          </button>
+      <div className="call-created-layout">
+        <div className="call-created-card">
+          <div>
+            <p className="call-created-eyebrow">{t("callCreatedPage.title")}</p>
+            <h1 className="call-created-title">{t("callCreatedPage.description")}</h1>
+          </div>
+
+          <div className="call-created-actions">
+            <button className="call-created-button call-created-button--primary" onClick={handleJoinCall} disabled={!call_id}>
+              {t("callCreatedPage.joinButton")}
+            </button>
+
+            <div className="call-created-actions__row">
+              <button className="call-created-button call-created-button--secondary" onClick={handleShare} disabled={!joinUrl}>
+                {t("callCreatedPage.shareButton")}
+                <Link2 className="call-created-button__icon" aria-hidden="true" />
+              </button>
+              <button className="call-created-button call-created-button--outline" onClick={copyLink} disabled={!joinUrl}>
+                {t("callCreatedPage.copyLinkButton")}
+                <Copy className="call-created-button__icon" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {isToastVisible && <div className="toast">{t("callCreatedPage.linkCopied")}</div>}
+      {isToastVisible && <div className="toast call-created-toast">{t("callCreatedPage.linkCopied")}</div>}
 
       {isShareModalOpen && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
