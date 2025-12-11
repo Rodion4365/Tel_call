@@ -32,26 +32,20 @@ export default function CallsPage() {
       <div className="h-full w-full bg-gradient-to-b from-[#0f111a] to-black text-white relative font-sans flex flex-col">
         <TopBar />
 
-        {/* Кнопка настроек */}
         <div className="absolute top-20 right-4 z-10">
-          <button
-            onClick={() => navigate("/settings")}
-            className="bg-zinc-900/50 p-2.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all border border-zinc-800/50 cursor-pointer"
-          >
-            <Settings className="w-5 h-5 stroke-[1.5]" />
-          </button>
+           <button
+              onClick={() => navigate("/settings")}
+              className="bg-zinc-900/50 p-2.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all border border-zinc-800/50 cursor-pointer"
+           >
+              <Settings className="w-5 h-5 stroke-[1.5]" />
+           </button>
         </div>
-
-        {/* Центральный контент */}
         <div className="flex-1 flex flex-col justify-center items-center px-6 w-full max-w-md mx-auto z-0">
           <div className="mb-12 text-center space-y-2">
-            <h1 className="text-4xl font-semibold tracking-tight text-white">
-              Звонки
-            </h1>
+              <h1 className="text-4xl font-semibold tracking-tight text-white">Звонки</h1>
           </div>
-
           <div className="w-full space-y-4">
-            {/* Создать звонок */}
+            {/* Primary Action */}
             <motion.button
               onClick={handleCreateCall}
               disabled={isCreating || !user}
@@ -62,31 +56,29 @@ export default function CallsPage() {
               <Video className="w-5 h-5 fill-white/20 stroke-[2]" />
               {isCreating ? "Создание..." : "Создать звонок"}
             </motion.button>
-
-            {/* Позвонить другу + Присоединиться */}
+            {/* Secondary Actions - Clean & Minimal */}
             <div className="grid grid-cols-2 gap-3">
               <motion.button
-                onClick={() => navigate("/friends")}
-                whileHover={{ scale: 1.01, backgroundColor: "rgba(39, 39, 42, 1)" }}
-                whileTap={{ scale: 0.99 }}
-                className="h-[100px] flex flex-col items-center justify-center gap-3 bg-zinc-900/60 border border-zinc-800/60 rounded-2xl text-zinc-200 hover:border-zinc-700 transition-all group"
+                  onClick={() => navigate("/friends")}
+                  whileHover={{ scale: 1.01, backgroundColor: "rgba(39, 39, 42, 1)" }}
+                  whileTap={{ scale: 0.99 }}
+                  className="h-[100px] flex flex-col items-center justify-center gap-3 bg-zinc-900/60 border border-zinc-800/60 rounded-2xl text-zinc-200 hover:border-zinc-700 transition-all group"
               >
-                <div className="p-2.5 rounded-full bg-zinc-800 group-hover:bg-[#7C66DC]/20 group-hover:text-[#7C66DC] transition-colors">
-                  <UserPlus className="w-6 h-6 stroke-[1.5]" />
-                </div>
-                <span className="text-[15px] font-medium">Позвонить другу</span>
+                  <div className="p-2.5 rounded-full bg-zinc-800 group-hover:bg-[#7C66DC]/20 group-hover:text-[#7C66DC] transition-colors">
+                      <UserPlus className="w-6 h-6 stroke-[1.5]" />
+                  </div>
+                  <span className="text-[15px] font-medium">Позвонить другу</span>
               </motion.button>
-
               <motion.button
-                onClick={() => navigate("/join-call")}
-                whileHover={{ scale: 1.01, backgroundColor: "rgba(39, 39, 42, 1)" }}
-                whileTap={{ scale: 0.99 }}
-                className="h-[100px] flex flex-col items-center justify-center gap-3 bg-zinc-900/60 border border-zinc-800/60 rounded-2xl text-zinc-200 hover:border-zinc-700 transition-all group"
+                  onClick={() => navigate("/join-call")}
+                  whileHover={{ scale: 1.01, backgroundColor: "rgba(39, 39, 42, 1)" }}
+                  whileTap={{ scale: 0.99 }}
+                  className="h-[100px] flex flex-col items-center justify-center gap-3 bg-zinc-900/60 border border-zinc-800/60 rounded-2xl text-zinc-200 hover:border-zinc-700 transition-all group"
               >
-                <div className="p-2.5 rounded-full bg-zinc-800 group-hover:bg-[#7C66DC]/20 group-hover:text-[#7C66DC] transition-colors">
-                  <Phone className="w-6 h-6 stroke-[1.5]" />
-                </div>
-                <span className="text-[15px] font-medium">Присоединиться</span>
+                  <div className="p-2.5 rounded-full bg-zinc-800 group-hover:bg-[#7C66DC]/20 group-hover:text-[#7C66DC] transition-colors">
+                      <Phone className="w-6 h-6 stroke-[1.5]" />
+                  </div>
+                  <span className="text-[15px] font-medium">Присоединиться</span>
               </motion.button>
             </div>
           </div>
