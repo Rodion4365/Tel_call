@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
-from sqlalchemy import select, tuple_
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -57,82 +57,34 @@ def _make_aware(dt: datetime | None) -> datetime | None:
     return dt
 
 
-async def _create_or_update_friend_link(
-    session: AsyncSession, user_id: int, friend_id: int
+async def _bulk_upsert_friend_links(
+    session: AsyncSession, user_pairs: list[tuple[int, int]]
 ) -> None:
-    """Create or update a friend link between two users.
+    """Batch create or update friend links for every provided pair."""
 
-    DEPRECATED: Use _batch_create_or_update_friend_links for better performance.
-    """
-    if user_id == friend_id:
-        return  # Не создаём связь с самим собой
-
-    # Симметричная связь: всегда min в user_id_1, max в user_id_2
-    user_id_1 = min(user_id, friend_id)
-    user_id_2 = max(user_id, friend_id)
-
-    result = await session.execute(
-        select(FriendLink).where(
-            FriendLink.user_id_1 == user_id_1, FriendLink.user_id_2 == user_id_2
-        )
-    )
-    existing_link = result.scalar_one_or_none()
-
-    if existing_link:
-        # Обновляем updated_at
-        existing_link.updated_at = datetime.now(tz=timezone.utc)
-        logger.debug(
-            "Updated friend_link between user_id_1=%s and user_id_2=%s", user_id_1, user_id_2
-        )
-    else:
-        # Создаём новую связь
-        friend_link = FriendLink(user_id_1=user_id_1, user_id_2=user_id_2)
-        session.add(friend_link)
-        logger.info(
-            "Created friend_link between user_id_1=%s and user_id_2=%s", user_id_1, user_id_2
-        )
-
-
-async def _batch_create_or_update_friend_links(
-    session: AsyncSession, user_id: int, friend_ids: list[int]
-) -> None:
-    """Batch create or update friend links between user and multiple friends.
-
-    This is much more efficient than calling _create_or_update_friend_link in a loop,
-    as it uses a single INSERT ... ON CONFLICT DO UPDATE query instead of N queries.
-    """
-    if not friend_ids:
+    unique_pairs = {(user_id, friend_id) for user_id, friend_id in user_pairs if user_id != friend_id}
+    if not unique_pairs:
         return
 
-    # Фильтруем user_id из списка друзей (не создаём связь с самим собой)
-    friend_ids = [fid for fid in friend_ids if fid != user_id]
-    if not friend_ids:
-        return
-
-    # Формируем пары (user_id_1, user_id_2) для всех друзей
     now = datetime.now(tz=timezone.utc)
     values = [
         {
-            "user_id_1": min(user_id, friend_id),
-            "user_id_2": max(user_id, friend_id),
+            "user_id": user_id,
+            "friend_id": friend_id,
             "created_at": now,
             "updated_at": now,
         }
-        for friend_id in friend_ids
+        for user_id, friend_id in unique_pairs
     ]
 
-    # Используем INSERT ... ON CONFLICT DO UPDATE для PostgreSQL (upsert)
-    # Это создаст новые записи или обновит updated_at для существующих
     stmt = insert(FriendLink).values(values)
     stmt = stmt.on_conflict_do_update(
-        index_elements=["user_id_1", "user_id_2"],
+        index_elements=["user_id", "friend_id"],
         set_={"updated_at": now},
     )
 
     await session.execute(stmt)
-    logger.info(
-        "Batch created/updated %s friend_link(s) for user_id=%s", len(friend_ids), user_id
-    )
+    logger.info("Upserted %s friend_link(s)", len(unique_pairs))
 
 
 def _serialize_user(user: User) -> dict[str, Any]:
@@ -249,25 +201,30 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
                 call_id,
             )
 
-    # Создаём/обновляем friend_links между текущим пользователем и другими участниками звонка
+    # Создаём/обновляем friend_links между всеми активными участниками звонка
     async with session_scope() as session:
-        # Получаем всех других участников этого звонка
         result = await session.execute(
             select(Participant.user_id)
-            .where(Participant.call_id == call.id, Participant.user_id != user.id)
+            .where(Participant.call_id == call.id, Participant.left_at.is_(None))
             .distinct()
         )
-        other_user_ids = [row[0] for row in result.fetchall()]
+        participant_user_ids = [row[0] for row in result.fetchall()]
 
-        # Создаём/обновляем связи с каждым участником одним batch запросом
-        if other_user_ids:
-            await _batch_create_or_update_friend_links(session, user.id, other_user_ids)
+        user_pairs = [
+            (user_id, friend_id)
+            for user_id in participant_user_ids
+            for friend_id in participant_user_ids
+            if user_id != friend_id
+        ]
+
+        if user_pairs:
+            await _bulk_upsert_friend_links(session, user_pairs)
             await session.commit()
             logger.info(
-                "Created/updated %s friend_link(s) for user_id=%s in call_id=%s",
-                len(other_user_ids),
-                user.id,
+                "Created/updated %s friend_link(s) for call_id=%s participants=%s",
+                len(set(user_pairs)),
                 call_id,
+                participant_user_ids,
             )
 
     logger.info(
