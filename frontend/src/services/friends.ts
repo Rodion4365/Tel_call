@@ -16,7 +16,7 @@ export interface GetFriendsParams {
 }
 
 export interface CallFriendResponse {
-  call_id: string;
+  call_id: string;    
   join_url: string;
   title: string | null;
   is_video_enabled: boolean;
@@ -48,15 +48,49 @@ export const getFriends = async (params?: GetFriendsParams): Promise<Friend[]> =
   // eslint-disable-next-line no-console
   console.log("[friends.getFriends] Requesting friends", { params, path });
 
-  const friends = await apiClient.get<Friend[]>(path);
-
   // eslint-disable-next-line no-console
-  console.log("[friends.getFriends] Received friends", {
-    count: friends.length,
-    sample: friends.slice(0, 3),
-  });
+  console.log("[getFriends] Requesting friends list:", { path, params });
 
-  return friends;
+  try {
+    const friends = await apiClient.get<Friend[]>(path);
+
+    // eslint-disable-next-line no-console
+    console.log("[getFriends] Received friends:", friends.length, "friends");
+
+    // Валидация данных
+    const validFriends = friends.filter((friend, idx) => {
+      if (!friend || typeof friend !== 'object') {
+        // eslint-disable-next-line no-console
+        console.warn(`[getFriends] Friend at index ${idx} is not an object:`, friend);
+        return false;
+      }
+
+      if (!friend.id) {
+        // eslint-disable-next-line no-console
+        console.warn(`[getFriends] Friend at index ${idx} has no id:`, friend);
+        return false;
+      }
+
+      if (!friend.telegram_user_id) {
+        // eslint-disable-next-line no-console
+        console.warn(`[getFriends] Friend at index ${idx} has no telegram_user_id:`, friend);
+        return false;
+      }
+
+      return true;
+    });
+
+    if (validFriends.length !== friends.length) {
+      // eslint-disable-next-line no-console
+      console.warn(`[getFriends] Filtered out ${friends.length - validFriends.length} invalid friends`);
+    }
+
+    return validFriends;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("[getFriends] Error fetching friends:", error);
+    throw error;
+  }
 };
 
 export const callFriend = async (friendId: number): Promise<CallFriendResponse> => {

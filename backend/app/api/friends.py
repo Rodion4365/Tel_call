@@ -84,6 +84,7 @@ async def get_friends(
     stmt = stmt.limit(limit).offset(offset)
 
     try:
+        logger.info("[get_friends] Executing SQL query...")
         result = await session.execute(stmt)
         rows = result.all()
 
@@ -91,39 +92,68 @@ async def get_friends(
 
         # Формируем ответ
         friends = []
-        for row in rows:
-            user = row[0]
-            last_call_at = row[1]
+        for idx, row in enumerate(rows):
+            try:
+                user = row[0]
+                last_call_at = row[1]
 
-            # Формируем display_name из first_name и last_name
-            display_name = None
-            if user.first_name or user.last_name:
-                parts = []
-                if user.first_name:
-                    parts.append(user.first_name)
-                if user.last_name:
-                    parts.append(user.last_name)
-                display_name = " ".join(parts)
+                logger.debug("[get_friends] Processing row %d: user=%s, last_call_at=%s",
+                           idx, user, last_call_at)
 
-            friend_response = FriendResponse(
-                id=user.id,
-                telegram_user_id=user.telegram_user_id,
-                display_name=display_name,
-                username=user.username,
-                photo_url=user.photo_url,
-                last_call_at=last_call_at,
-            )
-            friends.append(friend_response)
+                # Проверяем что user не None
+                if user is None:
+                    logger.warning("[get_friends] Row %d has None user, skipping", idx)
+                    continue
 
-            logger.debug("[get_friends] Friend: id=%s, telegram_user_id=%s, display_name=%s, username=%s",
-                        user.id, user.telegram_user_id, display_name, user.username)
+                # Проверяем наличие обязательных полей
+                if not hasattr(user, 'id') or user.id is None:
+                    logger.warning("[get_friends] Row %d: user has no id, skipping. User data: %s",
+                                 idx, vars(user) if hasattr(user, '__dict__') else user)
+                    continue
 
-        logger.info("[get_friends] Returning %d friends", len(friends))
+                if not hasattr(user, 'telegram_user_id') or user.telegram_user_id is None:
+                    logger.warning("[get_friends] Row %d: user id=%s has no telegram_user_id, skipping",
+                                 idx, user.id)
+                    continue
+
+                # Формируем display_name из first_name и last_name
+                display_name = None
+                if user.first_name or user.last_name:
+                    parts = []
+                    if user.first_name:
+                        parts.append(user.first_name)
+                    if user.last_name:
+                        parts.append(user.last_name)
+                    display_name = " ".join(parts)
+
+                friend_response = FriendResponse(
+                    id=user.id,
+                    telegram_user_id=user.telegram_user_id,
+                    display_name=display_name,
+                    username=user.username,
+                    photo_url=user.photo_url,
+                    last_call_at=last_call_at,
+                )
+                friends.append(friend_response)
+
+                logger.debug("[get_friends] Friend %d: id=%s, telegram_user_id=%s, display_name=%s, username=%s",
+                            idx, user.id, user.telegram_user_id, display_name, user.username)
+
+            except Exception as row_error:
+                logger.exception("[get_friends] Error processing row %d: %s. Row data: %s",
+                               idx, str(row_error), row)
+                # Продолжаем обработку следующих строк
+                continue
+
+        logger.info("[get_friends] Successfully processed %d friends out of %d rows",
+                   len(friends), len(rows))
         return friends
 
     except Exception as e:
-        logger.exception("[get_friends] Error while fetching friends: %s", str(e))
-        raise
+        logger.exception("[get_friends] Error while fetching friends: %s. Query params: user_id=%s, query=%s, limit=%s, offset=%s",
+                        str(e), current_user.id, query, limit, offset)
+        # Возвращаем пустой список вместо ошибки, чтобы не ломать UI
+        return []
 
 
 @router.post("/delete", response_model=DeleteFriendsResponse)
