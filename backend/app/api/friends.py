@@ -3,6 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy import delete, select, tuple_
+from sqlalchemy import and_, delete, or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.database import get_session
