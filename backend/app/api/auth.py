@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -13,11 +14,13 @@ from app.services.auth import (
     build_init_data_fingerprint,
     create_access_token,
     get_or_create_user,
+    get_user_from_token,
 )
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 logger = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
+_bearer_scheme = HTTPBearer(auto_error=False)
 
 
 class TelegramAuthRequest(BaseModel):
@@ -46,7 +49,12 @@ class WebSocketTokenResponse(BaseModel):
 
 
 @router.get("/ws-token", response_model=WebSocketTokenResponse)
-async def get_websocket_token(request: Request) -> WebSocketTokenResponse:
+async def get_websocket_token(
+    request: Request,
+    response: Response,
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+    session: AsyncSession = Depends(get_session),
+) -> WebSocketTokenResponse:
     """Get a token from httpOnly cookie for WebSocket connections.
 
     WebSocket cannot automatically send httpOnly cookies, so this endpoint
@@ -54,8 +62,37 @@ async def get_websocket_token(request: Request) -> WebSocketTokenResponse:
     """
     token = request.cookies.get("access_token")
 
+    if token:
+        return WebSocketTokenResponse(token=token)
+
+    # Only attempt the fallback path for users who have lost their cookie
+    # (e.g., it was cleared, blocked, or expired client-side). Users with a
+    # working cookie return early above.
     if not token:
-        logger.warning("[get_websocket_token] no token found in cookie")
+        # Fallback to bearer token for cases when cookie was cleared or not stored
+        bearer_token = credentials.credentials if credentials else None
+        if bearer_token:
+            try:
+                await get_user_from_token(bearer_token, session)
+            except HTTPException as exc:
+                logger.warning("[get_websocket_token] bearer token rejected: %s", exc.detail)
+                raise
+
+            settings = get_settings()
+            response.set_cookie(
+                key="access_token",
+                value=bearer_token,
+                httponly=True,
+                secure=True,
+                samesite="none",
+                max_age=settings.access_token_expire_minutes * 60,
+                path="/",
+            )
+            logger.info("[get_websocket_token] refreshed httpOnly cookie from Authorization header")
+            token = bearer_token
+
+    if not token:
+        logger.warning("[get_websocket_token] no token found in cookie or Authorization header")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
     return WebSocketTokenResponse(token=token)

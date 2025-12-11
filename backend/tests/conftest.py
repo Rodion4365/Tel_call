@@ -1,8 +1,14 @@
 import os
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+# Provide required settings for app startup in tests
+os.environ.setdefault("BOT_TOKEN", "123456:TESTTOKEN")
+os.environ.setdefault("BOT_USERNAME", "test_bot")
+os.environ.setdefault("SECRET_KEY", "test-secret")
 
 from app.main import app
 from app.config.database import Base, get_session

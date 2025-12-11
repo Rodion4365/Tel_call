@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import parse_qsl
@@ -21,6 +22,7 @@ from app.models import User
 
 logger = logging.getLogger(__name__)
 _bearer_scheme = HTTPBearer(auto_error=False)
+_username_regex = re.compile(r"^[A-Za-z0-9_]{5,32}$")
 
 
 def _build_data_check_string(payload: dict[str, str]) -> str:
@@ -45,6 +47,18 @@ def _validate_signature(init_data: str, bot_token: str) -> dict[str, str]:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid initData hash")
 
     return data
+
+
+def _normalize_for_compare(value: str | None) -> str | None:
+    return value.casefold() if isinstance(value, str) else value
+
+
+def _should_update(current: str | None, incoming: str | None) -> bool:
+    return incoming is not None and _normalize_for_compare(current) != _normalize_for_compare(incoming)
+
+
+def _is_username_valid(username: str | None) -> bool:
+    return bool(username) and bool(_username_regex.fullmatch(username))
 
 
 def validate_init_data(init_data: str, *, bot_token: str, max_age_seconds: int = 86400) -> dict[str, Any]:
@@ -92,19 +106,48 @@ async def get_or_create_user(session: AsyncSession, telegram_user: dict[str, Any
     if telegram_user_id is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Telegram user id is required")
 
+    incoming_username = telegram_user.get("username")
+    username_valid = _is_username_valid(incoming_username)
+    if incoming_username is None or not username_valid:
+        logger.warning(
+            "Received invalid Telegram username for user_id=%s: %r",
+            telegram_user_id,
+            incoming_username,
+        )
+
     result = await session.execute(select(User).where(User.telegram_user_id == telegram_user_id))
     user = result.scalar_one_or_none()
     is_new = user is None
 
     if user:
-        user.username = telegram_user.get("username")
-        user.first_name = telegram_user.get("first_name")
-        user.last_name = telegram_user.get("last_name")
-        user.photo_url = telegram_user.get("photo_url")
+        has_changes = False
+
+        if _should_update(user.first_name, telegram_user.get("first_name")):
+            user.first_name = telegram_user.get("first_name")
+            has_changes = True
+
+        if _should_update(user.last_name, telegram_user.get("last_name")):
+            user.last_name = telegram_user.get("last_name")
+            has_changes = True
+
+        if _should_update(user.photo_url, telegram_user.get("photo_url")):
+            user.photo_url = telegram_user.get("photo_url")
+            has_changes = True
+
+        if username_valid and _should_update(user.username, incoming_username):
+            user.username = incoming_username
+            has_changes = True
+
+        if not has_changes:
+            logger.info(
+                "User unchanged for telegram_user_id=%s (id=%s)",
+                telegram_user_id,
+                user.id,
+            )
     else:
         user = User(
             telegram_user_id=telegram_user_id,
-            username=telegram_user.get("username"),
+            username=incoming_username if username_valid else None,
             first_name=telegram_user.get("first_name"),
             last_name=telegram_user.get("last_name"),
             photo_url=telegram_user.get("photo_url"),

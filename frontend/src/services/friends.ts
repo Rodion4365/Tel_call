@@ -16,7 +16,7 @@ export interface GetFriendsParams {
 }
 
 export interface CallFriendResponse {
-  call_id: string;
+  call_id: string;    
   join_url: string;
   title: string | null;
   is_video_enabled: boolean;
@@ -45,6 +45,8 @@ export const getFriends = async (params?: GetFriendsParams): Promise<Friend[]> =
 
   const queryString = queryParams.toString();
   const path = `/api/friends${queryString ? `?${queryString}` : ""}`;
+  // eslint-disable-next-line no-console
+  console.log("[friends.getFriends] Requesting friends", { params, path });
 
   // eslint-disable-next-line no-console
   console.log("[getFriends] Requesting friends list:", { path, params });

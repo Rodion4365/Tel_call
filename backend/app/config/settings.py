@@ -10,9 +10,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application configuration loaded from environment variables."""
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False)
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        populate_by_name=True,
+    )
 
-    app_name: str = Field("Tel Call Backend", validation_alias="APP_NAME")
+    app_name: str = Field("Tel Call API", validation_alias="APP_NAME")
     debug: bool = Field(False, validation_alias="DEBUG")
     database_url: AnyUrl = Field(
         "sqlite+aiosqlite:///./app.db",
