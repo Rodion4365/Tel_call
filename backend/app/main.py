@@ -22,6 +22,8 @@ settings = get_settings()
 configure_logging()
 
 logger = logging.getLogger(__name__)
+import app.services.bot_handlers  # noqa: F401  # Register bot handlers at startup
+
 
 
 @asynccontextmanager
