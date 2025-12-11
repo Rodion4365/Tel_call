@@ -10,27 +10,16 @@ export default function JoinCallPageNew() {
   const navigate = useNavigate();
   const [callCode, setCallCode] = useState("");
   const [isJoining, setIsJoining] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const handleJoin = async () => {
-    if (!user) {
-      setError("Необходима авторизация");
-      return;
-    }
-
-    if (!callCode.trim()) {
-      setError("Введите ссылку или ID звонка");
-      return;
-    }
+    if (!user || !callCode.trim() || isJoining) return;
 
     setIsJoining(true);
-    setError(null);
 
     try {
-      // Извлекаем call_id из ссылки, если это ссылка
       let extractedCallId = callCode.trim();
 
-      // Проверяем, является ли это ссылкой telegram
+      // Извлекаем call_id из ссылки telegram
       if (callCode.includes("t.me") || callCode.includes("startapp=")) {
         const match = callCode.match(/startapp=([a-zA-Z0-9_-]+)/);
         if (match) {
@@ -42,7 +31,6 @@ export default function JoinCallPageNew() {
       navigate(`/call/${response.call_id}`);
     } catch (err) {
       console.error("Failed to join call", err);
-      setError("Не удалось присоединиться к звонку");
     } finally {
       setIsJoining(false);
     }
@@ -52,7 +40,6 @@ export default function JoinCallPageNew() {
     <MobileFrame>
       <div className="h-full w-full bg-gradient-to-b from-[#0f111a] to-black text-white font-sans flex flex-col">
         <TopBar showBack={true} backTo="/" />
-
         <div className="flex-1 px-4 flex items-center justify-center w-full max-w-md mx-auto">
           <div className="w-full bg-zinc-900/60 border border-zinc-800/60 rounded-[32px] p-6 space-y-6">
               <div>
@@ -63,13 +50,6 @@ export default function JoinCallPageNew() {
                       Вставьте ссылку или ID звонка, чтобы подключиться вручную.
                   </p>
               </div>
-
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-red-200 text-sm">
-                  {error}
-                </div>
-              )}
-
               <div className="space-y-2">
                   <label className="text-white font-medium text-sm">Ссылка или ID звонка</label>
                   <input
@@ -81,12 +61,11 @@ export default function JoinCallPageNew() {
                       className="w-full h-12 bg-black border border-zinc-700 rounded-xl px-4 text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#7C66DC] transition-colors text-sm"
                   />
               </div>
-
               <div className="flex gap-3 pt-2">
                   <button
                       onClick={handleJoin}
                       disabled={isJoining || !callCode.trim()}
-                      className="flex-1 h-12 bg-[#7C66DC] hover:bg-[#6A55CA] text-white rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 h-12 bg-[#7C66DC] hover:bg-[#6A55CA] text-white rounded-xl font-medium transition-colors disabled:opacity-50"
                   >
                       {isJoining ? "Подключение..." : "Подключиться"}
                   </button>

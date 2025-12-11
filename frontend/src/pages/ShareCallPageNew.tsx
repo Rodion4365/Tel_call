@@ -12,13 +12,11 @@ export default function ShareCallPageNew() {
 
   const [joinUrl, setJoinUrl] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const loadCall = async () => {
       if (!callId) {
-        setError("ID звонка не найден");
         setIsLoading(false);
         return;
       }
@@ -28,7 +26,6 @@ export default function ShareCallPageNew() {
         setJoinUrl(response.join_url);
       } catch (err) {
         console.error("Failed to load call", err);
-        setError("Не удалось загрузить информацию о звонке");
       } finally {
         setIsLoading(false);
       }
@@ -77,24 +74,10 @@ export default function ShareCallPageNew() {
     );
   }
 
-  if (error) {
-    return (
-      <MobileFrame>
-        <div className="h-full w-full bg-gradient-to-b from-[#0f111a] to-black text-white font-sans flex flex-col">
-          <TopBar showBack={true} backTo="/" />
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-red-400 text-center p-6">{error}</div>
-          </div>
-        </div>
-      </MobileFrame>
-    );
-  }
-
   return (
     <MobileFrame>
       <div className="h-full w-full bg-gradient-to-b from-[#0f111a] to-black text-white font-sans flex flex-col">
         <TopBar showBack={true} backTo="/" />
-
         <div className="flex-1 px-4 flex items-center justify-center w-full max-w-md mx-auto">
           <div className="w-full bg-zinc-900/60 border border-zinc-800/60 rounded-[32px] p-6 space-y-6">
               <div>
@@ -105,7 +88,6 @@ export default function ShareCallPageNew() {
                       Поделитесь ссылкой и присоединитесь к звонку
                   </h1>
               </div>
-
               <div className="flex flex-col gap-3">
                   <button
                       onClick={() => navigate(`/call/${callId}`)}
