@@ -170,7 +170,7 @@ a:hover {
 .settings-icon {
   width: 20px;
   height: 20px;
-  stroke-width: 1.75;
+  stroke-width: 1.6;
 }
 
 .main-header {
@@ -234,7 +234,7 @@ a:hover {
 .secondary-actions {
   display: grid;
   width: 100%;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
 }
 
