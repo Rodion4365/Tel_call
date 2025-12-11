@@ -2,8 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import delete, select, tuple_
-from sqlalchemy import and_, delete, or_, select, tuple_
+from sqlalchemy import and_, delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.database import get_session
@@ -50,26 +49,12 @@ async def get_friends(
     logger.info("[get_friends] Request from user_id=%s, query=%s, limit=%s, offset=%s",
                 current_user.id, query, limit, offset)
 
-    # Определяем идентификатор друга через объединение двух выборок, избегая case()
-    friends_subquery = (
-        select(
-            FriendLink.user_id_2.label("friend_id"),
-            FriendLink.updated_at.label("last_call_at"),
-        )
-        .where(FriendLink.user_id_1 == current_user.id)
-        .union_all(
-            select(
-                FriendLink.user_id_1.label("friend_id"),
-                FriendLink.updated_at.label("last_call_at"),
-            )
-            .where(FriendLink.user_id_2 == current_user.id)
-        )
-        .subquery()
-    )
-
-    # Основной запрос: присоединяем пользователей по вычисленному friend_id
-    stmt = select(User, friends_subquery.c.last_call_at).join(
-        friends_subquery, User.id == friends_subquery.c.friend_id
+    # С двусторонней моделью запрос становится простым: ищем все записи где user_id = current_user.id
+    # Каждая запись содержит friend_id и updated_at (время последнего звонка)
+    stmt = (
+        select(User, FriendLink.updated_at.label("last_call_at"))
+        .join(FriendLink, FriendLink.friend_id == User.id)
+        .where(FriendLink.user_id == current_user.id)
     )
 
     # Добавляем фильтрацию по поисковому запросу
@@ -81,8 +66,8 @@ async def get_friends(
             | (User.username.ilike(search_pattern))
         )
 
-    # Сортировка по дате последнего звонка (updated_at из friend_link)
-    stmt = stmt.order_by(friends_subquery.c.last_call_at.desc())
+    # Сортировка по дате последнего звонка
+    stmt = stmt.order_by(FriendLink.updated_at.desc())
 
     # Применяем пагинацию
     stmt = stmt.limit(limit).offset(offset)
@@ -141,36 +126,38 @@ async def delete_friends(
     if not request.friend_ids:
         return DeleteFriendsResponse(deleted_ids=[], not_found_ids=[])
 
-    # Формируем пары (user_id_1, user_id_2) для всех friend_ids
-    user_id_pairs = [
-        (min(current_user.id, friend_id), max(current_user.id, friend_id))
-        for friend_id in request.friend_ids
-    ]
-
-    # Сначала проверяем какие записи существуют (один SELECT вместо N)
+    # С двусторонней моделью нужно проверить существование связи в одном направлении
+    # Если связь существует, удаляем обе записи: (user_id, friend_id) и (friend_id, user_id)
     result = await session.execute(
-        select(FriendLink.user_id_1, FriendLink.user_id_2).where(
-            tuple_(FriendLink.user_id_1, FriendLink.user_id_2).in_(user_id_pairs)
+        select(FriendLink.friend_id).where(
+            and_(
+                FriendLink.user_id == current_user.id,
+                FriendLink.friend_id.in_(request.friend_ids)
+            )
         )
     )
-    existing_pairs = set(result.all())
+    existing_friend_ids = set(row[0] for row in result.all())
 
     # Определяем какие friend_ids были найдены, а какие нет
-    deleted_ids: list[int] = []
-    not_found_ids: list[int] = []
+    deleted_ids = [fid for fid in request.friend_ids if fid in existing_friend_ids]
+    not_found_ids = [fid for fid in request.friend_ids if fid not in existing_friend_ids]
 
-    for friend_id in request.friend_ids:
-        pair = (min(current_user.id, friend_id), max(current_user.id, friend_id))
-        if pair in existing_pairs:
-            deleted_ids.append(friend_id)
-        else:
-            not_found_ids.append(friend_id)
-
-    # Удаляем все найденные записи одним запросом (один DELETE вместо N)
-    if existing_pairs:
+    # Удаляем все найденные связи в обоих направлениях одним запросом
+    if deleted_ids:
         await session.execute(
             delete(FriendLink).where(
-                tuple_(FriendLink.user_id_1, FriendLink.user_id_2).in_(existing_pairs)
+                or_(
+                    # Удаляем (current_user.id, friend_id)
+                    and_(
+                        FriendLink.user_id == current_user.id,
+                        FriendLink.friend_id.in_(deleted_ids)
+                    ),
+                    # Удаляем (friend_id, current_user.id)
+                    and_(
+                        FriendLink.user_id.in_(deleted_ids),
+                        FriendLink.friend_id == current_user.id
+                    )
+                )
             )
         )
 

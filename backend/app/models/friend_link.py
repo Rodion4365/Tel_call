@@ -14,15 +14,22 @@ def utc_now() -> datetime:
 
 
 class FriendLink(Base):
-    """Represents a friendship connection between two users."""
+    """Represents a friendship connection between two users.
+
+    Uses bidirectional model: each friendship is stored as TWO records:
+    - (user_A, user_B)
+    - (user_B, user_A)
+
+    This simplifies queries and eliminates the need for UNION operations.
+    """
 
     __tablename__ = "friend_links"
 
-    # Симметричная связь: всегда min(user_id) в user_id_1, max(user_id) в user_id_2
-    user_id_1: Mapped[int] = mapped_column(
+    # Двусторонняя связь: для каждой пары друзей создаются две записи
+    user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
-    user_id_2: Mapped[int] = mapped_column(
+    friend_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
@@ -32,6 +39,7 @@ class FriendLink(Base):
 
     __table_args__ = (
         # Индекс для быстрого поиска друзей пользователя
-        Index("ix_friend_links_user_id_1", "user_id_1"),
-        Index("ix_friend_links_user_id_2", "user_id_2"),
+        Index("ix_friend_links_user_id", "user_id"),
+        # Индекс для сортировки по времени последнего звонка
+        Index("ix_friend_links_updated_at", "updated_at"),
     )

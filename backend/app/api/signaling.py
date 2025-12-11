@@ -67,30 +67,38 @@ async def _create_or_update_friend_link(
     if user_id == friend_id:
         return  # Не создаём связь с самим собой
 
-    # Симметричная связь: всегда min в user_id_1, max в user_id_2
-    user_id_1 = min(user_id, friend_id)
-    user_id_2 = max(user_id, friend_id)
+    # Двусторонняя связь: создаём две записи
+    now = datetime.now(tz=timezone.utc)
 
+    # Первая запись: user_id -> friend_id
     result = await session.execute(
         select(FriendLink).where(
-            FriendLink.user_id_1 == user_id_1, FriendLink.user_id_2 == user_id_2
+            FriendLink.user_id == user_id, FriendLink.friend_id == friend_id
         )
     )
     existing_link = result.scalar_one_or_none()
 
     if existing_link:
-        # Обновляем updated_at
-        existing_link.updated_at = datetime.now(tz=timezone.utc)
-        logger.debug(
-            "Updated friend_link between user_id_1=%s and user_id_2=%s", user_id_1, user_id_2
-        )
+        existing_link.updated_at = now
     else:
-        # Создаём новую связь
-        friend_link = FriendLink(user_id_1=user_id_1, user_id_2=user_id_2)
+        friend_link = FriendLink(user_id=user_id, friend_id=friend_id)
         session.add(friend_link)
-        logger.info(
-            "Created friend_link between user_id_1=%s and user_id_2=%s", user_id_1, user_id_2
+
+    # Вторая запись: friend_id -> user_id
+    result = await session.execute(
+        select(FriendLink).where(
+            FriendLink.user_id == friend_id, FriendLink.friend_id == user_id
         )
+    )
+    existing_link = result.scalar_one_or_none()
+
+    if existing_link:
+        existing_link.updated_at = now
+    else:
+        friend_link = FriendLink(user_id=friend_id, friend_id=user_id)
+        session.add(friend_link)
+
+    logger.info("Created/updated bidirectional friend_link between user_id=%s and friend_id=%s", user_id, friend_id)
 
 
 async def _batch_create_or_update_friend_links(
@@ -98,8 +106,8 @@ async def _batch_create_or_update_friend_links(
 ) -> None:
     """Batch create or update friend links between user and multiple friends.
 
-    This is much more efficient than calling _create_or_update_friend_link in a loop,
-    as it uses a single INSERT ... ON CONFLICT DO UPDATE query instead of N queries.
+    Uses bidirectional model: creates TWO records for each friendship.
+    Uses a single INSERT ... ON CONFLICT DO UPDATE query for efficiency.
     """
     if not friend_ids:
         return
@@ -109,29 +117,37 @@ async def _batch_create_or_update_friend_links(
     if not friend_ids:
         return
 
-    # Формируем пары (user_id_1, user_id_2) для всех друзей
+    # Формируем двусторонние записи для всех друзей
     now = datetime.now(tz=timezone.utc)
-    values = [
-        {
-            "user_id_1": min(user_id, friend_id),
-            "user_id_2": max(user_id, friend_id),
+    values = []
+
+    for friend_id in friend_ids:
+        # Запись: user_id -> friend_id
+        values.append({
+            "user_id": user_id,
+            "friend_id": friend_id,
             "created_at": now,
             "updated_at": now,
-        }
-        for friend_id in friend_ids
-    ]
+        })
+        # Запись: friend_id -> user_id
+        values.append({
+            "user_id": friend_id,
+            "friend_id": user_id,
+            "created_at": now,
+            "updated_at": now,
+        })
 
     # Используем INSERT ... ON CONFLICT DO UPDATE для PostgreSQL (upsert)
     # Это создаст новые записи или обновит updated_at для существующих
     stmt = insert(FriendLink).values(values)
     stmt = stmt.on_conflict_do_update(
-        index_elements=["user_id_1", "user_id_2"],
+        index_elements=["user_id", "friend_id"],
         set_={"updated_at": now},
     )
 
     await session.execute(stmt)
     logger.info(
-        "Batch created/updated %s friend_link(s) for user_id=%s", len(friend_ids), user_id
+        "Batch created/updated %s bidirectional friend_link(s) for user_id=%s", len(friend_ids), user_id
     )
 
 
