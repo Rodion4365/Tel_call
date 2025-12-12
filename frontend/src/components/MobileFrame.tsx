@@ -6,8 +6,8 @@ interface MobileFrameProps {
 
 const MobileFrame: React.FC<MobileFrameProps> = ({ children }) => {
   return (
-    <div className="h-screen w-full overflow-hidden">
-      {children}
+    <div className="mobile-frame">
+      <div className="mobile-frame__safe-area">{children}</div>
     </div>
   );
 };

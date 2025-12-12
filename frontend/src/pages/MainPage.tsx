@@ -5,6 +5,7 @@ import { Video, UserPlus, Phone, Settings } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "../contexts/AuthContext";
 import { createCall } from "../services/calls";
+import MobileFrame from "../components/MobileFrame";
 
 const MainPage: React.FC = () => {
   const { t } = useTranslation();
@@ -65,91 +66,87 @@ const MainPage: React.FC = () => {
 
   const isPrimaryDisabled = !user || isCreating || isAuthorizing;
   return (
-    <div className="w-screen h-screen bg-gradient-to-b from-[#0f111a] to-black text-white relative flex flex-col overflow-hidden">
-      {/* Settings */}
-      <div className="absolute top-5 right-4 z-10">
-        <Link
-          to="/settings"
-          aria-label={t("common.settings")}
-          className="bg-zinc-900/50 p-2.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all border border-zinc-800/50 inline-flex"
-        >
-          <Settings className="w-5 h-5 stroke-[1.5]" />
-        </Link>
-      </div>
-
-      {/* Center */}
-      <div className="flex-1 flex flex-col justify-center items-center w-full px-6">
-        <div className="mb-10 text-center">
-          <h1 className="text-4xl font-semibold tracking-tight">
-            {t("mainPage.title")}
-          </h1>
+    <MobileFrame>
+      <div className="flex min-h-full flex-col bg-gradient-to-b from-[#0f111a] to-black text-white">
+        <div className="flex items-start justify-end px-5 pt-5">
+          <Link
+            to="/settings"
+            aria-label={t("common.settings")}
+            className="bg-zinc-900/50 p-2.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all border border-zinc-800/50 inline-flex"
+          >
+            <Settings className="w-5 h-5 stroke-[1.5]" />
+          </Link>
         </div>
 
-        {error ? (
-          <p
-            className="mb-4 text-center text-[14px] text-red-300 bg-red-950/30 border border-red-900/40 rounded-2xl px-4 py-3 w-full max-w-md"
-            role="alert"
-          >
-            {error}
-          </p>
-        ) : null}
+        <div className="flex flex-1 flex-col items-center px-6 pb-8 pt-4">
+          <div className="flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 text-center">
+            <h1 className="text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
+              {t("mainPage.title")}
+            </h1>
 
-        {/* Actions centered */}
-        <div className="w-full max-w-md mx-auto space-y-4">
-          {/* Primary */}
-          <motion.button
-            onClick={handleCreateCall}
-            disabled={isPrimaryDisabled}
-            whileHover={isPrimaryDisabled ? undefined : { scale: 1.01 }}
-            whileTap={isPrimaryDisabled ? undefined : { scale: 0.99 }}
-            className={[
-              "w-full h-[60px] text-[17px] font-medium rounded-2xl flex items-center justify-center gap-3 transition-colors",
-              "shadow-[0_4px_20px_-4px_rgba(124,102,220,0.5)]",
-              isPrimaryDisabled
-                ? "bg-[#7C66DC]/50 text-white/80 cursor-not-allowed"
-                : "bg-[#7C66DC] hover:bg-[#6A55CA] text-white",
-            ].join(" ")}
-          >
-            <Video className="w-5 h-5 fill-white/20 stroke-[2]" />
-            {primaryLabel}
-          </motion.button>
-
-          {/* Secondary in ONE row */}
-          <div className="grid grid-cols-2 gap-3">
-            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-              <Link
-                to="/friends"
-                className="w-full h-[84px] rounded-2xl bg-zinc-900/60 border border-zinc-800/60 text-zinc-200 hover:border-zinc-700 transition-all flex flex-col items-center justify-center gap-2 group"
+            {error ? (
+              <p
+                className="w-full max-w-md rounded-2xl border border-red-900/40 bg-red-950/30 px-4 py-3 text-center text-[14px] text-red-300"
+                role="alert"
               >
-                <div className="p-2 rounded-full bg-zinc-800 group-hover:bg-[#7C66DC]/20 group-hover:text-[#7C66DC] transition-colors">
-                  <UserPlus className="w-5 h-5 stroke-[1.5]" />
-                </div>
-                <span className="text-[14px] font-medium">{t("mainPage.callFriend")}</span>
-              </Link>
-            </motion.div>
+                {error}
+              </p>
+            ) : null}
 
-            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-              <Link
-                to="/join-call"
-                className="w-full h-[84px] rounded-2xl bg-zinc-900/60 border border-zinc-800/60 text-zinc-200 hover:border-zinc-700 transition-all flex flex-col items-center justify-center gap-2 group"
+            <div className="w-full space-y-4">
+              <motion.button
+                onClick={handleCreateCall}
+                disabled={isPrimaryDisabled}
+                whileHover={isPrimaryDisabled ? undefined : { scale: 1.01 }}
+                whileTap={isPrimaryDisabled ? undefined : { scale: 0.99 }}
+                className={[
+                  "flex h-[60px] w-full items-center justify-center gap-3 rounded-2xl text-[17px] font-medium transition-colors",
+                  "shadow-[0_4px_20px_-4px_rgba(124,102,220,0.5)]",
+                  isPrimaryDisabled
+                    ? "cursor-not-allowed bg-[#7C66DC]/50 text-white/80"
+                    : "bg-[#7C66DC] text-white hover:bg-[#6A55CA]",
+                ].join(" ")}
               >
-                <div className="p-2 rounded-full bg-zinc-800 group-hover:bg-[#7C66DC]/20 group-hover:text-[#7C66DC] transition-colors">
-                  <Phone className="w-5 h-5 stroke-[1.5]" />
-                </div>
-                <span className="text-[14px] font-medium">{t("mainPage.joinCall")}</span>
-              </Link>
-            </motion.div>
+                <Video className="h-5 w-5 fill-white/20 stroke-[2]" />
+                {primaryLabel}
+              </motion.button>
+
+              <div className="grid grid-cols-2 gap-3">
+                <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                  <Link
+                    to="/friends"
+                    className="group flex h-[84px] w-full flex-col items-center justify-center gap-2 rounded-2xl border border-zinc-800/60 bg-zinc-900/60 text-zinc-200 transition-all hover:border-zinc-700"
+                  >
+                    <div className="rounded-full bg-zinc-800 p-2 transition-colors group-hover:bg-[#7C66DC]/20 group-hover:text-[#7C66DC]">
+                      <UserPlus className="h-5 w-5 stroke-[1.5]" />
+                    </div>
+                    <span className="text-[14px] font-medium">{t("mainPage.callFriend")}</span>
+                  </Link>
+                </motion.div>
+
+                <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                  <Link
+                    to="/join-call"
+                    className="group flex h-[84px] w-full flex-col items-center justify-center gap-2 rounded-2xl border border-zinc-800/60 bg-zinc-900/60 text-zinc-200 transition-all hover:border-zinc-700"
+                  >
+                    <div className="rounded-full bg-zinc-800 p-2 transition-colors group-hover:bg-[#7C66DC]/20 group-hover:text-[#7C66DC]">
+                      <Phone className="h-5 w-5 stroke-[1.5]" />
+                    </div>
+                    <span className="text-[14px] font-medium">{t("mainPage.joinCall")}</span>
+                  </Link>
+                </motion.div>
+              </div>
+
+              {!user && !error ? (
+                <p className="pt-2 text-center text-[13px] text-zinc-400">
+                  {t("mainPage.errorAuthRequired")}
+                </p>
+              ) : null}
+            </div>
           </div>
-
-          {/* status text */}
-          {!user && !error ? (
-            <p className="text-center text-[13px] text-zinc-400 pt-2">
-              {t("mainPage.errorAuthRequired")}
-            </p>
-          ) : null}
         </div>
       </div>
-    </div>
+    </MobileFrame>
   );
 };
 

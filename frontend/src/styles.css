@@ -49,6 +49,29 @@ body {
   min-height: 100vh;
 }
 
+.mobile-frame {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg-color);
+  overflow: hidden;
+  display: flex;
+}
+
+.mobile-frame__safe-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100%;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  overscroll-behavior: contain;
+  isolation: isolate;
+}
+
 a {
   color: inherit;
   text-decoration: none;
