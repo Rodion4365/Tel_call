@@ -91,19 +91,35 @@ export const apiClient = {
       ...options.headers,
     };
 
+    const fullUrl = `${API_BASE_URL}${path}`;
     // eslint-disable-next-line no-console
-    console.log("[apiClient.get]", path, "- hasAuth:", !!authHeaders.Authorization);
+    console.log("[apiClient.get]", fullUrl, "- hasAuth:", !!authHeaders.Authorization);
 
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      credentials: "include", // Send httpOnly cookies automatically
-      headers,
-    });
+    try {
+      const response = await fetch(fullUrl, {
+        credentials: "include", // Send httpOnly cookies automatically
+        headers,
+      });
 
-    if (!response.ok) {
-      return logResponseError("get", path, response);
+      if (!response.ok) {
+        return logResponseError("get", path, response);
+      }
+
+      return (await response.json()) as T;
+    } catch (error) {
+      // Network error, CORS error, or other fetch failures
+      // eslint-disable-next-line no-console
+      console.error("[apiClient.get] Network or fetch error", {
+        url: fullUrl,
+        error: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof TypeError ? "TypeError (network/CORS)" : typeof error,
+      });
+
+      if (error instanceof Error) {
+        throw new Error(`Network error: ${error.message}`);
+      }
+      throw new Error("Network error: Failed to connect to server");
     }
-
-    return (await response.json()) as T;
   },
 
   async post<T>(path: string, body: unknown, options: ApiRequestOptions = {}): Promise<T> {
@@ -114,20 +130,36 @@ export const apiClient = {
       ...options.headers,
     };
 
+    const fullUrl = `${API_BASE_URL}${path}`;
     // eslint-disable-next-line no-console
-    console.log("[apiClient.post]", path, "- hasAuth:", !!authHeaders.Authorization);
+    console.log("[apiClient.post]", fullUrl, "- hasAuth:", !!authHeaders.Authorization);
 
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      method: "POST",
-      credentials: "include", // Send httpOnly cookies automatically
-      headers,
-      body: JSON.stringify(body),
-    });
+    try {
+      const response = await fetch(fullUrl, {
+        method: "POST",
+        credentials: "include", // Send httpOnly cookies automatically
+        headers,
+        body: JSON.stringify(body),
+      });
 
-    if (!response.ok) {
-      return logResponseError("post", path, response);
+      if (!response.ok) {
+        return logResponseError("post", path, response);
+      }
+
+      return (await response.json()) as T;
+    } catch (error) {
+      // Network error, CORS error, or other fetch failures
+      // eslint-disable-next-line no-console
+      console.error("[apiClient.post] Network or fetch error", {
+        url: fullUrl,
+        error: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof TypeError ? "TypeError (network/CORS)" : typeof error,
+      });
+
+      if (error instanceof Error) {
+        throw new Error(`Network error: ${error.message}`);
+      }
+      throw new Error("Network error: Failed to connect to server");
     }
-
-    return (await response.json()) as T;
   },
 };
