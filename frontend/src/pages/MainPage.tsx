@@ -2,25 +2,17 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Video, UserPlus, Phone, Settings } from "lucide-react";
+import { motion } from "framer-motion";
 import { useAuth } from "../contexts/AuthContext";
 import { createCall } from "../services/calls";
-
-const SettingsButton: React.FC = () => {
-  const { t } = useTranslation();
-  return (
-    <Link to="/settings" className="settings-button" aria-label={t("common.settings")}>
-      <Settings className="settings-icon" />
-    </Link>
-  );
-};
 
 const MainPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, isAuthorizing } = useAuth();
+
   const [isCreating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const handleCreateCall = async () => {
     // eslint-disable-next-line no-console
     console.log("[MainPage] Creating call", { hasUser: !!user, isAuthorizing });
@@ -65,54 +57,92 @@ const MainPage: React.FC = () => {
     }
   };
 
+  const primaryLabel = isAuthorizing
+    ? t("mainPage.authorizing")
+    : isCreating
+      ? t("mainPage.creating")
+      : t("mainPage.createCall");
+
+  const isPrimaryDisabled = !user || isCreating || isAuthorizing;
   return (
-    <div className="main-screen">
-      <header className="top-bar">
-        <div />
-        <SettingsButton />
-      </header>
-
-      <header className="main-header">
-        <h1 className="main-title">{t("mainPage.title")}</h1>
-      </header>
-
-      {error ? (
-        <p className="status status-offline" role="alert" style={{ textAlign: "center", margin: "1rem" }}>
-          {error}
-        </p>
-      ) : null}
-
-      <div className="main-actions">
-        <button
-          className="primary-action"
-          onClick={handleCreateCall}
-          disabled={!user || isCreating || isAuthorizing}
+    <div className="w-screen h-screen bg-gradient-to-b from-[#0f111a] to-black text-white relative flex flex-col overflow-hidden">
+      {/* Settings */}
+      <div className="absolute top-5 right-4 z-10">
+        <Link
+          to="/settings"
+          className="bg-zinc-900/50 p-2.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all border border-zinc-800/50 inline-flex"
+          aria-label={t("common.settings")}
         >
-          <Video className="action-icon" />
-          <div className="action-text">
-            <span className="action-label">
-              {isAuthorizing
-                ? t("mainPage.authorizing")
-                : isCreating
-                  ? t("mainPage.creating")
-                  : t("mainPage.createCall")}
-            </span>
-          </div>
-        </button>
+          <Settings className="w-5 h-5 stroke-[1.5]" />
+        </Link>
+      </div>
 
-        <div className="secondary-actions">
-          <Link className="action-tile" to="/friends">
-            <span className="action-icon-badge">
-              <UserPlus className="action-icon" />
-            </span>
-            <span className="action-tile-label">{t("mainPage.callFriend")}</span>
-          </Link>
-          <Link className="action-tile" to="/join-call">
-            <span className="action-icon-badge">
-              <Phone className="action-icon" />
-            </span>
-            <span className="action-tile-label">{t("mainPage.joinCall")}</span>
-          </Link>
+      {/* Center */}
+      <div className="flex-1 flex flex-col justify-center items-center w-full px-6">
+        <div className="mb-10 text-center">
+          <h1 className="text-4xl font-semibold tracking-tight">{t("mainPage.title")}</h1>
+        </div>
+
+        {error ? (
+          <p
+            className="mb-4 text-center text-[14px] text-red-300 bg-red-950/30 border border-red-900/40 rounded-2xl px-4 py-3 w-full"
+            role="alert"
+          >
+            {error}
+          </p>
+        ) : null}
+
+        {/* Actions full width */}
+        <div className="w-full space-y-4">
+          {/* Primary */}
+          <motion.button
+            onClick={handleCreateCall}
+            disabled={isPrimaryDisabled}
+            whileHover={isPrimaryDisabled ? undefined : { scale: 1.01 }}
+            whileTap={isPrimaryDisabled ? undefined : { scale: 0.99 }}
+            className={[
+              "w-full h-[60px] text-[17px] font-medium rounded-2xl flex items-center justify-center gap-3 transition-colors",
+              "shadow-[0_4px_20px_-4px_rgba(124,102,220,0.5)]",
+              isPrimaryDisabled
+                ? "bg-[#7C66DC]/50 text-white/80 cursor-not-allowed"
+                : "bg-[#7C66DC] hover:bg-[#6A55CA] text-white",
+            ].join(" ")}
+          >
+            <Video className="w-5 h-5 fill-white/20 stroke-[2]" />
+            {primaryLabel}
+          </motion.button>
+
+          {/* Secondary in ONE row */}
+          <div className="grid grid-cols-2 gap-3">
+            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+              <Link
+                to="/friends"
+                className="w-full h-[84px] rounded-2xl bg-zinc-900/60 border border-zinc-800/60 text-zinc-200 hover:border-zinc-700 transition-all flex flex-col items-center justify-center gap-2 group"
+              >
+                <div className="p-2 rounded-full bg-zinc-800 group-hover:bg-[#7C66DC]/20 group-hover:text-[#7C66DC] transition-colors">
+                  <UserPlus className="w-5 h-5 stroke-[1.5]" />
+                </div>
+                <span className="text-[14px] font-medium">{t("mainPage.callFriend")}</span>
+              </Link>
+            </motion.div>
+
+            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+              <Link
+                to="/join-call"
+                className="w-full h-[84px] rounded-2xl bg-zinc-900/60 border border-zinc-800/60 text-zinc-200 hover:border-zinc-700 transition-all flex flex-col items-center justify-center gap-2 group"
+              >
+                <div className="p-2 rounded-full bg-zinc-800 group-hover:bg-[#7C66DC]/20 group-hover:text-[#7C66DC] transition-colors">
+                  <Phone className="w-5 h-5 stroke-[1.5]" />
+                </div>
+                <span className="text-[14px] font-medium">{t("mainPage.joinCall")}</span>
+              </Link>
+            </motion.div>
+          </div>
+
+          {/* status text */}
+          {!user && !error ? (
+            <p className="text-center text-[13px] text-zinc-400 pt-2">{t("mainPage.authorizing")}</p>
+          ) : null}
         </div>
       </div>
     </div>
