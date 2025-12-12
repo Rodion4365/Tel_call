@@ -115,28 +115,28 @@ const MainPage: React.FC = () => {
           </motion.button>
 
           {/* Secondary in ONE row */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
             <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
               <Link
                 to="/friends"
-                className="w-full h-[84px] rounded-2xl bg-zinc-900/60 border border-zinc-800/60 text-zinc-200 hover:border-zinc-700 transition-all flex flex-col items-center justify-center gap-2 group"
+                className="w-full h-[64px] rounded-xl bg-zinc-900/60 border border-zinc-800/60 text-zinc-200 hover:border-zinc-700 transition-all flex flex-col items-center justify-center gap-1.5 group"
               >
-                <div className="p-2 rounded-full bg-zinc-800 group-hover:bg-[#7C66DC]/20 group-hover:text-[#7C66DC] transition-colors">
-                  <UserPlus className="w-5 h-5 stroke-[1.5]" />
+                <div className="p-1.5 rounded-full bg-zinc-800 group-hover:bg-[#7C66DC]/20 group-hover:text-[#7C66DC] transition-colors">
+                  <UserPlus className="w-4 h-4 stroke-[1.5]" />
                 </div>
-                <span className="text-[14px] font-medium">{t("mainPage.callFriend")}</span>
+                <span className="text-[12px] font-medium">{t("mainPage.callFriend")}</span>
               </Link>
             </motion.div>
 
             <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
               <Link
                 to="/join-call"
-                className="w-full h-[84px] rounded-2xl bg-zinc-900/60 border border-zinc-800/60 text-zinc-200 hover:border-zinc-700 transition-all flex flex-col items-center justify-center gap-2 group"
+                className="w-full h-[64px] rounded-xl bg-zinc-900/60 border border-zinc-800/60 text-zinc-200 hover:border-zinc-700 transition-all flex flex-col items-center justify-center gap-1.5 group"
               >
-                <div className="p-2 rounded-full bg-zinc-800 group-hover:bg-[#7C66DC]/20 group-hover:text-[#7C66DC] transition-colors">
-                  <Phone className="w-5 h-5 stroke-[1.5]" />
+                <div className="p-1.5 rounded-full bg-zinc-800 group-hover:bg-[#7C66DC]/20 group-hover:text-[#7C66DC] transition-colors">
+                  <Phone className="w-4 h-4 stroke-[1.5]" />
                 </div>
-                <span className="text-[14px] font-medium">{t("mainPage.joinCall")}</span>
+                <span className="text-[12px] font-medium">{t("mainPage.joinCall")}</span>
               </Link>
             </motion.div>
           </div>
