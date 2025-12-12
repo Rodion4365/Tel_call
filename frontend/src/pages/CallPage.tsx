@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useWebSocketToken } from "../hooks/useWebSocketToken";
 import { fetchIceServers, getWebSocketBaseUrl } from "../services/webrtc";
+import { Mic, MicOff, Video, VideoOff, Link2, Phone } from "lucide-react";
 import defaultAvatar from "../assets/default-avatar.svg";
 
 interface SignalingUser {
@@ -1541,17 +1542,29 @@ const CallPage: React.FC = () => {
                       }}
                     />
                   ) : (
-                    <img
-                      className="call-tile__image"
-                      src={avatarUrl}
-                      alt={`Аватар ${participant.name}`}
-                      onError={(e) => {
-                        const target = e.currentTarget;
-                        if (target.src !== defaultAvatar) {
-                          target.src = defaultAvatar;
-                        }
-                      }}
-                    />
+                    <>
+                      {/* Silhouette Background */}
+                      <div className="call-tile__silhouette">
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="call-tile__silhouette-icon">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                        </svg>
+                      </div>
+
+                      {/* Avatar Image (optional) */}
+                      {participant.photoUrl && (
+                        <img
+                          className="call-tile__image"
+                          src={avatarUrl}
+                          alt={`Аватар ${participant.name}`}
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            if (target.src !== defaultAvatar) {
+                              target.src = defaultAvatar;
+                            }
+                          }}
+                        />
+                      )}
+                    </>
                   )}
 
                   {participant.isCurrentUser ? <span className="call-tile__badge">Вы</span> : null}
@@ -1578,7 +1591,9 @@ const CallPage: React.FC = () => {
                   />
                 ) : null}
 
-                <div className="call-tile__name">{participant.name}</div>
+                <div className="call-tile__name">
+                  {participant.name} {participant.isCurrentUser ? "(Вы)" : ""}
+                </div>
               </article>
             );
           })}
@@ -1622,7 +1637,7 @@ const CallPage: React.FC = () => {
           disabled={isRequestingMic}
           aria-label="Микрофон"
         >
-          🎙️
+          {isMicOn ? <Mic size={24} /> : <MicOff size={24} />}
         </button>
 
         <button
@@ -1632,7 +1647,7 @@ const CallPage: React.FC = () => {
           disabled={isRequestingCamera}
           aria-label="Камера"
         >
-          🎥
+          {isCameraOn ? <Video size={24} /> : <VideoOff size={24} />}
         </button>
 
         <button
@@ -1642,7 +1657,7 @@ const CallPage: React.FC = () => {
           disabled={!joinUrl}
           aria-label="Скопировать ссылку"
         >
-          🔗
+          <Link2 size={24} />
         </button>
 
         <button
@@ -1651,7 +1666,7 @@ const CallPage: React.FC = () => {
           onClick={leaveCall}
           aria-label="Выйти"
         >
-          📞
+          <Phone size={24} className="rotate-135" />
         </button>
       </footer>
     </div>

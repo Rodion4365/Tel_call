@@ -1488,3 +1488,24 @@ button:disabled {
   background: #323236;
   border-color: #4b5563;
 }
+
+/* Call tile silhouette */
+.call-tile__silhouette {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.3;
+}
+
+.call-tile__silhouette-icon {
+  width: 80px;
+  height: 80px;
+  color: rgba(226, 232, 240, 0.8);
+}
+
+/* Rotate phone icon for hang up button */
+.rotate-135 {
+  transform: rotate(135deg);
+}
