@@ -94,8 +94,8 @@ const MainPage: React.FC = () => {
           </p>
         ) : null}
 
-        {/* Actions full width */}
-        <div className="w-full space-y-4">
+        {/* Actions centered */}
+        <div className="w-full max-w-md mx-auto space-y-4">
           {/* Primary */}
           <motion.button
             onClick={handleCreateCall}
