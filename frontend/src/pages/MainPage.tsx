@@ -94,8 +94,8 @@ const MainPage: React.FC = () => {
           </p>
         ) : null}
 
-        {/* Actions full width */}
-        <div className="w-full space-y-4">
+        {/* Actions centered */}
+        <div className="w-full max-w-md mx-auto space-y-4">
           {/* Primary */}
           <motion.button
             onClick={handleCreateCall}
@@ -115,7 +115,7 @@ const MainPage: React.FC = () => {
           </motion.button>
 
           {/* Secondary in ONE row */}
-          <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
+          <div className="grid grid-cols-2 gap-3">
             <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
               <Link
                 to="/friends"
