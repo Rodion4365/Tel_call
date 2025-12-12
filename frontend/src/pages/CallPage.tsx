@@ -1493,24 +1493,24 @@ const CallPage: React.FC = () => {
   };
 
   return (
-    <div className="call-screen">
-      <main className="call-page">
+    <div className="h-full w-full bg-gradient-to-b from-[#0f111a] to-black text-white font-sans flex flex-col relative overflow-hidden">
+      <main className="flex-1 flex flex-col gap-3 p-4 pb-32">
         {callError ? (
-          <div className="alert call-alert" role="alert">
-            <p className="alert__title">{callError}</p>
-            <p className="alert__description">Попробуйте переподключиться или вернуться назад.</p>
+          <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mb-4" role="alert">
+            <p className="font-semibold text-red-200 mb-1">{callError}</p>
+            <p className="text-sm text-red-300/80">Попробуйте переподключиться или вернуться назад.</p>
           </div>
         ) : null}
 
         {callStartTime && (
-          <div className="call-timer" aria-label="Длительность звонка">
-            {isConnecting && <div className="call-timer__loader" />}
+          <div className="mx-auto mb-2 px-4 py-2 bg-black/30 backdrop-blur-md rounded-full text-sm font-medium text-white/90 flex items-center gap-2" aria-label="Длительность звонка">
+            {isConnecting && <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white/90 rounded-full animate-spin" />}
             {formatCallDuration(callDurationMinutes)}
           </div>
         )}
 
         <section
-          className="call-grid"
+          className="grid gap-3 w-full flex-1 overflow-y-auto"
           role="list"
           style={{ gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))` }}
         >
@@ -1518,15 +1518,15 @@ const CallPage: React.FC = () => {
             const avatarUrl = participant.photoUrl || defaultAvatar;
 
             return (
-              <article key={participant.id} className="call-tile" role="listitem" aria-label={participant.name}>
+              <article key={participant.id} className="flex flex-col gap-2" role="listitem" aria-label={participant.name}>
                 <div
-                  className="call-tile__video"
-                  data-self={participant.isCurrentUser ? "true" : undefined}
-                  data-speaking={participant.isSpeaking ? "true" : undefined}
+                  className={`relative w-full rounded-2xl overflow-hidden bg-gradient-to-br from-zinc-800 to-zinc-900 aspect-[3/4] flex items-center justify-center border-2 transition-all ${
+                    participant.isSpeaking ? "border-[#7C66DC] shadow-[0_0_20px_rgba(124,102,220,0.4)]" : "border-zinc-800/60"
+                  }`}
                 >
                   {participant.hasVideo && participant.stream ? (
                     <video
-                      className="call-tile__video-feed"
+                      className={`absolute inset-0 w-full h-full object-cover ${participant.isCurrentUser ? "scale-x-[-1]" : ""}`}
                       aria-label={`Видео ${participant.name}`}
                       autoPlay
                       playsInline
@@ -1544,8 +1544,8 @@ const CallPage: React.FC = () => {
                   ) : (
                     <>
                       {/* Silhouette Background */}
-                      <div className="call-tile__silhouette">
-                        <svg viewBox="0 0 24 24" fill="currentColor" className="call-tile__silhouette-icon">
+                      <div className="absolute inset-0 flex items-center justify-center opacity-30">
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-20 h-20 text-zinc-400">
                           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
                         </svg>
                       </div>
@@ -1553,7 +1553,7 @@ const CallPage: React.FC = () => {
                       {/* Avatar Image (optional) */}
                       {participant.photoUrl && (
                         <img
-                          className="call-tile__image"
+                          className="absolute inset-0 w-full h-full object-cover"
                           src={avatarUrl}
                           alt={`Аватар ${participant.name}`}
                           onError={(e) => {
@@ -1567,7 +1567,11 @@ const CallPage: React.FC = () => {
                     </>
                   )}
 
-                  {participant.isCurrentUser ? <span className="call-tile__badge">Вы</span> : null}
+                  {participant.isCurrentUser ? (
+                    <span className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-sm rounded-lg text-xs font-medium text-white">
+                      Вы
+                    </span>
+                  ) : null}
                 </div>
 
                 {!participant.isCurrentUser && participant.stream ? (
@@ -1591,7 +1595,7 @@ const CallPage: React.FC = () => {
                   />
                 ) : null}
 
-                <div className="call-tile__name">
+                <div className="text-sm font-medium text-zinc-200 text-center">
                   {participant.name} {participant.isCurrentUser ? "(Вы)" : ""}
                 </div>
               </article>
@@ -1600,12 +1604,12 @@ const CallPage: React.FC = () => {
         </section>
 
         {mediaError ? (
-          <div className="alert call-alert" role="alert">
-            <p className="alert__title">{mediaError}</p>
-            <p className="alert__description">Предоставьте доступ, чтобы мы включили микрофон.</p>
+          <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4" role="alert">
+            <p className="font-semibold text-red-200 mb-1">{mediaError}</p>
+            <p className="text-sm text-red-300/80 mb-3">Предоставьте доступ, чтобы мы включили микрофон.</p>
             <button
               type="button"
-              className="outline"
+              className="w-full px-4 py-2 bg-zinc-800/80 hover:bg-zinc-700 text-white rounded-xl transition-all border border-zinc-700"
               onClick={() => ensureLocalAudioStream()}
               disabled={isRequestingMic}
             >
@@ -1615,58 +1619,74 @@ const CallPage: React.FC = () => {
         ) : null}
 
         {audioUnlockNeeded ? (
-          <div className="alert call-alert" role="alert">
-            <p className="alert__title">Нажмите, чтобы включить звук</p>
-            <p className="alert__description">
+          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-4" role="alert">
+            <p className="font-semibold text-yellow-200 mb-1">Нажмите, чтобы включить звук</p>
+            <p className="text-sm text-yellow-300/80 mb-3">
               Мы не смогли автоматически включить звук удалённых участников.
             </p>
-            <button type="button" className="outline" onClick={unlockRemoteAudio}>
+            <button
+              type="button"
+              className="w-full px-4 py-2 bg-zinc-800/80 hover:bg-zinc-700 text-white rounded-xl transition-all border border-zinc-700"
+              onClick={unlockRemoteAudio}
+            >
               Включить звук
             </button>
           </div>
         ) : null}
 
-        {isToastVisible && <div className="toast">Ссылка скопирована</div>}
+        {isToastVisible && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-green-500 text-white px-4 py-2 rounded-xl font-medium shadow-lg z-50">
+            Ссылка скопирована
+          </div>
+        )}
       </main>
 
-      <footer className="call-toolbar" aria-label="Панель управления звонком">
+      <footer className="absolute bottom-0 left-0 right-0 pb-8 pt-6 px-8 flex justify-between items-center bg-gradient-to-t from-black via-black/80 to-transparent" aria-label="Панель управления звонком">
         <button
           type="button"
-          className={`call-btn ${isMicOn ? "call-btn--active" : ""}`}
+          className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
+            isMicOn
+              ? "bg-[#7C66DC] text-white hover:bg-[#6A55CA]"
+              : "bg-zinc-800/80 backdrop-blur-md text-white hover:bg-zinc-700 border border-zinc-700"
+          }`}
           onClick={toggleMicrophone}
           disabled={isRequestingMic}
           aria-label="Микрофон"
         >
-          {isMicOn ? <Mic size={24} /> : <MicOff size={24} />}
+          {isMicOn ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6" />}
         </button>
 
         <button
           type="button"
-          className={`call-btn ${isCameraOn ? "call-btn--active" : ""}`}
+          className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
+            isCameraOn
+              ? "bg-[#7C66DC] text-white hover:bg-[#6A55CA]"
+              : "bg-zinc-800/80 backdrop-blur-md text-white hover:bg-zinc-700 border border-zinc-700"
+          }`}
           onClick={toggleCamera}
           disabled={isRequestingCamera}
           aria-label="Камера"
         >
-          {isCameraOn ? <Video size={24} /> : <VideoOff size={24} />}
+          {isCameraOn ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
         </button>
 
         <button
           type="button"
-          className="call-btn"
+          className="w-14 h-14 rounded-full bg-zinc-800/80 backdrop-blur-md flex items-center justify-center text-white hover:bg-zinc-700 transition-all border border-zinc-700"
           onClick={copyLink}
           disabled={!joinUrl}
           aria-label="Скопировать ссылку"
         >
-          <Link2 size={24} />
+          <Link2 className="w-6 h-6" />
         </button>
 
         <button
           type="button"
-          className="call-btn call-btn--danger"
+          className="w-14 h-14 rounded-full bg-[#FF5252] flex items-center justify-center text-white hover:bg-[#FF1744] transition-all shadow-lg shadow-red-500/20"
           onClick={leaveCall}
           aria-label="Выйти"
         >
-          <Phone size={24} className="rotate-135" />
+          <Phone className="w-6 h-6 stroke-[2.5px] rotate-[135deg]" />
         </button>
       </footer>
     </div>
