@@ -63,6 +63,7 @@ const FriendsPage: React.FC = () => {
         console.error("[FriendsPage] Failed to load friends", err);
 
         // Подробное логирование ошибки
+        let errorMessage = t("friendsPage.errorLoad");
         if (err instanceof Error) {
           // eslint-disable-next-line no-console
           console.error("[FriendsPage] Error details:", {
@@ -70,9 +71,19 @@ const FriendsPage: React.FC = () => {
             message: err.message,
             stack: err.stack,
           });
+
+          // Show more detailed error to user in development or if it's a known error type
+          if (err.message.includes("Unauthorized")) {
+            errorMessage = t("friendsPage.errorAuthRequired");
+          } else if (err.message.includes("Server error") || err.message.includes("500")) {
+            errorMessage = `${t("friendsPage.errorLoad")}: Server error. The database may need to be migrated.`;
+          } else if (err.message) {
+            // Include error message for debugging
+            errorMessage = `${t("friendsPage.errorLoad")}: ${err.message}`;
+          }
         }
 
-        setError(t("friendsPage.errorLoad"));
+        setError(errorMessage);
       } finally {
         setIsLoading(false);
       }

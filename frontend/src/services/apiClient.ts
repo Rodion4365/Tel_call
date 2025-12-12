@@ -19,9 +19,17 @@ const logResponseError = async (
   response: Response
 ): Promise<never> => {
   let responseText: string | undefined;
+  let errorDetail: string | undefined;
 
   try {
     responseText = await response.text();
+    // Try to parse as JSON to extract error detail
+    try {
+      const jsonError = JSON.parse(responseText);
+      errorDetail = jsonError.detail || jsonError.message || responseText;
+    } catch {
+      errorDetail = responseText;
+    }
   } catch (parseError) {
     // eslint-disable-next-line no-console
     console.warn(`[apiClient.${method}] Failed to read error body for ${path}`, parseError);
@@ -33,9 +41,23 @@ const logResponseError = async (
     status: response.status,
     statusText: response.statusText,
     body: responseText,
+    errorDetail,
   });
 
-  throw new Error(`Request failed with status ${response.status}`);
+  // Create more descriptive error message
+  const statusMessages: Record<number, string> = {
+    401: "Unauthorized - please log in again",
+    403: "Forbidden - you don't have permission",
+    404: "Not found - the resource doesn't exist",
+    500: "Server error - please try again later",
+    502: "Bad gateway - server is temporarily unavailable",
+    503: "Service unavailable - please try again later",
+  };
+
+  const statusMessage = statusMessages[response.status] || `Request failed with status ${response.status}`;
+  const fullMessage = errorDetail ? `${statusMessage}: ${errorDetail}` : statusMessage;
+
+  throw new Error(fullMessage);
 };
 
 const getAuthHeaders = (): Record<string, string> => {
