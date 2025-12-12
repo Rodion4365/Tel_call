@@ -33,7 +33,7 @@ class DeleteFriendsResponse(BaseModel):
     not_found_ids: list[int]
 
 
-@router.get("/", response_model=list[FriendResponse])
+@router.get("", response_model=list[FriendResponse])
 async def get_friends(
     query: str | None = Query(None, description="Search by name or username"),
     limit: int = Query(50, ge=1, le=100),
