@@ -112,6 +112,15 @@ async def get_friends(
 
     except Exception as e:
         logger.exception("[get_friends] Error while fetching friends: %s", str(e))
+
+        # Provide more helpful error messages
+        error_msg = str(e).lower()
+        if "no such table" in error_msg or "friend_links" in error_msg:
+            from fastapi import HTTPException, status as http_status
+            raise HTTPException(
+                status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Database not initialized. Please run migrations: alembic upgrade head"
+            )
         raise
 
 
