@@ -16,7 +16,7 @@ const MainPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const secondaryBtn =
-    "flex h-[40px] items-center justify-center gap-2 flex-1 max-w-[180px] rounded-xl border border-zinc-800/60 bg-zinc-900/60 px-3 text-zinc-200 transition-all hover:border-zinc-700 hover:bg-zinc-900 text-[13px] font-medium";
+    "flex h-[50px] items-center justify-center gap-2 flex-1 max-w-[180px] rounded-xl border border-zinc-800/60 bg-zinc-900/50 px-3 text-zinc-200 transition-all hover:border-zinc-700 hover:bg-zinc-900 text-[13px] font-medium";
 
   const handleCreateCall = async () => {
     // eslint-disable-next-line no-console
