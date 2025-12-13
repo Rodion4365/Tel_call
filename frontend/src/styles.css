@@ -91,16 +91,12 @@ a:hover {
   background: var(--bg-color);
   min-height: 100vh;
   display: flex;
-  justify-content: center;
 }
 
 .app-container {
   width: 100%;
-  max-width: 520px;
-  padding: 24px 18px 32px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
 }
 
 .status-row {
