@@ -67,8 +67,8 @@ const MainPage: React.FC = () => {
   const isPrimaryDisabled = !user || isCreating || isAuthorizing;
   return (
     <MobileFrame>
-      <div className="flex min-h-full flex-col bg-gradient-to-b from-[#0f111a] to-black text-white">
-        <div className="flex items-start justify-end px-5 pt-5">
+      <div className="relative flex h-full items-center justify-center bg-gradient-to-b from-[#0f111a] to-black text-white">
+        <div className="absolute right-5 top-5">
           <Link
             to="/settings"
             aria-label={t("common.settings")}
@@ -77,16 +77,15 @@ const MainPage: React.FC = () => {
             <Settings className="w-5 h-5 stroke-[1.5]" />
           </Link>
         </div>
-
-        <div className="flex flex-1 flex-col items-center px-6 pb-8 pt-4">
-          <div className="flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 text-center">
+        <div className="w-full max-w-md px-6">
+          <div className="flex flex-col items-center gap-6 text-center">
             <h1 className="text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
               {t("mainPage.title")}
             </h1>
 
             {error ? (
               <p
-                className="w-full max-w-md rounded-2xl border border-red-900/40 bg-red-950/30 px-4 py-3 text-center text-[14px] text-red-300"
+                className="w-full rounded-2xl border border-red-900/40 bg-red-950/30 px-4 py-3 text-center text-[14px] text-red-300"
                 role="alert"
               >
                 {error}
