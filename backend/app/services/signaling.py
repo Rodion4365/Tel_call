@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import WebSocket
+from fastapi import HTTPException, WebSocket, status
 
+from app.config.settings import get_settings
 
 logger = logging.getLogger("app.webrtc")
 
@@ -29,22 +31,38 @@ class CallRoom:
         self._lock = asyncio.Lock()
         # Время начала комнаты (когда первый участник вошел)
         self.start_time = datetime.now(tz=timezone.utc)
+        # Время последней активности (для cleanup пустых комнат)
+        self.last_activity = time.time()
 
     @property
     def is_empty(self) -> bool:
         return not self._participants
 
     async def add_participant(self, user_id: int, websocket: WebSocket, user: dict[str, Any]) -> None:
-        """Register a connected user in the room."""
+        """Register a connected user in the room.
+
+        Raises:
+            HTTPException: If the room has reached maximum participant capacity.
+        """
+        settings = get_settings()
 
         async with self._lock:
+            # Проверяем лимит участников
+            if len(self._participants) >= settings.max_participants_per_call:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=f"Call is full (maximum {settings.max_participants_per_call} participants allowed)",
+                )
+
             self._participants[user_id] = ParticipantConnection(websocket, user)
+            self.last_activity = time.time()
 
         logger.info(
-            "User %s joined call %s (participants=%s)",
+            "User %s joined call %s (participants=%s/%s)",
             user_id,
             self.call_id,
             len(self._participants),
+            settings.max_participants_per_call,
         )
 
     async def remove_participant(self, user_id: int) -> None:
@@ -52,6 +70,7 @@ class CallRoom:
 
         async with self._lock:
             self._participants.pop(user_id, None)
+            self.last_activity = time.time()
 
         logger.info(
             "User %s left call %s (participants=%s)",
@@ -132,6 +151,51 @@ class CallRoomManager:
     def __init__(self) -> None:
         self._rooms: dict[str, CallRoom] = {}
         self._lock = asyncio.Lock()
+        self._cleanup_task: asyncio.Task | None = None
+
+    def start_cleanup_task(self) -> None:
+        """Start background task for cleaning up stale empty rooms."""
+        if self._cleanup_task is None or self._cleanup_task.done():
+            self._cleanup_task = asyncio.create_task(self._cleanup_stale_rooms())
+            logger.info("Started background task for cleaning up stale rooms")
+
+    async def _cleanup_stale_rooms(self) -> None:
+        """Background task that periodically cleans up empty rooms."""
+        settings = get_settings()
+        cleanup_interval_seconds = settings.empty_room_cleanup_minutes * 60
+
+        logger.info(
+            "Cleanup task started: will check for stale rooms every %s minutes",
+            settings.empty_room_cleanup_minutes,
+        )
+
+        while True:
+            try:
+                await asyncio.sleep(cleanup_interval_seconds)
+                now = time.time()
+
+                async with self._lock:
+                    stale_rooms = [
+                        call_id
+                        for call_id, room in self._rooms.items()
+                        if room.is_empty and (now - room.last_activity) > cleanup_interval_seconds
+                    ]
+
+                    for call_id in stale_rooms:
+                        self._rooms.pop(call_id, None)
+                        logger.info("Cleaned up stale empty room: %s", call_id)
+
+                    if stale_rooms:
+                        logger.info(
+                            "Cleanup completed: removed %s stale rooms, %s rooms remaining",
+                            len(stale_rooms),
+                            len(self._rooms),
+                        )
+            except asyncio.CancelledError:
+                logger.info("Cleanup task cancelled")
+                break
+            except Exception:
+                logger.exception("Error in cleanup task, will retry")
 
     async def get_room(self, call_id: str) -> CallRoom:
         async with self._lock:
@@ -139,6 +203,11 @@ class CallRoomManager:
             if room is None:
                 room = CallRoom(call_id)
                 self._rooms[call_id] = room
+                logger.info(
+                    "Created new room for call %s (total rooms: %s)",
+                    call_id,
+                    len(self._rooms),
+                )
             return room
 
     async def get_existing_room(self, call_id: str) -> CallRoom | None:
@@ -146,10 +215,22 @@ class CallRoomManager:
             return self._rooms.get(call_id)
 
     async def cleanup_room(self, call_id: str) -> None:
+        """Clean up a room if it's empty.
+
+        Uses double-checked locking to prevent race conditions.
+        """
         async with self._lock:
             room = self._rooms.get(call_id)
+            # Двойная проверка: убеждаемся что комната все еще пустая
             if room and room.is_empty:
-                self._rooms.pop(call_id, None)
+                # Проверяем что это та же самая комната (защита от race condition)
+                if self._rooms.get(call_id) == room:
+                    self._rooms.pop(call_id, None)
+                    logger.info(
+                        "Cleaned up empty room: %s (total rooms: %s)",
+                        call_id,
+                        len(self._rooms),
+                    )
 
 
 call_room_manager = CallRoomManager()
