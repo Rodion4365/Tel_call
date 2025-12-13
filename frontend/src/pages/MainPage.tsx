@@ -114,11 +114,9 @@ const MainPage: React.FC = () => {
                 <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
                   <Link
                     to="/friends"
-                    className="group flex h-[84px] w-full flex-col items-center justify-center gap-2 rounded-2xl border border-zinc-800/60 bg-zinc-900/60 text-zinc-200 transition-all hover:border-zinc-700"
+                    className="flex h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-zinc-800/60 bg-zinc-900/60 px-3 text-zinc-200 transition-all hover:border-zinc-700 hover:bg-zinc-900"
                   >
-                    <div className="rounded-full bg-zinc-800 p-2 transition-colors group-hover:bg-[#7C66DC]/20 group-hover:text-[#7C66DC]">
-                      <UserPlus className="h-5 w-5 stroke-[1.5]" />
-                    </div>
+                    <UserPlus className="h-4 w-4 stroke-[1.5]" />
                     <span className="text-[14px] font-medium">{t("mainPage.callFriend")}</span>
                   </Link>
                 </motion.div>
@@ -126,11 +124,9 @@ const MainPage: React.FC = () => {
                 <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
                   <Link
                     to="/join-call"
-                    className="group flex h-[84px] w-full flex-col items-center justify-center gap-2 rounded-2xl border border-zinc-800/60 bg-zinc-900/60 text-zinc-200 transition-all hover:border-zinc-700"
+                    className="flex h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-zinc-800/60 bg-zinc-900/60 px-3 text-zinc-200 transition-all hover:border-zinc-700 hover:bg-zinc-900"
                   >
-                    <div className="rounded-full bg-zinc-800 p-2 transition-colors group-hover:bg-[#7C66DC]/20 group-hover:text-[#7C66DC]">
-                      <Phone className="h-5 w-5 stroke-[1.5]" />
-                    </div>
+                    <Phone className="h-4 w-4 stroke-[1.5]" />
                     <span className="text-[14px] font-medium">{t("mainPage.joinCall")}</span>
                   </Link>
                 </motion.div>
