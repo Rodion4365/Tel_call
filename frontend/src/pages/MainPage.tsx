@@ -14,6 +14,10 @@ const MainPage: React.FC = () => {
 
   const [isCreating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const secondaryBtn =
+    "flex h-[40px] items-center justify-center gap-2 flex-1 max-w-[180px] rounded-xl border border-zinc-800/60 bg-zinc-900/60 px-3 text-zinc-200 transition-all hover:border-zinc-700 hover:bg-zinc-900 text-[13px] font-medium";
+
   const handleCreateCall = async () => {
     // eslint-disable-next-line no-console
     console.log("[MainPage] Creating call", { hasUser: !!user, isAuthorizing });
@@ -91,14 +95,14 @@ const MainPage: React.FC = () => {
         {/* Кнопки */}
         <div className="w-full max-w-md px-6 mx-auto">
           <div className="flex flex-col items-center gap-6">
-            <div className="w-full space-y-4">
+            <div className="w-full flex flex-col gap-4 items-center">
               <motion.button
                 onClick={handleCreateCall}
                 disabled={isPrimaryDisabled}
                 whileHover={isPrimaryDisabled ? undefined : { scale: 1.01 }}
                 whileTap={isPrimaryDisabled ? undefined : { scale: 0.99 }}
                 className={[
-                  "flex h-[60px] w-full items-center justify-center gap-3 rounded-2xl text-[17px] font-medium transition-colors",
+                  "flex h-[60px] w-full max-w-[400px] items-center justify-center gap-3 rounded-2xl text-[17px] font-medium transition-colors",
                   "shadow-[0_4px_20px_-4px_rgba(124,102,220,0.5)]",
                   isPrimaryDisabled
                     ? "cursor-not-allowed bg-[#7C66DC]/50 text-white/80"
@@ -109,24 +113,18 @@ const MainPage: React.FC = () => {
                 {primaryLabel}
               </motion.button>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex gap-4 w-full justify-center">
                 <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-                  <Link
-                    to="/friends"
-                    className="flex h-[40px] w-full items-center justify-center gap-2 rounded-xl border border-zinc-800/60 bg-zinc-900/60 px-3 text-zinc-200 transition-all hover:border-zinc-700 hover:bg-zinc-900"
-                  >
+                  <Link to="/friends" className={secondaryBtn}>
                     <UserPlus className="h-3.5 w-3.5 stroke-[1.5]" />
-                    <span className="text-[13px] font-medium">{t("mainPage.callFriend")}</span>
+                    <span>{t("mainPage.callFriend")}</span>
                   </Link>
                 </motion.div>
 
                 <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-                  <Link
-                    to="/join-call"
-                    className="flex h-[40px] w-full items-center justify-center gap-2 rounded-xl border border-zinc-800/60 bg-zinc-900/60 px-3 text-zinc-200 transition-all hover:border-zinc-700 hover:bg-zinc-900"
-                  >
+                  <Link to="/join-call" className={secondaryBtn}>
                     <Phone className="h-3.5 w-3.5 stroke-[1.5]" />
-                    <span className="text-[13px] font-medium">{t("mainPage.joinCall")}</span>
+                    <span>{t("mainPage.joinCall")}</span>
                   </Link>
                 </motion.div>
               </div>
