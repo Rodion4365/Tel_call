@@ -1,18 +1,16 @@
 import React from "react";
 import MobileFrame from "../components/MobileFrame";
-import TopBar from "../components/TopBar";
 
 const TermsPage: React.FC = () => {
   return (
     <MobileFrame>
-      <div className="h-full w-full bg-gradient-to-b from-[#0f111a] to-black text-white font-sans flex flex-col overflow-y-auto">
-        <TopBar title="Соглашение" backTo="/settings" />
-        <div className="flex-1 px-6 py-4 max-w-md mx-auto w-full space-y-6 pb-12 text-zinc-300">
+      <div className="relative flex h-full flex-col justify-start text-white pt-5 overflow-y-auto">
+        <div className="w-full max-w-md px-6 mx-auto space-y-6 pb-12">
           <div>
             <h1 className="text-2xl font-bold text-white mb-2">Пользовательское соглашение</h1>
             <p className="text-zinc-500 text-sm">Последнее обновление: 9 декабря 2025</p>
           </div>
-          <div className="space-y-6 text-[15px] leading-relaxed">
+          <div className="space-y-6 text-[15px] leading-relaxed text-zinc-300">
             <p>
               Добро пожаловать в <span className="text-white font-medium">Call_with_bot</span>. Используя наше мини-приложение, вы подтверждаете, что
               ознакомились с условиями настоящего пользовательского соглашения и полностью принимаете их
