@@ -29,6 +29,9 @@ const CallCreated: React.FC = () => {
   const [isToastVisible, setToastVisible] = useState(false);
   const [isShareModalOpen, setShareModalOpen] = useState(false);
 
+  const secondaryBtn =
+    "flex items-center justify-center gap-2 w-full h-[50px] rounded-xl border border-zinc-700 bg-zinc-900/60 text-white text-[13px] hover:bg-zinc-800 active:scale-[0.98] transition disabled:opacity-50 disabled:cursor-not-allowed";
+
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
     if (isToastVisible) {
@@ -169,7 +172,7 @@ const CallCreated: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex flex-col items-center gap-4">
+            <div className="w-full flex flex-col gap-4">
               {/* Primary кнопка - Присоединиться */}
               <motion.button
                 onClick={handleJoinCall}
@@ -178,7 +181,7 @@ const CallCreated: React.FC = () => {
                 whileTap={!call_id ? undefined : { scale: 0.98 }}
                 className={[
                   "flex items-center justify-center gap-2",
-                  "w-[400px] h-[60px]",
+                  "w-full h-[60px]",
                   "rounded-2xl",
                   "text-white text-[16px] font-medium",
                   "shadow-[0_4px_20px_-4px_rgba(124,102,220,0.6)]",
@@ -193,13 +196,13 @@ const CallCreated: React.FC = () => {
               </motion.button>
 
               {/* Secondary кнопки в ряд */}
-              <div className="flex items-center justify-center gap-4">
+              <div className="grid grid-cols-2 gap-4 w-full">
                 <motion.button
                   onClick={handleShare}
                   disabled={!joinUrl}
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.98 }}
-                  className="flex items-center justify-center gap-2 w-[180px] h-[50px] rounded-xl border border-zinc-700 bg-zinc-900/60 text-white text-[13px] hover:bg-zinc-800 active:scale-[0.98] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={secondaryBtn}
                 >
                   <Link2 className="w-3.5 h-3.5" />
                   {t("callCreatedPage.shareButton")}
@@ -210,7 +213,7 @@ const CallCreated: React.FC = () => {
                   disabled={!joinUrl}
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.98 }}
-                  className="flex items-center justify-center gap-2 w-[180px] h-[50px] rounded-xl border border-zinc-700 bg-zinc-900/60 text-white text-[13px] hover:bg-zinc-800 active:scale-[0.98] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={secondaryBtn}
                 >
                   <Copy className="w-3.5 h-3.5" />
                   {t("callCreatedPage.copyLinkButton")}
