@@ -37,7 +37,7 @@ const SettingsPage: React.FC = () => {
   return (
     <MobileFrame>
       <div className="relative flex h-full flex-col justify-start text-white pt-5 overflow-y-auto pb-20">
-        <TopBar showBack={true} backTo="/" />
+        <TopBar showBack={false} backTo="/" />
         <div className="px-5 pt-2 max-w-md mx-auto space-y-6">
           {/* Language Card */}
           <div>
@@ -50,7 +50,7 @@ const SettingsPage: React.FC = () => {
                     "flex-1 py-2.5 px-4 rounded-xl font-medium text-sm transition-colors border",
                     i18n.language === "ru"
                       ? "bg-[#7C66DC] text-white border-[#7C66DC]"
-                      : "bg-transparent text-zinc-400 hover:bg-zinc-800/50 hover:text-white border-zinc-800"
+                      : "bg-zinc-900/50 text-zinc-400 hover:bg-zinc-800/50 hover:text-white border-zinc-800/60"
                   )}
                   onClick={() => changeLanguage("ru")}
                 >
@@ -61,7 +61,7 @@ const SettingsPage: React.FC = () => {
                     "flex-1 py-2.5 px-4 rounded-xl font-medium text-sm transition-colors border",
                     i18n.language === "en"
                       ? "bg-[#7C66DC] text-white border-[#7C66DC]"
-                      : "bg-transparent text-zinc-400 hover:bg-zinc-800/50 hover:text-white border-zinc-800"
+                      : "bg-zinc-900/50 text-zinc-400 hover:bg-zinc-800/50 hover:text-white border-zinc-800/60"
                   )}
                   onClick={() => changeLanguage("en")}
                 >
