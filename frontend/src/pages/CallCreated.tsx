@@ -30,7 +30,7 @@ const CallCreated: React.FC = () => {
   const [isShareModalOpen, setShareModalOpen] = useState(false);
 
   const secondaryBtn =
-    "flex items-center justify-center gap-2 flex-1 max-w-[400px] h-[50px] rounded-xl border border-zinc-800/60 bg-zinc-900/50 px-3 text-zinc-200 transition-all hover:border-zinc-700 hover:bg-zinc-900 text-[13px] font-medium disabled:opacity-50 disabled:cursor-not-allowed";
+    "flex items-center justify-center gap-2 flex-1 max-w-[400px] h-[50px] rounded-xl border !border-zinc-800/60 !bg-zinc-900/50 px-3 !text-zinc-200 transition-all hover:!border-zinc-700 hover:!bg-zinc-900 text-[13px] font-medium disabled:!opacity-50 disabled:!cursor-not-allowed";
 
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
@@ -182,13 +182,11 @@ const CallCreated: React.FC = () => {
                 className={[
                   "flex items-center justify-center gap-2",
                   "w-full max-w-[400px] h-[60px]",
-                  "rounded-2xl",
-                  "text-white text-[16px] font-medium",
-                  "shadow-[0_4px_20px_-4px_rgba(124,102,220,0.6)]",
-                  "transition",
-                  !call_id
-                    ? "cursor-not-allowed bg-[#7C66DC]/50"
-                    : "bg-[#7C66DC] hover:bg-[#6f5bd1] active:scale-[0.98]",
+                  "rounded-2xl border !border-zinc-800/60 !bg-zinc-900/50",
+                  "!text-zinc-200 text-[16px] font-medium",
+                  "transition hover:!border-zinc-700 hover:!bg-zinc-900",
+                  "active:scale-[0.98]",
+                  !call_id ? "!cursor-not-allowed !opacity-50" : "",
                 ].join(" ")}
               >
                 <Video className="w-5 h-5" />
