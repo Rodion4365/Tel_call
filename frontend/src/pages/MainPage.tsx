@@ -83,15 +83,6 @@ const MainPage: React.FC = () => {
               {t("mainPage.title")}
             </h1>
 
-            {error ? (
-              <p
-                className="w-full rounded-2xl border border-red-900/40 bg-red-950/30 px-4 py-3 text-center text-[14px] text-red-300"
-                role="alert"
-              >
-                {error}
-              </p>
-            ) : null}
-
             <div className="w-full space-y-4">
               <motion.button
                 onClick={handleCreateCall}
@@ -132,9 +123,9 @@ const MainPage: React.FC = () => {
                 </motion.div>
               </div>
 
-              {!user && !error ? (
-                <p className="pt-2 text-center text-[13px] text-zinc-400">
-                  {t("mainPage.errorAuthRequired")}
+              {error || (!user && !error) ? (
+                <p className="pt-2 text-center text-[13px] text-red-400">
+                  {error || t("mainPage.errorAuthRequired")}
                 </p>
               ) : null}
             </div>
