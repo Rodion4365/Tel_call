@@ -67,7 +67,7 @@ const MainPage: React.FC = () => {
   const isPrimaryDisabled = !user || isCreating || isAuthorizing;
   return (
     <MobileFrame>
-      <div className="relative flex h-full items-center justify-center bg-gradient-to-b from-[#0f111a] to-black text-white">
+      <div className="relative flex h-full items-center justify-center text-white">
         <div className="absolute right-5 top-5">
           <Link
             to="/settings"
