@@ -155,31 +155,52 @@ const CallCreated: React.FC = () => {
 
   return (
     <MobileFrame>
-      <div className="call-created-screen">
-        <div className="call-created-top-bar">
-          <span className="call-created-top-bar__indicator" aria-hidden="true" />
-        </div>
-
-        <div className="call-created-layout">
-          <div className="call-created-card">
+      <div className="relative flex h-full flex-col justify-start text-white pt-5">
+        {/* Контент */}
+        <div className="w-full max-w-md px-6 mx-auto">
+          <div className="flex flex-col items-center gap-6 text-center">
             <div>
-              <p className="call-created-eyebrow">{t("callCreatedPage.title")}</p>
-              <h1 className="call-created-title">{t("callCreatedPage.description")}</h1>
+              <h1 className="text-[28px] font-semibold leading-tight tracking-tight mb-2">
+                {t("callCreatedPage.title")}
+              </h1>
+              <p className="text-[15px] text-zinc-400">
+                {t("callCreatedPage.description")}
+              </p>
             </div>
 
-            <div className="call-created-actions">
-              <button className="call-created-button call-created-button--primary" onClick={handleJoinCall} disabled={!call_id}>
+            <div className="w-full space-y-4">
+              {/* Primary кнопка - Присоединиться */}
+              <button
+                onClick={handleJoinCall}
+                disabled={!call_id}
+                className={[
+                  "flex h-[60px] w-full items-center justify-center gap-3 rounded-2xl text-[17px] font-medium transition-colors",
+                  "shadow-[0_4px_20px_-4px_rgba(124,102,220,0.5)]",
+                  !call_id
+                    ? "cursor-not-allowed bg-[#7C66DC]/50 text-white/80"
+                    : "bg-[#7C66DC] text-white hover:bg-[#6A55CA]",
+                ].join(" ")}
+              >
                 {t("callCreatedPage.joinButton")}
               </button>
 
-              <div className="call-created-actions__row">
-                <button className="call-created-button call-created-button--secondary" onClick={handleShare} disabled={!joinUrl}>
-                  {t("callCreatedPage.shareButton")}
-                  <Link2 className="call-created-button__icon" aria-hidden="true" />
+              {/* Secondary кнопки в ряд */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={handleShare}
+                  disabled={!joinUrl}
+                  className="flex h-[40px] w-full items-center justify-center gap-2 rounded-xl border border-zinc-800/60 bg-zinc-900/60 px-3 text-zinc-200 transition-all hover:border-zinc-700 hover:bg-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Link2 className="h-3.5 w-3.5 stroke-[1.5]" />
+                  <span className="text-[13px] font-medium">{t("callCreatedPage.shareButton")}</span>
                 </button>
-                <button className="call-created-button call-created-button--outline" onClick={copyLink} disabled={!joinUrl}>
-                  {t("callCreatedPage.copyLinkButton")}
-                  <Copy className="call-created-button__icon" aria-hidden="true" />
+                <button
+                  onClick={copyLink}
+                  disabled={!joinUrl}
+                  className="flex h-[40px] w-full items-center justify-center gap-2 rounded-xl border border-zinc-800/60 bg-zinc-900/60 px-3 text-zinc-200 transition-all hover:border-zinc-700 hover:bg-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Copy className="h-3.5 w-3.5 stroke-[1.5]" />
+                  <span className="text-[13px] font-medium">{t("callCreatedPage.copyLinkButton")}</span>
                 </button>
               </div>
             </div>
