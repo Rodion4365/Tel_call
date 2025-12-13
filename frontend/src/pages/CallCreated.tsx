@@ -30,7 +30,7 @@ const CallCreated: React.FC = () => {
   const [isShareModalOpen, setShareModalOpen] = useState(false);
 
   const secondaryBtn =
-    "flex items-center justify-center gap-2 flex-1 max-w-[400px] h-[50px] rounded-xl border border-[color-mix(in_oklab,var(--color-zinc-800)_60%,transparent)] bg-zinc-900/50 text-white text-[13px] hover:bg-zinc-800 active:scale-[0.98] transition disabled:opacity-50 disabled:cursor-not-allowed";
+    "flex items-center justify-center gap-2 flex-1 max-w-[400px] h-[50px] rounded-xl border border-zinc-800/60 bg-zinc-900/50 px-3 text-zinc-200 transition-all hover:border-zinc-700 hover:bg-zinc-900 text-[13px] font-medium disabled:opacity-50 disabled:cursor-not-allowed";
 
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
