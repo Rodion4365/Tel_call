@@ -50,12 +50,6 @@ function AppContent(): JSX.Element {
 
   return (
     <Layout>
-      {authError ? (
-        <p className="status status-offline" role="alert">
-          {authError}
-        </p>
-      ) : null}
-
       <Routes>
         <Route path="/" element={<MainPage />} />
         <Route path="/friends" element={<FriendsPage />} />

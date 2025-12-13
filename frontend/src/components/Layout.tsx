@@ -1,7 +1,6 @@
 import React from "react";
 import { useLocation } from "react-router-dom";
 import "../styles.css";
-import { ConnectionBanner } from "./ConnectionBanner";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -14,7 +13,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <div className={`app-shell ${isCallPage ? "app-shell--call" : ""}`}>
       <div className={`app-container ${isCallPage ? "app-container--call" : ""}`}>
-        <ConnectionBanner />
         <main className={`app-content ${isCallPage ? "app-content--call" : ""}`}>{children}</main>
       </div>
     </div>
