@@ -8,6 +8,7 @@ import TermsPage from "./pages/TermsPage";
 import CallPage from "./pages/CallPage";
 import CallCreated from "./pages/CallCreated";
 import FriendsPage from "./pages/FriendsPage";
+import CallEndedPage from "./pages/CallEndedPage";
 import { useTelegramBackButton } from "./hooks/useTelegramBackButton";
 import { useTelegramWebApp } from "./hooks/useTelegramWebApp";
 import { useAuth } from "./contexts/AuthContext";
@@ -56,6 +57,7 @@ function AppContent(): JSX.Element {
         <Route path="/join-call" element={<JoinCallPage />} />
         <Route path="/call-created/:call_id" element={<CallCreated />} />
         <Route path="/call/:id" element={<CallPage />} />
+        <Route path="/call-ended" element={<CallEndedPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/terms" element={<TermsPage />} />
       </Routes>
