@@ -10,7 +10,7 @@ import MobileFrame from "../components/MobileFrame";
 const MainPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user, isAuthorizing } = useAuth();
+  const { user, isAuthorizing, authError } = useAuth();
 
   const [isCreating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,9 +69,6 @@ const MainPage: React.FC = () => {
       : t("mainPage.createCall");
 
   const isPrimaryDisabled = !user || isCreating || isAuthorizing;
-
-  // Показывать статус авторизации только при ошибке авторизации
-  const isAuthError = error === t("mainPage.errorAuthRequired");
   return (
     <MobileFrame>
       <div className="relative flex h-full flex-col justify-start text-white pt-5">
@@ -135,7 +132,7 @@ const MainPage: React.FC = () => {
               </div>
 
               {/* Статус авторизации - показывать только при ошибке авторизации */}
-              {isAuthError ? (
+              {authError ? (
                 <div className="flex items-center justify-center gap-2 pt-2">
                   <p className="text-center text-[13px] text-red-400">
                     {t("mainPage.errorAuthRequired")}
