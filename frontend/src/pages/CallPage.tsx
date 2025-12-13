@@ -310,6 +310,14 @@ const CallPage: React.FC = () => {
     homeRedirectTimeoutRef.current = window.setTimeout(() => navigate("/"), 1500);
   }, [navigate]);
 
+  const scheduleNavigateToCallEnded = useCallback(() => {
+    if (homeRedirectTimeoutRef.current) {
+      clearTimeout(homeRedirectTimeoutRef.current);
+    }
+
+    homeRedirectTimeoutRef.current = window.setTimeout(() => navigate("/call-ended"), 1500);
+  }, [navigate]);
+
   const handleConnectionError = useCallback(
     (message: string, navigateHome = false, preserveExistingMessage = false) => {
       setCallError((current) => (preserveExistingMessage && current ? current : message));
@@ -318,10 +326,21 @@ const CallPage: React.FC = () => {
       setCallDurationMinutes(0);
 
       if (navigateHome) {
-        scheduleNavigateHome();
+        // Проверяем, является ли это ошибкой "звонок не найден" или "звонок завершен"
+        const isCallEndedError =
+          message.toLowerCase().includes("call not found") ||
+          message.toLowerCase().includes("звонок завершен") ||
+          message.toLowerCase().includes("звонок больше не активен") ||
+          message === "Звонок завершён";
+
+        if (isCallEndedError) {
+          scheduleNavigateToCallEnded();
+        } else {
+          scheduleNavigateHome();
+        }
       }
     },
-    [clearConnections, scheduleNavigateHome],
+    [clearConnections, scheduleNavigateHome, scheduleNavigateToCallEnded],
   );
 
   const ensureLocalAudioStream = useCallback(async (): Promise<MediaStream | null> => {
@@ -1235,7 +1254,17 @@ const CallPage: React.FC = () => {
       }
 
       if (message.type === "error") {
-        setCallError(message.detail);
+        const errorDetail = message.detail?.toLowerCase() || "";
+        const isCallNotFoundError =
+          errorDetail.includes("call not found") ||
+          errorDetail.includes("звонок не найден") ||
+          errorDetail.includes("please create a new call");
+
+        if (isCallNotFoundError) {
+          handleConnectionError("Звонок завершён", true);
+        } else {
+          setCallError(message.detail);
+        }
         return;
       }
 
@@ -1423,8 +1452,19 @@ const CallPage: React.FC = () => {
       websocketRef.current = null;
       setCallConnected(false);
 
+      // Проверяем, является ли причина закрытия ошибкой "звонок не найден"
+      const reason = event.reason?.toLowerCase() || "";
+      const isCallNotFound =
+        reason.includes("call not found") ||
+        reason.includes("звонок не найден") ||
+        reason.includes("please create a new call") ||
+        event.code === 1008; // Policy Violation code
+
       if (!event.wasClean) {
-        handleConnectionErrorRef.current?.("Соединение с сервером закрыто", true, true);
+        const errorMessage = isCallNotFound
+          ? "Звонок завершён"
+          : "Соединение с сервером закрыто";
+        handleConnectionErrorRef.current?.(errorMessage, true, true);
         return;
       }
 
