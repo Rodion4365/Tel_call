@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Video, UserPlus, Phone } from "lucide-react";
+import { Video, UserPlus, Phone, Settings } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "../contexts/AuthContext";
 import { createCall } from "../services/calls";
@@ -67,7 +67,16 @@ const MainPage: React.FC = () => {
   const isPrimaryDisabled = !user || isCreating || isAuthorizing;
   return (
     <MobileFrame>
-      <div className="flex h-full items-center justify-center bg-gradient-to-b from-[#0f111a] to-black text-white">
+      <div className="relative flex h-full items-center justify-center bg-gradient-to-b from-[#0f111a] to-black text-white">
+        <div className="absolute right-5 top-5">
+          <Link
+            to="/settings"
+            aria-label={t("common.settings")}
+            className="bg-zinc-900/50 p-2.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all border border-zinc-800/50 inline-flex"
+          >
+            <Settings className="w-5 h-5 stroke-[1.5]" />
+          </Link>
+        </div>
         <div className="w-full max-w-md px-6">
           <div className="flex flex-col items-center gap-6 text-center">
             <h1 className="text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
