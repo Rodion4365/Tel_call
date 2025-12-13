@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { getTelegramWebApp } from "../services/telegram";
-import { Copy, Link2 } from "lucide-react";
+import { Copy, Link2, Video } from "lucide-react";
+import { motion } from "framer-motion";
 import MobileFrame from "../components/MobileFrame";
 
 interface LocationState {
@@ -170,9 +171,11 @@ const CallCreated: React.FC = () => {
 
             <div className="w-full space-y-4">
               {/* Primary кнопка - Присоединиться */}
-              <button
+              <motion.button
                 onClick={handleJoinCall}
                 disabled={!call_id}
+                whileHover={!call_id ? undefined : { scale: 1.01 }}
+                whileTap={!call_id ? undefined : { scale: 0.99 }}
                 className={[
                   "flex h-[60px] w-full items-center justify-center gap-3 rounded-2xl text-[17px] font-medium transition-colors",
                   "shadow-[0_4px_20px_-4px_rgba(124,102,220,0.5)]",
@@ -181,27 +184,32 @@ const CallCreated: React.FC = () => {
                     : "bg-[#7C66DC] text-white hover:bg-[#6A55CA]",
                 ].join(" ")}
               >
+                <Video className="h-5 w-5 fill-white/20 stroke-[2]" />
                 {t("callCreatedPage.joinButton")}
-              </button>
+              </motion.button>
 
               {/* Secondary кнопки в ряд */}
               <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={handleShare}
-                  disabled={!joinUrl}
-                  className="flex h-[40px] w-full items-center justify-center gap-2 rounded-xl border border-zinc-800/60 bg-zinc-900/60 px-3 text-zinc-200 transition-all hover:border-zinc-700 hover:bg-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Link2 className="h-3.5 w-3.5 stroke-[1.5]" />
-                  <span className="text-[13px] font-medium">{t("callCreatedPage.shareButton")}</span>
-                </button>
-                <button
-                  onClick={copyLink}
-                  disabled={!joinUrl}
-                  className="flex h-[40px] w-full items-center justify-center gap-2 rounded-xl border border-zinc-800/60 bg-zinc-900/60 px-3 text-zinc-200 transition-all hover:border-zinc-700 hover:bg-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Copy className="h-3.5 w-3.5 stroke-[1.5]" />
-                  <span className="text-[13px] font-medium">{t("callCreatedPage.copyLinkButton")}</span>
-                </button>
+                <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                  <button
+                    onClick={handleShare}
+                    disabled={!joinUrl}
+                    className="flex h-[40px] w-full items-center justify-center gap-2 rounded-xl border border-zinc-800/60 bg-zinc-900/60 px-3 text-zinc-200 transition-all hover:border-zinc-700 hover:bg-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Link2 className="h-3.5 w-3.5 stroke-[1.5]" />
+                    <span className="text-[13px] font-medium">{t("callCreatedPage.shareButton")}</span>
+                  </button>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                  <button
+                    onClick={copyLink}
+                    disabled={!joinUrl}
+                    className="flex h-[40px] w-full items-center justify-center gap-2 rounded-xl border border-zinc-800/60 bg-zinc-900/60 px-3 text-zinc-200 transition-all hover:border-zinc-700 hover:bg-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Copy className="h-3.5 w-3.5 stroke-[1.5]" />
+                    <span className="text-[13px] font-medium">{t("callCreatedPage.copyLinkButton")}</span>
+                  </button>
+                </motion.div>
               </div>
             </div>
           </div>
