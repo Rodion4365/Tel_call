@@ -30,7 +30,7 @@ const CallCreated: React.FC = () => {
   const [isShareModalOpen, setShareModalOpen] = useState(false);
 
   const secondaryBtn =
-    "flex items-center justify-center gap-2 w-full h-[50px] rounded-xl border border-zinc-700 bg-zinc-900/60 text-white text-[13px] hover:bg-zinc-800 active:scale-[0.98] transition disabled:opacity-50 disabled:cursor-not-allowed";
+    "flex items-center justify-center gap-2 flex-1 max-w-[180px] h-[50px] rounded-xl border border-zinc-700 bg-zinc-900/60 text-white text-[13px] hover:bg-zinc-800 active:scale-[0.98] transition disabled:opacity-50 disabled:cursor-not-allowed";
 
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
@@ -172,7 +172,7 @@ const CallCreated: React.FC = () => {
               </p>
             </div>
 
-            <div className="w-full flex flex-col gap-4">
+            <div className="w-full flex flex-col gap-4 items-center">
               {/* Primary кнопка - Присоединиться */}
               <motion.button
                 onClick={handleJoinCall}
@@ -181,7 +181,7 @@ const CallCreated: React.FC = () => {
                 whileTap={!call_id ? undefined : { scale: 0.98 }}
                 className={[
                   "flex items-center justify-center gap-2",
-                  "w-full h-[60px]",
+                  "w-full max-w-[400px] h-[60px]",
                   "rounded-2xl",
                   "text-white text-[16px] font-medium",
                   "shadow-[0_4px_20px_-4px_rgba(124,102,220,0.6)]",
@@ -196,7 +196,7 @@ const CallCreated: React.FC = () => {
               </motion.button>
 
               {/* Secondary кнопки в ряд */}
-              <div className="grid grid-cols-2 gap-4 w-full">
+              <div className="flex gap-4 w-full justify-center">
                 <motion.button
                   onClick={handleShare}
                   disabled={!joinUrl}
