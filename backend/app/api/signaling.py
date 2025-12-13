@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Any
@@ -10,6 +12,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.database import session_scope
+from app.config.settings import get_settings
 from app.models import Call, CallStatus, User
 from app.models.friend_link import FriendLink
 from app.models.participant import Participant
@@ -21,6 +24,11 @@ logger = logging.getLogger("app.webrtc")
 
 
 def _extract_token(websocket: WebSocket) -> tuple[str | None, str | None]:
+    """Extract authentication token from WebSocket headers.
+
+    Security: Token is ONLY accepted from Sec-WebSocket-Protocol or Authorization headers,
+    NOT from query parameters to prevent token leakage in logs.
+    """
     protocol_header = websocket.headers.get("sec-websocket-protocol")
     selected_protocol: str | None = None
     if protocol_header:
@@ -40,11 +48,46 @@ def _extract_token(websocket: WebSocket) -> tuple[str | None, str | None]:
     if auth_header and auth_header.lower().startswith("bearer "):
         return auth_header.split(" ", 1)[1], selected_protocol
 
-    token = websocket.query_params.get("token")
-    if token:
-        return token, selected_protocol
+    # Security: Removed query parameter fallback to prevent token exposure in logs
+    # token = websocket.query_params.get("token")  # ❌ REMOVED
 
     return None, selected_protocol
+
+
+async def _receive_json_safe(websocket: WebSocket, max_size: int | None = None) -> dict[str, Any]:
+    """Safely receive JSON from WebSocket with size validation.
+
+    Args:
+        websocket: WebSocket connection
+        max_size: Maximum message size in bytes (defaults to settings.max_websocket_message_size)
+
+    Raises:
+        ValueError: If message exceeds max_size
+        WebSocketDisconnect: If connection is closed
+    """
+    if max_size is None:
+        settings = get_settings()
+        max_size = settings.max_websocket_message_size
+
+    # Receive as text first to check size
+    data = await websocket.receive_text()
+
+    # Check size
+    data_size = len(data.encode('utf-8'))
+    if data_size > max_size:
+        logger.warning(
+            "WebSocket message too large: %s bytes (max %s bytes)",
+            data_size,
+            max_size,
+        )
+        raise ValueError(f"Message too large: {data_size} bytes (max {max_size} bytes)")
+
+    # Parse JSON
+    try:
+        return json.loads(data)
+    except json.JSONDecodeError as exc:
+        logger.warning("Invalid JSON in WebSocket message: %s", exc)
+        raise ValueError("Invalid JSON") from exc
 
 
 def _make_aware(dt: datetime | None) -> datetime | None:
@@ -308,9 +351,51 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
 
     await room.broadcast({"type": "user_joined", "user": serialized_user}, sender_id=user.id)
 
+    # Таймер максимальной длительности звонка
+    settings = get_settings()
+    max_call_duration_seconds = settings.max_call_duration_hours * 3600
+    call_timeout_task = asyncio.create_task(asyncio.sleep(max_call_duration_seconds))
+
     try:
         while True:
-            message = await websocket.receive_json()
+            # Ожидаем либо сообщение, либо таймаут
+            receive_task = asyncio.create_task(_receive_json_safe(websocket))
+            done, pending = await asyncio.wait(
+                [receive_task, call_timeout_task],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+
+            # Проверяем, не истекло ли время звонка
+            if call_timeout_task in done:
+                logger.info(
+                    "Maximum call duration (%s hours) exceeded for call %s, user %s",
+                    settings.max_call_duration_hours,
+                    call_id,
+                    user.id,
+                )
+                await websocket.send_json({
+                    "type": "call_ended",
+                    "reason": f"Maximum call duration ({settings.max_call_duration_hours} hours) exceeded"
+                })
+                # Отменяем задачу получения сообщения
+                for task in pending:
+                    task.cancel()
+                break
+
+            # Получили сообщение
+            try:
+                message = await receive_task
+            except ValueError as exc:
+                # Сообщение слишком большое или невалидный JSON
+                await websocket.send_json({"type": "error", "detail": str(exc)})
+                logger.warning(
+                    "Invalid message from user %s in call %s: %s",
+                    user.id,
+                    call_id,
+                    exc,
+                )
+                continue
+
             message_type = message.get("type")
 
             logger.debug(
@@ -370,6 +455,10 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
         logger.exception("Unhandled error in signaling loop for user %s in call %s", user.id, call_id)
         await websocket.close(code=1011, reason="Internal server error")
     finally:
+        # Отменяем таймер при выходе
+        if not call_timeout_task.done():
+            call_timeout_task.cancel()
+
         # Обновляем время выхода участника из звонка
         if participant_db_id is not None:
             async with session_scope() as session:

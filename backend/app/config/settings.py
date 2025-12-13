@@ -39,6 +39,33 @@ class Settings(BaseSettings):
     turn_password: Optional[str] = Field(default=None, validation_alias="TURN_PASSWORD")
     cors_origins_str: str = Field("", validation_alias="CORS_ALLOW_ORIGINS")
 
+    # Call and WebSocket limits
+    max_participants_per_call: int = Field(
+        30,
+        validation_alias="MAX_PARTICIPANTS_PER_CALL",
+        description="Maximum number of participants allowed in a single call",
+    )
+    max_active_calls_per_user: int = Field(
+        5,
+        validation_alias="MAX_ACTIVE_CALLS_PER_USER",
+        description="Maximum number of active calls a user can create simultaneously",
+    )
+    max_call_duration_hours: int = Field(
+        12,
+        validation_alias="MAX_CALL_DURATION_HOURS",
+        description="Maximum duration of a call in hours before automatic termination",
+    )
+    max_websocket_message_size: int = Field(
+        1024 * 1024,  # 1MB
+        validation_alias="MAX_WEBSOCKET_MESSAGE_SIZE",
+        description="Maximum size of WebSocket message in bytes",
+    )
+    empty_room_cleanup_minutes: int = Field(
+        5,
+        validation_alias="EMPTY_ROOM_CLEANUP_MINUTES",
+        description="Minutes after which empty rooms are automatically cleaned up",
+    )
+
     @staticmethod
     def _parse_csv(value: str) -> list[str]:
         """Parse comma-separated string into list of strings."""

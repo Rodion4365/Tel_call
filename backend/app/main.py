@@ -44,6 +44,10 @@ async def lifespan(app: FastAPI):
         await engine.dispose()
         raise
 
+    # Start background cleanup task for stale rooms
+    from app.services.signaling import call_room_manager
+    call_room_manager.start_cleanup_task()
+
     try:
         yield
     except asyncio.CancelledError:

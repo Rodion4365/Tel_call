@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -18,6 +19,7 @@ from app.services.telegram_bot import send_call_notification
 
 router = APIRouter(prefix="/api/calls", tags=["Calls"])
 limiter = Limiter(key_func=get_remote_address)
+logger = logging.getLogger(__name__)
 
 
 class CallCreateRequest(BaseModel):
@@ -77,7 +79,43 @@ async def create_call(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> CallResponse:
-    """Create a new call and return its join details."""
+    """Create a new call and return its join details.
+
+    Automatically ends the oldest active call if user exceeds max active calls limit.
+    """
+    settings = get_settings()
+
+    # Проверяем количество активных звонков пользователя
+    active_calls_result = await session.execute(
+        select(Call)
+        .where(
+            Call.creator_user_id == current_user.id,
+            Call.status == CallStatus.ACTIVE,
+        )
+        .order_by(Call.created_at.asc())  # Сортируем по времени создания (старые первыми)
+    )
+    active_calls = active_calls_result.scalars().all()
+
+    # Если превышен лимит, завершаем самый старый звонок
+    if len(active_calls) >= settings.max_active_calls_per_user:
+        oldest_call = active_calls[0]
+        oldest_call.status = CallStatus.ENDED
+
+        # Уведомляем участников о завершении звонка (асинхронно)
+        import asyncio
+        asyncio.create_task(
+            notify_call_ended(
+                oldest_call.call_id,
+                reason="Maximum active calls limit reached - oldest call auto-ended",
+            )
+        )
+
+        logger.info(
+            "User %s exceeded max active calls limit (%s), auto-ended oldest call %s",
+            current_user.id,
+            settings.max_active_calls_per_user,
+            oldest_call.call_id,
+        )
 
     expires_at = datetime.now(tz=timezone.utc) + timedelta(hours=24)
     call = Call(
