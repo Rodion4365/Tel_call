@@ -18,7 +18,7 @@
     "callFriend": "Call a Friend",
     "authorizing": "Authorizing...",
     "creating": "Creating...",
-    "errorAuthRequired": "Authorization required. Please wait...",
+    "errorAuthRequired": "Authorization required. Please wait or refresh the page",
     "errorCreateCall": "Failed to create call. Please try again.",
     "errorCreateCallWithMessage": "Failed to create call: {{message}}"
   },

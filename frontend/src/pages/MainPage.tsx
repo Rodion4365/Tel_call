@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Video, UserPlus, Phone, Settings } from "lucide-react";
+import { Video, UserPlus, Phone, Settings, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "../contexts/AuthContext";
 import { createCall } from "../services/calls";
@@ -58,6 +58,10 @@ const MainPage: React.FC = () => {
     }
   };
 
+  const handleRefresh = () => {
+    window.location.reload();
+  };
+
   const primaryLabel = isAuthorizing
     ? t("mainPage.authorizing")
     : isCreating
@@ -65,24 +69,31 @@ const MainPage: React.FC = () => {
       : t("mainPage.createCall");
 
   const isPrimaryDisabled = !user || isCreating || isAuthorizing;
+
+  // Показывать статус авторизации только при ошибке авторизации
+  const isAuthError = error === t("mainPage.errorAuthRequired");
   return (
     <MobileFrame>
-      <div className="relative flex h-full items-center justify-center text-white">
-        <div className="absolute right-5 top-5">
-          <Link
-            to="/settings"
-            aria-label={t("common.settings")}
-            className="bg-zinc-900/50 p-2.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all border border-zinc-800/50 inline-flex"
-          >
-            <Settings className="w-5 h-5 stroke-[1.5]" />
-          </Link>
+      <div className="relative flex h-full flex-col justify-start text-white pt-5">
+        {/* Header row: Заголовок по центру, Settings справа */}
+        <div className="relative flex items-center justify-center px-6 mb-8">
+          <h1 className="text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
+            {t("mainPage.title")}
+          </h1>
+          <div className="absolute right-5">
+            <Link
+              to="/settings"
+              aria-label={t("common.settings")}
+              className="bg-zinc-900/50 p-2.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all border border-zinc-800/50 inline-flex"
+            >
+              <Settings className="w-5 h-5 stroke-[1.5]" />
+            </Link>
+          </div>
         </div>
-        <div className="w-full max-w-md px-6">
-          <div className="flex flex-col items-center gap-6 text-center">
-            <h1 className="text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
-              {t("mainPage.title")}
-            </h1>
 
+        {/* Кнопки */}
+        <div className="w-full max-w-md px-6 mx-auto">
+          <div className="flex flex-col items-center gap-6">
             <div className="w-full space-y-4">
               <motion.button
                 onClick={handleCreateCall}
@@ -123,10 +134,20 @@ const MainPage: React.FC = () => {
                 </motion.div>
               </div>
 
-              {error || (!user && !error) ? (
-                <p className="pt-2 text-center text-[13px] text-red-400">
-                  {error || t("mainPage.errorAuthRequired")}
-                </p>
+              {/* Статус авторизации - показывать только при ошибке авторизации */}
+              {isAuthError ? (
+                <div className="flex items-center justify-center gap-2 pt-2">
+                  <p className="text-center text-[13px] text-red-400">
+                    {t("mainPage.errorAuthRequired")}
+                  </p>
+                  <button
+                    onClick={handleRefresh}
+                    className="text-red-400 hover:text-red-300 transition-colors flex-shrink-0"
+                    aria-label="Обновить страницу"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </button>
+                </div>
               ) : null}
             </div>
           </div>
