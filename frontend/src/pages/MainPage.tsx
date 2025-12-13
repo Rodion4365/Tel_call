@@ -102,8 +102,11 @@ const MainPage: React.FC = () => {
                 whileHover={isPrimaryDisabled ? undefined : { scale: 1.01 }}
                 whileTap={isPrimaryDisabled ? undefined : { scale: 0.99 }}
                 className={[
-                  "flex h-[60px] w-full max-w-[400px] items-center justify-center gap-3 rounded-2xl text-[17px] font-medium transition-colors",
+                  "flex items-center justify-center gap-3",
+                  "w-full max-w-[400px] h-[60px]",
+                  "rounded-2xl text-[17px] font-medium",
                   "shadow-[0_4px_20px_-4px_rgba(124,102,220,0.5)]",
+                  "transition-colors",
                   isPrimaryDisabled
                     ? "cursor-not-allowed bg-[#7C66DC]/50 text-white/80"
                     : "bg-[#7C66DC] text-white hover:bg-[#6A55CA]",
