@@ -63,12 +63,9 @@ const JoinCallPage: React.FC = () => {
 
   return (
     <MobileFrame>
-      <div className="join-call-screen">
-        <div className="join-call-top-bar">
-          <span className="join-call-top-bar__indicator" aria-hidden="true" />
-        </div>
-
-        <div className="join-call-layout">
+      <div className="relative flex h-full flex-col justify-start text-white pt-5">
+        {/* Контент */}
+        <div className="w-full max-w-md px-6 mx-auto">
           <div className="join-call-card">
             <div className="join-call-card__header">
               <h1 className="join-call-title">{t("joinCallPage.title")}</h1>
