@@ -5,6 +5,7 @@ import { Pencil, Search } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { callFriend, deleteFriends, Friend, getFriends } from "../services/friends";
 import defaultAvatar from "../assets/default-avatar.svg";
+import MobileFrame from "../components/MobileFrame";
 
 const FriendsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -255,8 +256,9 @@ const FriendsPage: React.FC = () => {
   };
 
   return (
-    <div className="app-container">
-      <div className="friends-page">
+    <MobileFrame>
+      <div className="app-container">
+        <div className="friends-page">
         <header className="friends-header">
           <h1 className="friends-title">{t("friendsPage.title")}</h1>
           <button
@@ -370,6 +372,7 @@ const FriendsPage: React.FC = () => {
         ) : null}
       </div>
     </div>
+    </MobileFrame>
   );
 };
 

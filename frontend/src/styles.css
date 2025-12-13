@@ -51,11 +51,16 @@ body {
 
 .mobile-frame {
   position: relative;
-  width: 100%;
+  width: 100vw;
   height: 100vh;
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--bg-color);
+  background: #000000;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
   overflow: hidden;
   display: flex;
 }
@@ -65,7 +70,8 @@ body {
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: 100%;
+  min-height: 100vh;
+  background: transparent;
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
     env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   overscroll-behavior: contain;
@@ -325,16 +331,15 @@ button:disabled {
 
 
 .call-created-screen {
-  background: radial-gradient(120% 120% at 50% 0%, rgba(124, 102, 220, 0.2), transparent 55%),
-    linear-gradient(180deg, #0f111a 0%, #000 100%);
-  border-radius: 24px;
-  padding: 12px 12px 20px;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
   color: #ffffff;
-  min-height: calc(100vh - 140px);
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  box-shadow: none;
 }
 
 .call-created-top-bar {
@@ -1181,16 +1186,15 @@ button:disabled {
 }
 
 .join-call-screen {
-  background: radial-gradient(120% 120% at 50% 0%, rgba(124, 102, 220, 0.18), transparent 55%),
-    linear-gradient(180deg, #0f111a 0%, #000 100%);
-  border-radius: 24px;
-  padding: 12px 12px 20px;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
   color: #ffffff;
-  min-height: calc(100vh - 140px);
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  box-shadow: none;
 }
 
 .join-call-top-bar {
