@@ -169,47 +169,52 @@ const CallCreated: React.FC = () => {
               </p>
             </div>
 
-            <div className="w-full space-y-4">
+            <div className="flex flex-col items-center gap-4">
               {/* Primary кнопка - Присоединиться */}
               <motion.button
                 onClick={handleJoinCall}
                 disabled={!call_id}
                 whileHover={!call_id ? undefined : { scale: 1.01 }}
-                whileTap={!call_id ? undefined : { scale: 0.99 }}
+                whileTap={!call_id ? undefined : { scale: 0.98 }}
                 className={[
-                  "flex h-[60px] w-full items-center justify-center gap-3 rounded-2xl text-[17px] font-medium transition-colors",
-                  "shadow-[0_4px_20px_-4px_rgba(124,102,220,0.5)]",
+                  "flex items-center justify-center gap-2",
+                  "w-[400px] h-[60px]",
+                  "rounded-2xl",
+                  "text-white text-[16px] font-medium",
+                  "shadow-[0_4px_20px_-4px_rgba(124,102,220,0.6)]",
+                  "transition",
                   !call_id
-                    ? "cursor-not-allowed bg-[#7C66DC]/50 text-white/80"
-                    : "bg-[#7C66DC] text-white hover:bg-[#6A55CA]",
+                    ? "cursor-not-allowed bg-[#7C66DC]/50"
+                    : "bg-[#7C66DC] hover:bg-[#6f5bd1] active:scale-[0.98]",
                 ].join(" ")}
               >
-                <Video className="h-5 w-5 fill-white/20 stroke-[2]" />
+                <Video className="w-5 h-5" />
                 {t("callCreatedPage.joinButton")}
               </motion.button>
 
               {/* Secondary кнопки в ряд */}
-              <div className="grid grid-cols-2 gap-2">
-                <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-                  <button
-                    onClick={handleShare}
-                    disabled={!joinUrl}
-                    className="flex h-[40px] w-full items-center justify-center gap-2 rounded-xl border border-zinc-800/60 bg-zinc-900/60 px-3 text-zinc-200 transition-all hover:border-zinc-700 hover:bg-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Link2 className="h-3.5 w-3.5 stroke-[1.5]" />
-                    <span className="text-[13px] font-medium">{t("callCreatedPage.shareButton")}</span>
-                  </button>
-                </motion.div>
-                <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-                  <button
-                    onClick={copyLink}
-                    disabled={!joinUrl}
-                    className="flex h-[40px] w-full items-center justify-center gap-2 rounded-xl border border-zinc-800/60 bg-zinc-900/60 px-3 text-zinc-200 transition-all hover:border-zinc-700 hover:bg-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Copy className="h-3.5 w-3.5 stroke-[1.5]" />
-                    <span className="text-[13px] font-medium">{t("callCreatedPage.copyLinkButton")}</span>
-                  </button>
-                </motion.div>
+              <div className="flex items-center justify-center gap-4">
+                <motion.button
+                  onClick={handleShare}
+                  disabled={!joinUrl}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="flex items-center justify-center gap-2 w-[180px] h-[50px] rounded-xl border border-zinc-700 bg-zinc-900/60 text-white text-[13px] hover:bg-zinc-800 active:scale-[0.98] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Link2 className="w-3.5 h-3.5" />
+                  {t("callCreatedPage.shareButton")}
+                </motion.button>
+
+                <motion.button
+                  onClick={copyLink}
+                  disabled={!joinUrl}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="flex items-center justify-center gap-2 w-[180px] h-[50px] rounded-xl border border-zinc-700 bg-zinc-900/60 text-white text-[13px] hover:bg-zinc-800 active:scale-[0.98] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  {t("callCreatedPage.copyLinkButton")}
+                </motion.button>
               </div>
             </div>
           </div>
