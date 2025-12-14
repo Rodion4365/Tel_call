@@ -7,6 +7,7 @@ import sys
 
 import httpx
 
+from app.config.logging import SensitiveDataFilter
 from app.config.settings import get_settings
 
 logging.basicConfig(
@@ -14,6 +15,12 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+root_logger = logging.getLogger()
+
+settings = get_settings()
+
+root_logger.addFilter(SensitiveDataFilter(secrets=(settings.bot_token,)))
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 async def set_webhook(webhook_url: str, bot_token: str, raise_on_error: bool = True) -> bool:

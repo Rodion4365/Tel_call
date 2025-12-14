@@ -26,10 +26,8 @@ class Settings(BaseSettings):
     )
     bot_token: Optional[str] = Field(None, validation_alias="BOT_TOKEN")
     bot_username: Optional[str] = Field(None, validation_alias="BOT_USERNAME")
-    bot_webhook_url: Optional[str] = Field(
-        None,
-        validation_alias="BOT_WEBHOOK_URL",
-        description="Telegram webhook URL for auto-configuration on startup. Example: https://yourdomain.com/api/telegram/webhook",
+    bot_webhook_url: Optional[AnyUrl] = Field(
+        None, validation_alias="BOT_WEBHOOK_URL", description="Public URL for Telegram webhook"
     )
     secret_key: Optional[str] = Field(None, validation_alias="SECRET_KEY")
     access_token_expire_minutes: int = Field(
@@ -150,6 +148,9 @@ class Settings(BaseSettings):
 
         allowed = ", ".join(self.allowed_origins) if self.allowed_origins else "*"
         logger.info("CORS allowed origins: %s", allowed)
+
+        if self.bot_webhook_url:
+            logger.info("BOT_WEBHOOK_URL configured: %s", self.bot_webhook_url)
 
     @field_validator("database_url", mode="before")
     @classmethod
