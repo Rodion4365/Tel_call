@@ -46,7 +46,7 @@ class SensitiveDataFilter(logging.Filter):
 
     def __init__(self, secrets: list[str] | tuple[str, ...]):
         super().__init__()
-        self._secrets = [secret for secret in secrets if secret]
+        self._secrets = [str(secret) for secret in secrets if secret]
 
     def _mask(self, value: str) -> str:
         masked_value = value
