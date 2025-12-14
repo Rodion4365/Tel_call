@@ -15,6 +15,7 @@ from app.config.logging import configure_logging
 from app.config.settings import get_settings
 import app.models  # noqa: F401  # Ensure models are registered with metadata
 import app.services.bot_handlers  # noqa: F401  # Register bot handlers on startup
+from app.services.telegram_bot import ensure_webhook
 
 
 settings = get_settings()
@@ -47,6 +48,9 @@ async def lifespan(app: FastAPI):
     # Start background cleanup task for stale rooms
     from app.services.signaling import call_room_manager
     call_room_manager.start_cleanup_task()
+
+    # Ensure Telegram webhook is configured so bot commands reach handlers
+    await ensure_webhook()
 
     try:
         yield

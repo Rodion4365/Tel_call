@@ -10,6 +10,146 @@ from app.config.settings import get_settings
 logger = logging.getLogger(__name__)
 
 
+async def get_webhook_info() -> dict[str, Any] | None:
+    """Return Telegram webhook info or None on failure."""
+
+    settings = get_settings()
+
+    if not settings.bot_token:
+        logger.error("BOT_TOKEN is not configured, cannot fetch webhook info")
+        return None
+
+    api_url = f"https://api.telegram.org/bot{settings.bot_token}/getWebhookInfo"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(api_url, timeout=10.0)
+            response.raise_for_status()
+            payload = response.json()
+
+            if payload.get("ok"):
+                return payload.get("result", {})
+
+            logger.error("Failed to fetch webhook info: %s", payload)
+            return None
+
+    except httpx.HTTPStatusError as exc:
+        logger.error(
+            "Failed to fetch webhook info: HTTP %s - %s",
+            exc.response.status_code,
+            exc.response.text,
+        )
+        return None
+
+    except httpx.RequestError as exc:
+        logger.error("Failed to fetch webhook info: %s", str(exc))
+        return None
+
+    except Exception as exc:
+        logger.exception("Unexpected error fetching webhook info: %s", str(exc))
+        return None
+
+
+async def set_webhook(url: str) -> bool:
+    """Configure Telegram webhook to point to the provided URL."""
+
+    settings = get_settings()
+
+    if not settings.bot_token:
+        logger.error("BOT_TOKEN is not configured, cannot set webhook")
+        return False
+
+    api_url = f"https://api.telegram.org/bot{settings.bot_token}/setWebhook"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(api_url, json={"url": url}, timeout=10.0)
+            response.raise_for_status()
+
+            payload = response.json()
+
+            if payload.get("ok"):
+                logger.info("Telegram webhook set to %s", url)
+                return True
+
+            logger.error("Failed to set webhook: %s", payload)
+            return False
+
+    except httpx.HTTPStatusError as exc:
+        logger.error(
+            "Failed to set webhook: HTTP %s - %s",
+            exc.response.status_code,
+            exc.response.text,
+        )
+        return False
+
+    except httpx.RequestError as exc:
+        logger.error("Failed to set webhook: %s", str(exc))
+        return False
+
+    except Exception as exc:
+        logger.exception("Unexpected error setting webhook: %s", str(exc))
+        return False
+
+
+async def log_webhook_status() -> None:
+    """Log current webhook status to help diagnose missing replies."""
+
+    info = await get_webhook_info()
+
+    if not info:
+        logger.warning(
+            "Could not retrieve Telegram webhook info; the bot may not receive updates."
+        )
+        return
+
+    url = info.get("url") or ""
+
+    if not url:
+        logger.warning(
+            "Telegram webhook is not configured. The bot will not receive /start or /help commands."
+        )
+    else:
+        logger.info("Telegram webhook configured: %s", url)
+        logger.info(
+            "Pending updates: %s, last error: %s",
+            info.get("pending_update_count", 0),
+            info.get("last_error_message"),
+        )
+
+
+async def ensure_webhook() -> None:
+    """Ensure webhook is configured; attempt to set it when missing."""
+
+    settings = get_settings()
+
+    if not settings.bot_webhook_url:
+        logger.warning(
+            "BOT_WEBHOOK_URL is not configured; Telegram bot may not receive updates."
+        )
+        await log_webhook_status()
+        return
+
+    info = await get_webhook_info()
+
+    current_url = info.get("url") if info else None
+
+    if current_url == str(settings.bot_webhook_url):
+        logger.info("Telegram webhook already set to desired URL: %s", current_url)
+        return
+
+    logger.warning(
+        "Telegram webhook missing or different (current: %s). Attempting to set to %s.",
+        current_url or "<none>",
+        settings.bot_webhook_url,
+    )
+
+    if await set_webhook(str(settings.bot_webhook_url)):
+        logger.info("Successfully ensured Telegram webhook configuration")
+    else:
+        logger.error("Failed to configure Telegram webhook automatically")
+
+
 async def answer_inline_query(
     inline_query_id: str, results: list[dict[str, Any]], cache_time: int = 300
 ) -> bool:
