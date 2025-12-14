@@ -48,23 +48,41 @@ class SensitiveDataFilter(logging.Filter):
         super().__init__()
         self._secrets = [str(secret) for secret in secrets if secret]
 
-    def _mask(self, value: str) -> str:
+    def _mask_str(self, value: str) -> str:
+        """Mask secrets in string values while preserving other types."""
+
         masked_value = value
         for secret in self._secrets:
             masked_value = masked_value.replace(secret, "[REDACTED]")
         return masked_value
 
     def _sanitize_args(self, args: Any) -> Any:
+        """Redact string arguments without altering non-string types."""
+
         if isinstance(args, tuple):
-            return tuple(self._mask(str(arg)) for arg in args)
+            sanitized_args: list[Any] = []
+            for arg in args:
+                if isinstance(arg, str):
+                    sanitized_args.append(self._mask_str(arg))
+                else:
+                    sanitized_args.append(arg)
+            return tuple(sanitized_args)
+
         if isinstance(args, dict):
-            return {key: self._mask(str(val)) for key, val in args.items()}
-        return self._mask(str(args))
+            return {
+                key: self._mask_str(val) if isinstance(val, str) else val
+                for key, val in args.items()
+            }
+
+        if isinstance(args, str):
+            return self._mask_str(args)
+
+        return args
 
     def filter(self, record: logging.LogRecord) -> bool:  # noqa: D401 - required signature
         if self._secrets:
             if isinstance(record.msg, str):
-                record.msg = self._mask(record.msg)
+                record.msg = self._mask_str(record.msg)
             if record.args:
                 record.args = self._sanitize_args(record.args)
         return True
