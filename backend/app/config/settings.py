@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     )
     bot_token: Optional[str] = Field(None, validation_alias="BOT_TOKEN")
     bot_username: Optional[str] = Field(None, validation_alias="BOT_USERNAME")
+    bot_webhook_url: Optional[str] = Field(
+        None,
+        validation_alias="BOT_WEBHOOK_URL",
+        description="Telegram webhook URL for auto-configuration on startup. Example: https://yourdomain.com/api/telegram/webhook",
+    )
     secret_key: Optional[str] = Field(None, validation_alias="SECRET_KEY")
     access_token_expire_minutes: int = Field(
         60 * 24 * 30,

@@ -16,8 +16,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def set_webhook(webhook_url: str, bot_token: str) -> None:
-    """Set webhook for the Telegram bot."""
+async def set_webhook(webhook_url: str, bot_token: str, raise_on_error: bool = True) -> bool:
+    """
+    Set webhook for the Telegram bot.
+
+    Args:
+        webhook_url: The webhook URL to set
+        bot_token: Telegram bot token
+        raise_on_error: If True, exits on error; if False, returns False on error
+
+    Returns:
+        True if webhook was set successfully, False otherwise
+    """
 
     telegram_api_url = f"https://api.telegram.org/bot{bot_token}/setWebhook"
 
@@ -34,13 +44,18 @@ async def set_webhook(webhook_url: str, bot_token: str) -> None:
             if result.get("ok"):
                 logger.info("✅ Webhook successfully set to: %s", webhook_url)
                 logger.info("Response: %s", result.get("description", ""))
+                return True
             else:
                 logger.error("❌ Failed to set webhook: %s", result)
-                sys.exit(1)
+                if raise_on_error:
+                    sys.exit(1)
+                return False
 
         except httpx.HTTPError as e:
             logger.exception("❌ HTTP error while setting webhook: %s", str(e))
-            sys.exit(1)
+            if raise_on_error:
+                sys.exit(1)
+            return False
 
 
 async def get_webhook_info(bot_token: str) -> None:
@@ -87,6 +102,53 @@ async def delete_webhook(bot_token: str) -> None:
 
         except httpx.HTTPError as e:
             logger.exception("❌ HTTP error while deleting webhook: %s", str(e))
+
+
+async def configure_webhook_on_startup(webhook_url: str, bot_token: str) -> None:
+    """
+    Configure webhook on application startup.
+
+    Checks current webhook status and sets it if needed.
+    This is called automatically during app startup if BOT_WEBHOOK_URL is configured.
+
+    Args:
+        webhook_url: The webhook URL to configure
+        bot_token: Telegram bot token
+    """
+
+    telegram_api_url = f"https://api.telegram.org/bot{bot_token}/getWebhookInfo"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(telegram_api_url, timeout=30.0)
+            response.raise_for_status()
+            result = response.json()
+
+            if not result.get("ok"):
+                logger.warning("Failed to get webhook info: %s", result)
+                return
+
+            info = result.get("result", {})
+            current_url = info.get("url", "")
+
+            # Check if webhook is already set to the correct URL
+            if current_url == webhook_url:
+                logger.info("Telegram webhook is already configured: %s", webhook_url)
+                return
+
+            # Set webhook to new URL
+            logger.info("Configuring Telegram webhook to: %s", webhook_url)
+            success = await set_webhook(webhook_url, bot_token, raise_on_error=False)
+
+            if success:
+                logger.info("Telegram webhook auto-configuration successful")
+            else:
+                logger.warning("Telegram webhook auto-configuration failed. Commands may not work.")
+
+    except httpx.HTTPError as e:
+        logger.warning("Failed to auto-configure webhook: %s", str(e))
+    except Exception as e:
+        logger.exception("Unexpected error during webhook auto-configuration: %s", str(e))
 
 
 async def main() -> None:

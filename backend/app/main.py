@@ -48,6 +48,19 @@ async def lifespan(app: FastAPI):
     from app.services.signaling import call_room_manager
     call_room_manager.start_cleanup_task()
 
+    # Configure Telegram webhook if BOT_WEBHOOK_URL is set
+    if settings.bot_token and settings.bot_webhook_url:
+        from app.tasks.set_webhook import configure_webhook_on_startup
+        try:
+            await configure_webhook_on_startup(settings.bot_webhook_url, settings.bot_token)
+        except Exception:
+            logger.exception("Failed to configure Telegram webhook on startup")
+    elif settings.bot_token and not settings.bot_webhook_url:
+        logger.warning(
+            "Telegram webhook is not configured. The bot will not receive /start or /help commands. "
+            "Set BOT_WEBHOOK_URL to auto-configure."
+        )
+
     try:
         yield
     except asyncio.CancelledError:
