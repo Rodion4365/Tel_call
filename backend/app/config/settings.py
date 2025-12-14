@@ -26,6 +26,19 @@ class Settings(BaseSettings):
     )
     bot_token: Optional[str] = Field(None, validation_alias="BOT_TOKEN")
     bot_username: Optional[str] = Field(None, validation_alias="BOT_USERNAME")
+    bot_webhook_url: Optional[AnyUrl] = Field(
+        None, validation_alias="BOT_WEBHOOK_URL", description="Public URL for Telegram webhook"
+    )
+    public_base_url: Optional[AnyUrl] = Field(
+        None,
+        validation_alias="PUBLIC_BASE_URL",
+        description="Public base URL of the backend (used to derive webhook URL)",
+    )
+    render_external_url: Optional[AnyUrl] = Field(
+        None,
+        validation_alias="RENDER_EXTERNAL_URL",
+        description="Render-provided public URL (used as fallback for webhook URL)",
+    )
     secret_key: Optional[str] = Field(None, validation_alias="SECRET_KEY")
     access_token_expire_minutes: int = Field(
         60 * 24 * 30,
@@ -145,6 +158,28 @@ class Settings(BaseSettings):
 
         allowed = ", ".join(self.allowed_origins) if self.allowed_origins else "*"
         logger.info("CORS allowed origins: %s", allowed)
+
+        if self.bot_webhook_url:
+            logger.info("BOT_WEBHOOK_URL configured: %s", self.bot_webhook_url)
+
+        if self.public_base_url:
+            logger.info("PUBLIC_BASE_URL configured: %s", self.public_base_url)
+
+        if self.render_external_url:
+            logger.info("RENDER_EXTERNAL_URL detected: %s", self.render_external_url)
+
+    def resolved_webhook_url(self) -> str | None:
+        """Return explicit webhook URL or derive it from public base URL values."""
+
+        if self.bot_webhook_url:
+            return str(self.bot_webhook_url)
+
+        base_url = self.public_base_url or self.render_external_url
+
+        if not base_url:
+            return None
+
+        return f"{str(base_url).rstrip('/')}/api/telegram/webhook"
 
     @field_validator("database_url", mode="before")
     @classmethod
