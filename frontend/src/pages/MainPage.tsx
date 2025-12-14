@@ -75,7 +75,7 @@ const MainPage: React.FC = () => {
   const isPrimaryDisabled = !user || isCreating || isAuthorizing;
   return (
     <MobileFrame>
-      <div className="relative flex h-full flex-col justify-start text-white pt-5">
+      <div className="relative flex h-full flex-col justify-start text-white pt-5 bg-black">
         {/* Header row: Заголовок по центру, Settings справа */}
         <div className="relative flex items-center justify-center px-6 mb-8">
           <h1 className="text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
