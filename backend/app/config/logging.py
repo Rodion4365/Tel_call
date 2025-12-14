@@ -41,6 +41,35 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
             log_record["line"] = record.lineno
 
 
+class SensitiveDataFilter(logging.Filter):
+    """Redact sensitive values such as tokens from log output."""
+
+    def __init__(self, secrets: list[str] | tuple[str, ...]):
+        super().__init__()
+        self._secrets = [secret for secret in secrets if secret]
+
+    def _mask(self, value: str) -> str:
+        masked_value = value
+        for secret in self._secrets:
+            masked_value = masked_value.replace(secret, "[REDACTED]")
+        return masked_value
+
+    def _sanitize_args(self, args: Any) -> Any:
+        if isinstance(args, tuple):
+            return tuple(self._mask(str(arg)) for arg in args)
+        if isinstance(args, dict):
+            return {key: self._mask(str(val)) for key, val in args.items()}
+        return self._mask(str(args))
+
+    def filter(self, record: logging.LogRecord) -> bool:  # noqa: D401 - required signature
+        if self._secrets:
+            if isinstance(record.msg, str):
+                record.msg = self._mask(record.msg)
+            if record.args:
+                record.args = self._sanitize_args(record.args)
+        return True
+
+
 def configure_logging() -> None:
     """Configure logging with JSON formatter for production or simple formatter for development."""
     settings = get_settings()
@@ -69,8 +98,16 @@ def configure_logging() -> None:
         log_level = logging.INFO
 
     console_handler.setFormatter(formatter)
+    console_handler.addFilter(
+        SensitiveDataFilter(
+            secrets=(settings.bot_token, settings.secret_key, settings.database_url)
+        )
+    )
     root_logger.addHandler(console_handler)
     root_logger.setLevel(log_level)
+
+    # Prevent third-party libraries like httpx from logging sensitive URLs
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
     # Set uvicorn loggers to use same format
     for logger_name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
