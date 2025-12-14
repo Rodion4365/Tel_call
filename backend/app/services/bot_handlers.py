@@ -80,7 +80,8 @@ async def cmd_start(message: types.Message) -> None:
 Теперь вы сможете создавать звонки и разговаривать в Telegram."""
 
     # Формируем URL для открытия mini app
-    mini_app_url = f"https://t.me/{bot_username}/app"
+    # Используем ?startapp для корректного открытия Mini App
+    mini_app_url = f"https://t.me/{bot_username}?startapp"
 
     logger.info("[cmd_start] Sending welcome message with mini_app_url=%s", mini_app_url)
 
