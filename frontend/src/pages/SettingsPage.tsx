@@ -36,7 +36,7 @@ const SettingsPage: React.FC = () => {
 
   return (
     <MobileFrame>
-      <div className="relative flex h-full flex-col justify-start text-white pt-5 overflow-y-auto pb-20">
+      <div className="relative flex h-full flex-col justify-start text-white pt-5 overflow-y-auto pb-20 bg-black">
         <TopBar showBack={false} backTo="/" />
         <div className="px-5 pt-2 max-w-md mx-auto space-y-6">
           {/* Language Card */}

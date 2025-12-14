@@ -27,13 +27,37 @@ cp .env.example .env
 ```env
 BOT_TOKEN=your_bot_token_here
 BOT_USERNAME=your_bot_username
+BOT_WEBHOOK_URL=https://yourdomain.com/api/telegram/webhook  # Опционально - для автоматической настройки
 DATABASE_URL=sqlite+aiosqlite:///./app.db
 SECRET_KEY=your-secret-key-here
 ```
 
+**Важно:** Если вы установите `BOT_WEBHOOK_URL`, webhook будет автоматически настроен при старте приложения.
+
 ### 3. Установите webhook
 
-#### Вариант A: Для продакшена (с доменом)
+**Важно:** Существует два способа настройки webhook:
+
+#### Вариант A: Автоматическая настройка (рекомендуется для продакшена)
+Если вы установили переменную `BOT_WEBHOOK_URL` в `.env`, webhook будет автоматически настроен при каждом запуске приложения.
+
+```env
+BOT_WEBHOOK_URL=https://tel-call.onrender.com/api/telegram/webhook
+```
+
+При старте приложения вы увидите в логах:
+```
+INFO - Telegram webhook is already configured: https://tel-call.onrender.com/api/telegram/webhook
+```
+или
+```
+INFO - Configuring Telegram webhook to: https://tel-call.onrender.com/api/telegram/webhook
+INFO - Telegram webhook auto-configuration successful
+```
+
+Этот метод особенно удобен для деплоя на Render, Heroku или других платформах, где URL известен заранее.
+
+#### Вариант B: Ручная настройка через скрипт (для продакшена без автонастройки)
 ```bash
 # Запустите backend сервер
 make run
@@ -45,7 +69,7 @@ make webhook-set WEBHOOK_URL=https://yourdomain.com/api/telegram/webhook
 python -m app.tasks.set_webhook set https://yourdomain.com/api/telegram/webhook
 ```
 
-#### Вариант B: Для локальной разработки (с ngrok)
+#### Вариант C: Для локальной разработки (с ngrok)
 ```bash
 # 1. Запустите backend сервер
 make run
