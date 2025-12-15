@@ -132,11 +132,11 @@ const MainPage: React.FC = () => {
                 </motion.div>
               </div>
 
-              {/* Статус авторизации - показывать только при ошибке авторизации */}
-              {authError ? (
+              {/* Ошибки */}
+              {(authError || error) ? (
                 <div className="flex items-center justify-center gap-2 pt-2">
                   <p className="text-center text-[13px] text-red-400">
-                    {t("mainPage.errorAuthRequired")}
+                    {error || t("mainPage.errorAuthRequired")}
                   </p>
                   <button
                     onClick={handleRefresh}
