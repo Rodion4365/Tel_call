@@ -1722,7 +1722,7 @@ const CallPage: React.FC = () => {
 
         <button
           type="button"
-          className="w-14 h-14 rounded-full bg-[#FF5252] flex items-center justify-center text-white hover:bg-[#FF1744] transition-all shadow-lg shadow-red-500/20"
+          className="w-14 h-14 rounded-full bg-[#ff0000] flex items-center justify-center text-white hover:bg-[#cc0000] transition-all shadow-lg shadow-red-500/20"
           onClick={leaveCall}
           aria-label="Выйти"
         >
