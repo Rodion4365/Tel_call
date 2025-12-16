@@ -19,6 +19,8 @@ type SignalingMessage =
   | { type: "participants_snapshot"; participants: SignalingUser[] }
   | { type: "user_joined"; user: SignalingUser }
   | { type: "user_left"; user: SignalingUser }
+  | { type: "user_disconnected"; user: SignalingUser }
+  | { type: "user_reconnected"; user: SignalingUser }
   | { type: "call_ended"; reason: string }
   | { type: "error"; detail: string }
   | { type: "offer"; payload: RTCSessionDescriptionInit; from_user: SignalingUser }
@@ -46,6 +48,7 @@ interface Participant {
   hasRemoteAudio?: boolean;
   iceConnectionState?: RTCPeerConnectionState | null;
   stream?: MediaStream;
+  isReconnecting?: boolean;
 }
 
 const PARTICIPANT_COLORS = [
@@ -1242,6 +1245,30 @@ const CallPage: React.FC = () => {
         return;
       }
 
+      if (message.type === "user_disconnected") {
+        // Помечаем участника как переподключающегося
+        const participantId = String(message.user.id);
+        updateParticipant({
+          id: participantId,
+          isReconnecting: true,
+        });
+        // eslint-disable-next-line no-console
+        console.log("[Reconnect] User disconnected, waiting for reconnection", { participantId });
+        return;
+      }
+
+      if (message.type === "user_reconnected") {
+        // Снимаем флаг переподключения
+        const participantId = String(message.user.id);
+        updateParticipant({
+          id: participantId,
+          isReconnecting: false,
+        });
+        // eslint-disable-next-line no-console
+        console.log("[Reconnect] User reconnected successfully", { participantId });
+        return;
+      }
+
       if (message.type === "user_left") {
         cleanupPeer(String(message.user.id));
         return;
@@ -1611,6 +1638,14 @@ const CallPage: React.FC = () => {
                     <span className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-sm rounded-lg text-xs font-medium text-white">
                       Вы
                     </span>
+                  ) : null}
+
+                  {/* Индикатор переподключения */}
+                  {participant.isReconnecting && !participant.isCurrentUser ? (
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
+                      <div className="w-8 h-8 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span className="text-sm font-medium text-white">Переподключение...</span>
+                    </div>
                   ) : null}
                 </div>
 
