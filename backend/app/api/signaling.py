@@ -271,42 +271,58 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
     await websocket.accept(subprotocol=subprotocol)
     room = await call_room_manager.get_room(call_id)
     serialized_user = _serialize_user(user)
-    await room.add_participant(user.id, websocket, serialized_user)
 
-    # Сохраняем участника в БД для истории звонков
+    # Проверяем, есть ли отключенный участник (для переподключения)
+    is_reconnecting, existing_participant_db_id = await room.reconnect_participant(user.id, websocket)
+
     participant_db_id: int | None = None
-    async with session_scope() as session:
-        # Проверяем, есть ли уже запись об участии (без left_at)
-        result = await session.execute(
-            select(Participant).where(
-                Participant.call_id == call.id,
-                Participant.user_id == user.id,
-                Participant.left_at.is_(None),
-            )
-        )
-        existing_participant = result.scalar_one_or_none()
 
-        if not existing_participant:
-            # Создаём новую запись
-            participant = Participant(call_id=call.id, user_id=user.id)
-            session.add(participant)
-            await session.commit()
-            await session.refresh(participant)
-            participant_db_id = participant.id
-            logger.info(
-                "Created participant record id=%s for user_id=%s in call_id=%s",
-                participant.id,
-                user.id,
-                call_id,
+    if is_reconnecting:
+        # Это переподключение - используем существующую запись
+        participant_db_id = existing_participant_db_id
+        logger.info(
+            "User %s is reconnecting to call %s (participant_db_id=%s)",
+            user.id,
+            call_id,
+            participant_db_id,
+        )
+    else:
+        # Новое подключение - создаем запись
+        async with session_scope() as session:
+            # Проверяем, есть ли уже запись об участии (без left_at)
+            result = await session.execute(
+                select(Participant).where(
+                    Participant.call_id == call.id,
+                    Participant.user_id == user.id,
+                    Participant.left_at.is_(None),
+                )
             )
-        else:
-            participant_db_id = existing_participant.id
-            logger.info(
-                "Reusing existing participant record id=%s for user_id=%s in call_id=%s",
-                existing_participant.id,
-                user.id,
-                call_id,
-            )
+            existing_participant = result.scalar_one_or_none()
+
+            if not existing_participant:
+                # Создаём новую запись
+                participant = Participant(call_id=call.id, user_id=user.id)
+                session.add(participant)
+                await session.commit()
+                await session.refresh(participant)
+                participant_db_id = participant.id
+                logger.info(
+                    "Created participant record id=%s for user_id=%s in call_id=%s",
+                    participant.id,
+                    user.id,
+                    call_id,
+                )
+            else:
+                participant_db_id = existing_participant.id
+                logger.info(
+                    "Reusing existing participant record id=%s for user_id=%s in call_id=%s",
+                    existing_participant.id,
+                    user.id,
+                    call_id,
+                )
+
+        # Добавляем участника в комнату
+        await room.add_participant(user.id, websocket, serialized_user, participant_db_id)
 
     # Создаём/обновляем friend_links между текущим пользователем и другими участниками звонка
     async with session_scope() as session:
@@ -349,7 +365,17 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
             [participant.get("id") for participant in existing_participants],
         )
 
-    await room.broadcast({"type": "user_joined", "user": serialized_user}, sender_id=user.id)
+    # Отправляем разные события в зависимости от того, это переподключение или новое подключение
+    if is_reconnecting:
+        reconnected_at = datetime.now(tz=timezone.utc)
+        await room.broadcast({
+            "type": "user_reconnected",
+            "user": serialized_user,
+            "reconnected_at": reconnected_at.isoformat(),
+        }, sender_id=user.id)
+        logger.info("User %s reconnected to call %s", user.id, call_id)
+    else:
+        await room.broadcast({"type": "user_joined", "user": serialized_user}, sender_id=user.id)
 
     # Таймер максимальной длительности звонка
     settings = get_settings()
@@ -459,24 +485,71 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
         if not call_timeout_task.done():
             call_timeout_task.cancel()
 
-        # Обновляем время выхода участника из звонка
-        if participant_db_id is not None:
-            async with session_scope() as session:
-                result = await session.execute(
-                    select(Participant).where(Participant.id == participant_db_id)
-                )
-                participant = result.scalar_one_or_none()
-                if participant and participant.left_at is None:
-                    participant.left_at = datetime.now(tz=timezone.utc)
-                    await session.commit()
+        # Помечаем участника как отключенного и запускаем grace period
+        await room.mark_disconnected(user.id)
+        disconnected_at = datetime.now(tz=timezone.utc)
+        await room.broadcast({
+            "type": "user_disconnected",
+            "user": serialized_user,
+            "disconnected_at": disconnected_at.isoformat(),
+            "grace_period_sec": settings.reconnect_grace_period_seconds,
+        }, sender_id=user.id)
+        logger.info(
+            "User %s disconnected from call %s, starting %s second grace period",
+            user.id,
+            call_id,
+            settings.reconnect_grace_period_seconds,
+        )
+
+        # Создаём задачу отложенного удаления
+        async def delayed_cleanup():
+            """Wait for grace period, then remove participant if still disconnected."""
+            await asyncio.sleep(settings.reconnect_grace_period_seconds)
+
+            # Проверяем, всё ещё ли участник отключен
+            async with room._lock:
+                connection = room._participants.get(user.id)
+                if connection and connection.is_disconnected:
+                    # Участник не переподключился - удаляем окончательно
                     logger.info(
-                        "Updated participant record id=%s left_at for user_id=%s in call_id=%s",
-                        participant_db_id,
+                        "Grace period expired for user %s in call %s, removing participant",
                         user.id,
                         call_id,
                     )
 
-        await room.remove_participant(user.id)
-        await room.broadcast({"type": "user_left", "user": _serialize_user(user)}, sender_id=user.id)
-        await call_room_manager.cleanup_room(call_id)
-        logger.info("Cleaned up WebSocket session for user %s in call %s", user.id, call_id)
+                    # Обновляем время выхода участника из звонка
+                    if participant_db_id is not None:
+                        async with session_scope() as session:
+                            result = await session.execute(
+                                select(Participant).where(Participant.id == participant_db_id)
+                            )
+                            participant = result.scalar_one_or_none()
+                            if participant and participant.left_at is None:
+                                participant.left_at = datetime.now(tz=timezone.utc)
+                                await session.commit()
+                                logger.info(
+                                    "Updated participant record id=%s left_at for user_id=%s in call_id=%s",
+                                    participant_db_id,
+                                    user.id,
+                                    call_id,
+                                )
+
+                    await room.remove_participant(user.id)
+                    left_at = datetime.now(tz=timezone.utc)
+                    await room.broadcast({
+                        "type": "user_left",
+                        "user": serialized_user,
+                        "left_at": left_at.isoformat(),
+                        "reason": "grace_timeout",
+                    }, sender_id=user.id)
+                    await call_room_manager.cleanup_room(call_id)
+                    logger.info("Removed participant %s from call %s after grace period", user.id, call_id)
+                else:
+                    logger.info(
+                        "User %s reconnected before grace period expired in call %s",
+                        user.id,
+                        call_id,
+                    )
+
+        cleanup_task = asyncio.create_task(delayed_cleanup())
+        await room.set_cleanup_task(user.id, cleanup_task)
