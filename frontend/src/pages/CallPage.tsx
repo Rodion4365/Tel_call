@@ -112,6 +112,10 @@ const CallPage: React.FC = () => {
   const speakingCheckIntervalRef = useRef<number | null>(null);
   const connectionSoundPlayedRef = useRef(false);
   const [reconnectTimers, setReconnectTimers] = useState<Map<string, number>>(new Map());
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectAttempts = 5;
+  const isIntentionalDisconnectRef = useRef(false);
 
   // eslint-disable-next-line no-console
   console.log("[CallPage] Rendering", {
@@ -1457,11 +1461,12 @@ const CallPage: React.FC = () => {
     }
 
     let socket: WebSocket | null = null;
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 
-    const connectWebSocket = async () => {
+    const connectWebSocket = async (isReconnectAttempt = false) => {
       try {
         // eslint-disable-next-line no-console
-        console.log("[CallPage] Getting WebSocket token...");
+        console.log("[CallPage] Getting WebSocket token...", { isReconnectAttempt });
         // Get WebSocket token from httpOnly cookie
         const token = await getToken();
         // eslint-disable-next-line no-console
@@ -1471,6 +1476,7 @@ const CallPage: React.FC = () => {
 
         if (!baseUrl) {
           setCallError("Не удалось определить адрес WebSocket сервера");
+          setIsReconnecting(false);
           return;
         }
 
@@ -1478,7 +1484,7 @@ const CallPage: React.FC = () => {
         const protocols = token ? [`token.${token}`] : undefined;
 
         // eslint-disable-next-line no-console
-        console.log("[Call] connecting to signaling", { url, hasToken: Boolean(token) });
+        console.log("[Call] connecting to signaling", { url, hasToken: Boolean(token), isReconnectAttempt });
 
         socket = protocols ? new WebSocket(url, protocols) : new WebSocket(url);
 
@@ -1486,8 +1492,10 @@ const CallPage: React.FC = () => {
 
     socket.onopen = () => {
       // eslint-disable-next-line no-console
-      console.log("[WS] signaling socket opened", { url, protocols });
+      console.log("[WS] signaling socket opened", { url, protocols, isReconnectAttempt });
       setCallConnected(true);
+      setIsReconnecting(false);
+      reconnectAttemptsRef.current = 0; // Сбрасываем счетчик при успешном подключении
     };
 
     socket.onmessage = (event) => {
@@ -1502,9 +1510,9 @@ const CallPage: React.FC = () => {
       }
     };
 
-    socket.onerror = () => {
-      socket.close();
-      handleConnectionErrorRef.current?.("Ошибка соединения с сервером", true);
+    socket.onerror = (error) => {
+      // eslint-disable-next-line no-console
+      console.error("[WS] socket error", error);
     };
 
     socket.onclose = (event) => {
@@ -1513,28 +1521,66 @@ const CallPage: React.FC = () => {
         code: event.code,
         reason: event.reason,
         wasClean: event.wasClean,
+        isIntentional: isIntentionalDisconnectRef.current,
       });
 
       websocketRef.current = null;
       setCallConnected(false);
 
-      // Проверяем, является ли причина закрытия ошибкой "звонок не найден"
+      // Если это намеренное отключение (пользователь нажал "выйти"), не переподключаемся
+      if (isIntentionalDisconnectRef.current) {
+        clearConnectionsRef.current?.();
+        return;
+      }
+
+      // Проверяем, является ли причина закрытия ошибкой "звонок не найден" или другой критической ошибкой
       const reason = event.reason?.toLowerCase() || "";
       const isCallNotFound =
         reason.includes("call not found") ||
         reason.includes("звонок не найден") ||
         reason.includes("please create a new call") ||
-        event.code === 1008; // Policy Violation code
+        reason.includes("call has ended") ||
+        reason.includes("call is not available") ||
+        event.code === 1008 || // Policy Violation
+        event.code === 4404 || // Custom: call not found
+        event.code === 4401;   // Custom: authentication failed
 
-      if (!event.wasClean) {
-        const errorMessage = isCallNotFound
-          ? "Звонок завершён"
-          : "Соединение с сервером закрыто";
+      // Критические ошибки - не пытаемся переподключиться
+      if (isCallNotFound) {
+        const errorMessage = "Звонок завершён";
         handleConnectionErrorRef.current?.(errorMessage, true, true);
+        setIsReconnecting(false);
         return;
       }
 
-      clearConnectionsRef.current?.();
+      // Для остальных случаев пытаемся переподключиться
+      if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+        reconnectAttemptsRef.current += 1;
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current - 1), 10000); // exponential backoff, max 10s
+
+        // eslint-disable-next-line no-console
+        console.log("[WS] Attempting to reconnect", {
+          attempt: reconnectAttemptsRef.current,
+          maxAttempts: maxReconnectAttempts,
+          delayMs: delay,
+        });
+
+        setIsReconnecting(true);
+
+        reconnectTimeout = setTimeout(() => {
+          void connectWebSocket(true);
+        }, delay);
+      } else {
+        // Исчерпаны попытки переподключения
+        // eslint-disable-next-line no-console
+        console.error("[WS] Max reconnection attempts reached");
+        const errorMessage = event.wasClean
+          ? "Соединение с сервером закрыто"
+          : "Не удалось восстановить соединение";
+        handleConnectionErrorRef.current?.(errorMessage, true, true);
+        setIsReconnecting(false);
+        clearConnectionsRef.current?.();
+      }
     };
       } catch (error) {
         // eslint-disable-next-line no-console
@@ -1543,21 +1589,41 @@ const CallPage: React.FC = () => {
           errorMessage: error instanceof Error ? error.message : String(error),
           callId,
         });
-        setCallError("Не удалось подключиться к звонку");
+
+        // Если это не первая попытка и не достигнут лимит - пытаемся снова
+        if (isReconnectAttempt && reconnectAttemptsRef.current < maxReconnectAttempts) {
+          reconnectAttemptsRef.current += 1;
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current - 1), 10000);
+          setIsReconnecting(true);
+          reconnectTimeout = setTimeout(() => {
+            void connectWebSocket(true);
+          }, delay);
+        } else {
+          setCallError("Не удалось подключиться к звонку");
+          setIsReconnecting(false);
+        }
       }
     };
 
     // eslint-disable-next-line no-console
     console.log("[CallPage] Starting WebSocket connection...");
-    void connectWebSocket();
+    isIntentionalDisconnectRef.current = false;
+    void connectWebSocket(false);
 
     return () => {
       // ТЗ 2: При переходе в другой звонок по новой ссылке - выходим из текущего
+      isIntentionalDisconnectRef.current = true;
+
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+
       if (socket) {
         socket.close();
       }
       websocketRef.current = null;
       setCallConnected(false);
+      setIsReconnecting(false);
 
       clearConnectionsRef.current?.();
 
@@ -1589,6 +1655,7 @@ const CallPage: React.FC = () => {
   };
 
   const leaveCall = () => {
+    isIntentionalDisconnectRef.current = true;
     websocketRef.current?.close();
     clearConnections();
     stopLocalMedia();
@@ -1601,6 +1668,18 @@ const CallPage: React.FC = () => {
   return (
     <div className="h-full w-full bg-gradient-to-b from-[#0f111a] to-black text-white font-sans flex flex-col relative overflow-hidden">
       <main className="flex-1 flex flex-col gap-3 p-4 pb-32">
+        {isReconnecting && (
+          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-4 mb-4 flex items-center gap-3" role="alert">
+            <div className="w-5 h-5 border-2 border-yellow-500/40 border-t-yellow-400 rounded-full animate-spin" />
+            <div>
+              <p className="font-semibold text-yellow-200 mb-1">Переподключение к звонку...</p>
+              <p className="text-sm text-yellow-300/80">
+                Попытка {reconnectAttemptsRef.current} из {maxReconnectAttempts}
+              </p>
+            </div>
+          </div>
+        )}
+
         {callError ? (
           <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mb-4" role="alert">
             <p className="font-semibold text-red-200 mb-1">{callError}</p>
