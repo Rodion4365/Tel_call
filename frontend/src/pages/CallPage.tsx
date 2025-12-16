@@ -18,9 +18,7 @@ type SignalingMessage =
   | { type: "call_metadata"; room_start_time: string }
   | { type: "participants_snapshot"; participants: SignalingUser[] }
   | { type: "user_joined"; user: SignalingUser }
-  | { type: "user_left"; user: SignalingUser; left_at?: string; reason?: string }
-  | { type: "user_disconnected"; user: SignalingUser; disconnected_at: string; grace_period_sec: number }
-  | { type: "user_reconnected"; user: SignalingUser; reconnected_at: string }
+  | { type: "user_left"; user: SignalingUser }
   | { type: "call_ended"; reason: string }
   | { type: "error"; detail: string }
   | { type: "offer"; payload: RTCSessionDescriptionInit; from_user: SignalingUser }
@@ -48,9 +46,6 @@ interface Participant {
   hasRemoteAudio?: boolean;
   iceConnectionState?: RTCPeerConnectionState | null;
   stream?: MediaStream;
-  isReconnecting?: boolean;
-  reconnectDeadline?: number; // timestamp когда истекает grace period
-  gracePeriodSeconds?: number; // длительность grace period
 }
 
 const PARTICIPANT_COLORS = [
@@ -111,11 +106,6 @@ const CallPage: React.FC = () => {
   const audioContextsRef = useRef<Map<string, { context: AudioContext; analyser: AnalyserNode; dataArray: Uint8Array }>>(new Map());
   const speakingCheckIntervalRef = useRef<number | null>(null);
   const connectionSoundPlayedRef = useRef(false);
-  const [reconnectTimers, setReconnectTimers] = useState<Map<string, number>>(new Map());
-  const [isReconnecting, setIsReconnecting] = useState(false);
-  const reconnectAttemptsRef = useRef(0);
-  const maxReconnectAttempts = 5;
-  const isIntentionalDisconnectRef = useRef(false);
 
   // eslint-disable-next-line no-console
   console.log("[CallPage] Rendering", {
@@ -1252,45 +1242,6 @@ const CallPage: React.FC = () => {
         return;
       }
 
-      if (message.type === "user_disconnected") {
-        // Помечаем участника как переподключающегося с таймером
-        const participantId = String(message.user.id);
-        const disconnectedAt = new Date(message.disconnected_at).getTime();
-        const gracePeriodMs = message.grace_period_sec * 1000;
-        const deadline = disconnectedAt + gracePeriodMs;
-
-        updateParticipant({
-          id: participantId,
-          isReconnecting: true,
-          reconnectDeadline: deadline,
-          gracePeriodSeconds: message.grace_period_sec,
-        });
-        // eslint-disable-next-line no-console
-        console.log("[Reconnect] User disconnected, waiting for reconnection", {
-          participantId,
-          gracePeriodSec: message.grace_period_sec,
-          deadline: new Date(deadline).toISOString(),
-        });
-        return;
-      }
-
-      if (message.type === "user_reconnected") {
-        // Снимаем флаг переподключения
-        const participantId = String(message.user.id);
-        updateParticipant({
-          id: participantId,
-          isReconnecting: false,
-          reconnectDeadline: undefined,
-          gracePeriodSeconds: undefined,
-        });
-        // eslint-disable-next-line no-console
-        console.log("[Reconnect] User reconnected successfully", {
-          participantId,
-          reconnectedAt: message.reconnected_at,
-        });
-        return;
-      }
-
       if (message.type === "user_left") {
         cleanupPeer(String(message.user.id));
         return;
@@ -1339,27 +1290,6 @@ const CallPage: React.FC = () => {
     handleConnectionErrorRef.current = handleConnectionError;
     clearConnectionsRef.current = clearConnections;
   });
-
-  // Обновление таймеров переподключения каждую секунду
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
-      setReconnectTimers((prev) => {
-        const next = new Map(prev);
-        participants.forEach((p) => {
-          if (p.isReconnecting && p.reconnectDeadline) {
-            const remaining = Math.max(0, Math.ceil((p.reconnectDeadline - now) / 1000));
-            next.set(p.id, remaining);
-          } else {
-            next.delete(p.id);
-          }
-        });
-        return next;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [participants]);
 
   // Интервал для проверки говорящих участников
   useEffect(() => {
@@ -1461,12 +1391,11 @@ const CallPage: React.FC = () => {
     }
 
     let socket: WebSocket | null = null;
-    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 
-    const connectWebSocket = async (isReconnectAttempt = false) => {
+    const connectWebSocket = async () => {
       try {
         // eslint-disable-next-line no-console
-        console.log("[CallPage] Getting WebSocket token...", { isReconnectAttempt });
+        console.log("[CallPage] Getting WebSocket token...");
         // Get WebSocket token from httpOnly cookie
         const token = await getToken();
         // eslint-disable-next-line no-console
@@ -1476,7 +1405,6 @@ const CallPage: React.FC = () => {
 
         if (!baseUrl) {
           setCallError("Не удалось определить адрес WebSocket сервера");
-          setIsReconnecting(false);
           return;
         }
 
@@ -1484,7 +1412,7 @@ const CallPage: React.FC = () => {
         const protocols = token ? [`token.${token}`] : undefined;
 
         // eslint-disable-next-line no-console
-        console.log("[Call] connecting to signaling", { url, hasToken: Boolean(token), isReconnectAttempt });
+        console.log("[Call] connecting to signaling", { url, hasToken: Boolean(token) });
 
         socket = protocols ? new WebSocket(url, protocols) : new WebSocket(url);
 
@@ -1492,10 +1420,8 @@ const CallPage: React.FC = () => {
 
     socket.onopen = () => {
       // eslint-disable-next-line no-console
-      console.log("[WS] signaling socket opened", { url, protocols, isReconnectAttempt });
+      console.log("[WS] signaling socket opened", { url, protocols });
       setCallConnected(true);
-      setIsReconnecting(false);
-      reconnectAttemptsRef.current = 0; // Сбрасываем счетчик при успешном подключении
     };
 
     socket.onmessage = (event) => {
@@ -1510,9 +1436,9 @@ const CallPage: React.FC = () => {
       }
     };
 
-    socket.onerror = (error) => {
-      // eslint-disable-next-line no-console
-      console.error("[WS] socket error", error);
+    socket.onerror = () => {
+      socket.close();
+      handleConnectionErrorRef.current?.("Ошибка соединения с сервером", true);
     };
 
     socket.onclose = (event) => {
@@ -1521,66 +1447,28 @@ const CallPage: React.FC = () => {
         code: event.code,
         reason: event.reason,
         wasClean: event.wasClean,
-        isIntentional: isIntentionalDisconnectRef.current,
       });
 
       websocketRef.current = null;
       setCallConnected(false);
 
-      // Если это намеренное отключение (пользователь нажал "выйти"), не переподключаемся
-      if (isIntentionalDisconnectRef.current) {
-        clearConnectionsRef.current?.();
-        return;
-      }
-
-      // Проверяем, является ли причина закрытия ошибкой "звонок не найден" или другой критической ошибкой
+      // Проверяем, является ли причина закрытия ошибкой "звонок не найден"
       const reason = event.reason?.toLowerCase() || "";
       const isCallNotFound =
         reason.includes("call not found") ||
         reason.includes("звонок не найден") ||
         reason.includes("please create a new call") ||
-        reason.includes("call has ended") ||
-        reason.includes("call is not available") ||
-        event.code === 1008 || // Policy Violation
-        event.code === 4404 || // Custom: call not found
-        event.code === 4401;   // Custom: authentication failed
+        event.code === 1008; // Policy Violation code
 
-      // Критические ошибки - не пытаемся переподключиться
-      if (isCallNotFound) {
-        const errorMessage = "Звонок завершён";
+      if (!event.wasClean) {
+        const errorMessage = isCallNotFound
+          ? "Звонок завершён"
+          : "Соединение с сервером закрыто";
         handleConnectionErrorRef.current?.(errorMessage, true, true);
-        setIsReconnecting(false);
         return;
       }
 
-      // Для остальных случаев пытаемся переподключиться
-      if (reconnectAttemptsRef.current < maxReconnectAttempts) {
-        reconnectAttemptsRef.current += 1;
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current - 1), 10000); // exponential backoff, max 10s
-
-        // eslint-disable-next-line no-console
-        console.log("[WS] Attempting to reconnect", {
-          attempt: reconnectAttemptsRef.current,
-          maxAttempts: maxReconnectAttempts,
-          delayMs: delay,
-        });
-
-        setIsReconnecting(true);
-
-        reconnectTimeout = setTimeout(() => {
-          void connectWebSocket(true);
-        }, delay);
-      } else {
-        // Исчерпаны попытки переподключения
-        // eslint-disable-next-line no-console
-        console.error("[WS] Max reconnection attempts reached");
-        const errorMessage = event.wasClean
-          ? "Соединение с сервером закрыто"
-          : "Не удалось восстановить соединение";
-        handleConnectionErrorRef.current?.(errorMessage, true, true);
-        setIsReconnecting(false);
-        clearConnectionsRef.current?.();
-      }
+      clearConnectionsRef.current?.();
     };
       } catch (error) {
         // eslint-disable-next-line no-console
@@ -1589,41 +1477,21 @@ const CallPage: React.FC = () => {
           errorMessage: error instanceof Error ? error.message : String(error),
           callId,
         });
-
-        // Если это не первая попытка и не достигнут лимит - пытаемся снова
-        if (isReconnectAttempt && reconnectAttemptsRef.current < maxReconnectAttempts) {
-          reconnectAttemptsRef.current += 1;
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current - 1), 10000);
-          setIsReconnecting(true);
-          reconnectTimeout = setTimeout(() => {
-            void connectWebSocket(true);
-          }, delay);
-        } else {
-          setCallError("Не удалось подключиться к звонку");
-          setIsReconnecting(false);
-        }
+        setCallError("Не удалось подключиться к звонку");
       }
     };
 
     // eslint-disable-next-line no-console
     console.log("[CallPage] Starting WebSocket connection...");
-    isIntentionalDisconnectRef.current = false;
-    void connectWebSocket(false);
+    void connectWebSocket();
 
     return () => {
       // ТЗ 2: При переходе в другой звонок по новой ссылке - выходим из текущего
-      isIntentionalDisconnectRef.current = true;
-
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
-
       if (socket) {
         socket.close();
       }
       websocketRef.current = null;
       setCallConnected(false);
-      setIsReconnecting(false);
 
       clearConnectionsRef.current?.();
 
@@ -1655,7 +1523,6 @@ const CallPage: React.FC = () => {
   };
 
   const leaveCall = () => {
-    isIntentionalDisconnectRef.current = true;
     websocketRef.current?.close();
     clearConnections();
     stopLocalMedia();
@@ -1668,18 +1535,6 @@ const CallPage: React.FC = () => {
   return (
     <div className="h-full w-full bg-gradient-to-b from-[#0f111a] to-black text-white font-sans flex flex-col relative overflow-hidden">
       <main className="flex-1 flex flex-col gap-3 p-4 pb-32">
-        {isReconnecting && (
-          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-4 mb-4 flex items-center gap-3" role="alert">
-            <div className="w-5 h-5 border-2 border-yellow-500/40 border-t-yellow-400 rounded-full animate-spin" />
-            <div>
-              <p className="font-semibold text-yellow-200 mb-1">Переподключение к звонку...</p>
-              <p className="text-sm text-yellow-300/80">
-                Попытка {reconnectAttemptsRef.current} из {maxReconnectAttempts}
-              </p>
-            </div>
-          </div>
-        )}
-
         {callError ? (
           <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mb-4" role="alert">
             <p className="font-semibold text-red-200 mb-1">{callError}</p>
@@ -1707,7 +1562,7 @@ const CallPage: React.FC = () => {
                 <div
                   className={`relative w-full rounded-2xl overflow-hidden bg-gradient-to-br from-zinc-800 to-zinc-900 aspect-[3/4] flex items-center justify-center border-2 transition-all ${
                     participant.isSpeaking ? "border-[#7C66DC] shadow-[0_0_20px_rgba(124,102,220,0.4)]" : "border-zinc-800/60"
-                  } ${participant.isReconnecting ? "opacity-60" : "opacity-100"}`}
+                  }`}
                 >
                   {participant.hasVideo && participant.stream ? (
                     <video
@@ -1756,21 +1611,6 @@ const CallPage: React.FC = () => {
                     <span className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-sm rounded-lg text-xs font-medium text-white">
                       Вы
                     </span>
-                  ) : null}
-
-                  {/* Индикатор переподключения */}
-                  {participant.isReconnecting && !participant.isCurrentUser ? (
-                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
-                      <div className="w-10 h-10 border-3 border-yellow-500/40 border-t-yellow-400 rounded-full animate-spin" />
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="text-sm font-medium text-white">Переподключение...</span>
-                        {reconnectTimers.has(participant.id) && (
-                          <span className="text-xs text-yellow-300/90 font-mono">
-                            {reconnectTimers.get(participant.id)}с
-                          </span>
-                        )}
-                      </div>
-                    </div>
                   ) : null}
                 </div>
 
