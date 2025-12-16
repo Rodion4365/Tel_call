@@ -20,6 +20,9 @@ class ParticipantConnection:
 
     websocket: WebSocket
     user: dict[str, Any]
+    participant_db_id: int | None = None  # ID записи в БД для восстановления
+    is_disconnected: bool = False  # Флаг временного отключения
+    cleanup_task: asyncio.Task | None = None  # Задача отложенного удаления
 
 
 class CallRoom:
@@ -38,8 +41,20 @@ class CallRoom:
     def is_empty(self) -> bool:
         return not self._participants
 
-    async def add_participant(self, user_id: int, websocket: WebSocket, user: dict[str, Any]) -> None:
+    async def add_participant(
+        self,
+        user_id: int,
+        websocket: WebSocket,
+        user: dict[str, Any],
+        participant_db_id: int | None = None,
+    ) -> None:
         """Register a connected user in the room.
+
+        Args:
+            user_id: User ID
+            websocket: WebSocket connection
+            user: Serialized user data
+            participant_db_id: Optional DB record ID for reconnection tracking
 
         Raises:
             HTTPException: If the room has reached maximum participant capacity.
@@ -54,7 +69,11 @@ class CallRoom:
                     detail=f"Call is full (maximum {settings.max_participants_per_call} participants allowed)",
                 )
 
-            self._participants[user_id] = ParticipantConnection(websocket, user)
+            self._participants[user_id] = ParticipantConnection(
+                websocket=websocket,
+                user=user,
+                participant_db_id=participant_db_id,
+            )
             self.last_activity = time.time()
 
         logger.info(
@@ -65,10 +84,21 @@ class CallRoom:
             settings.max_participants_per_call,
         )
 
+    async def set_cleanup_task(self, user_id: int, task: asyncio.Task) -> None:
+        """Set delayed cleanup task for a disconnected participant."""
+
+        async with self._lock:
+            connection = self._participants.get(user_id)
+            if connection:
+                connection.cleanup_task = task
+
     async def remove_participant(self, user_id: int) -> None:
         """Remove a user from the room if present."""
 
         async with self._lock:
+            connection = self._participants.get(user_id)
+            if connection and connection.cleanup_task and not connection.cleanup_task.done():
+                connection.cleanup_task.cancel()
             self._participants.pop(user_id, None)
             self.last_activity = time.time()
 
@@ -78,6 +108,56 @@ class CallRoom:
             self.call_id,
             len(self._participants),
         )
+
+    async def mark_disconnected(self, user_id: int) -> None:
+        """Mark a user as temporarily disconnected (waiting for reconnect)."""
+
+        async with self._lock:
+            connection = self._participants.get(user_id)
+            if connection:
+                connection.is_disconnected = True
+                self.last_activity = time.time()
+
+        logger.info(
+            "User %s marked as disconnected in call %s (waiting for reconnect)",
+            user_id,
+            self.call_id,
+        )
+
+    async def reconnect_participant(
+        self, user_id: int, websocket: WebSocket
+    ) -> tuple[bool, int | None]:
+        """Reconnect a previously disconnected user.
+
+        Returns:
+            tuple[bool, int | None]: (success, participant_db_id)
+        """
+
+        async with self._lock:
+            connection = self._participants.get(user_id)
+            if not connection:
+                return False, None
+
+            # Отменяем задачу удаления если она есть
+            if connection.cleanup_task and not connection.cleanup_task.done():
+                connection.cleanup_task.cancel()
+                connection.cleanup_task = None
+
+            # Обновляем websocket и снимаем флаг отключения
+            connection.websocket = websocket
+            connection.is_disconnected = False
+            self.last_activity = time.time()
+
+            participant_db_id = connection.participant_db_id
+
+        logger.info(
+            "User %s reconnected to call %s (participant_db_id=%s)",
+            user_id,
+            self.call_id,
+            participant_db_id,
+        )
+
+        return True, participant_db_id
 
     async def has_participant(self, user_id: int) -> bool:
         """Return True when the user is connected to the room."""
