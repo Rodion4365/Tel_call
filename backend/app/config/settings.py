@@ -68,11 +68,6 @@ class Settings(BaseSettings):
         validation_alias="EMPTY_ROOM_CLEANUP_MINUTES",
         description="Minutes after which empty rooms are automatically cleaned up",
     )
-    reconnect_grace_period_seconds: int = Field(
-        30,
-        validation_alias="RECONNECT_GRACE_PERIOD_SECONDS",
-        description="Seconds to wait for reconnection before marking participant as left",
-    )
 
     @staticmethod
     def _parse_csv(value: str) -> list[str]:
