@@ -130,8 +130,15 @@ async def create_call(
         await session.commit()
     except SQLAlchemyError as exc:  # pragma: no cover - runtime safety
         await session.rollback()
+        logger.error(
+            "Failed to create call for user %s: %s",
+            current_user.id,
+            str(exc),
+            exc_info=True
+        )
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database unavailable"
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database error: {str(exc)}"
         ) from exc
 
     await session.refresh(call)
