@@ -4,11 +4,16 @@ export interface ApiRequestOptions {
   headers?: Record<string, string>;
 }
 
-// URL бэкенда по умолчанию
-const DEFAULT_API_BASE_URL = "https://www.callwith.ru";
+// URL бэкенда по умолчанию - используем текущий origin
+const getDefaultApiBaseUrl = (): string => {
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+  return "";
+};
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL?.trim() || DEFAULT_API_BASE_URL;
+  import.meta.env.VITE_API_BASE_URL?.trim() || getDefaultApiBaseUrl();
 
 // eslint-disable-next-line no-console
 console.log("[apiClient] API_BASE_URL =", API_BASE_URL);
