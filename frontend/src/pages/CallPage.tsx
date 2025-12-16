@@ -18,9 +18,9 @@ type SignalingMessage =
   | { type: "call_metadata"; room_start_time: string }
   | { type: "participants_snapshot"; participants: SignalingUser[] }
   | { type: "user_joined"; user: SignalingUser }
-  | { type: "user_left"; user: SignalingUser }
-  | { type: "user_disconnected"; user: SignalingUser }
-  | { type: "user_reconnected"; user: SignalingUser }
+  | { type: "user_left"; user: SignalingUser; left_at?: string; reason?: string }
+  | { type: "user_disconnected"; user: SignalingUser; disconnected_at: string; grace_period_sec: number }
+  | { type: "user_reconnected"; user: SignalingUser; reconnected_at: string }
   | { type: "call_ended"; reason: string }
   | { type: "error"; detail: string }
   | { type: "offer"; payload: RTCSessionDescriptionInit; from_user: SignalingUser }
@@ -49,6 +49,8 @@ interface Participant {
   iceConnectionState?: RTCPeerConnectionState | null;
   stream?: MediaStream;
   isReconnecting?: boolean;
+  reconnectDeadline?: number; // timestamp когда истекает grace period
+  gracePeriodSeconds?: number; // длительность grace period
 }
 
 const PARTICIPANT_COLORS = [
@@ -109,6 +111,7 @@ const CallPage: React.FC = () => {
   const audioContextsRef = useRef<Map<string, { context: AudioContext; analyser: AnalyserNode; dataArray: Uint8Array }>>(new Map());
   const speakingCheckIntervalRef = useRef<number | null>(null);
   const connectionSoundPlayedRef = useRef(false);
+  const [reconnectTimers, setReconnectTimers] = useState<Map<string, number>>(new Map());
 
   // eslint-disable-next-line no-console
   console.log("[CallPage] Rendering", {
@@ -1246,14 +1249,24 @@ const CallPage: React.FC = () => {
       }
 
       if (message.type === "user_disconnected") {
-        // Помечаем участника как переподключающегося
+        // Помечаем участника как переподключающегося с таймером
         const participantId = String(message.user.id);
+        const disconnectedAt = new Date(message.disconnected_at).getTime();
+        const gracePeriodMs = message.grace_period_sec * 1000;
+        const deadline = disconnectedAt + gracePeriodMs;
+
         updateParticipant({
           id: participantId,
           isReconnecting: true,
+          reconnectDeadline: deadline,
+          gracePeriodSeconds: message.grace_period_sec,
         });
         // eslint-disable-next-line no-console
-        console.log("[Reconnect] User disconnected, waiting for reconnection", { participantId });
+        console.log("[Reconnect] User disconnected, waiting for reconnection", {
+          participantId,
+          gracePeriodSec: message.grace_period_sec,
+          deadline: new Date(deadline).toISOString(),
+        });
         return;
       }
 
@@ -1263,9 +1276,14 @@ const CallPage: React.FC = () => {
         updateParticipant({
           id: participantId,
           isReconnecting: false,
+          reconnectDeadline: undefined,
+          gracePeriodSeconds: undefined,
         });
         // eslint-disable-next-line no-console
-        console.log("[Reconnect] User reconnected successfully", { participantId });
+        console.log("[Reconnect] User reconnected successfully", {
+          participantId,
+          reconnectedAt: message.reconnected_at,
+        });
         return;
       }
 
@@ -1317,6 +1335,27 @@ const CallPage: React.FC = () => {
     handleConnectionErrorRef.current = handleConnectionError;
     clearConnectionsRef.current = clearConnections;
   });
+
+  // Обновление таймеров переподключения каждую секунду
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setReconnectTimers((prev) => {
+        const next = new Map(prev);
+        participants.forEach((p) => {
+          if (p.isReconnecting && p.reconnectDeadline) {
+            const remaining = Math.max(0, Math.ceil((p.reconnectDeadline - now) / 1000));
+            next.set(p.id, remaining);
+          } else {
+            next.delete(p.id);
+          }
+        });
+        return next;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [participants]);
 
   // Интервал для проверки говорящих участников
   useEffect(() => {
@@ -1589,7 +1628,7 @@ const CallPage: React.FC = () => {
                 <div
                   className={`relative w-full rounded-2xl overflow-hidden bg-gradient-to-br from-zinc-800 to-zinc-900 aspect-[3/4] flex items-center justify-center border-2 transition-all ${
                     participant.isSpeaking ? "border-[#7C66DC] shadow-[0_0_20px_rgba(124,102,220,0.4)]" : "border-zinc-800/60"
-                  }`}
+                  } ${participant.isReconnecting ? "opacity-60" : "opacity-100"}`}
                 >
                   {participant.hasVideo && participant.stream ? (
                     <video
@@ -1642,9 +1681,16 @@ const CallPage: React.FC = () => {
 
                   {/* Индикатор переподключения */}
                   {participant.isReconnecting && !participant.isCurrentUser ? (
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
-                      <div className="w-8 h-8 border-3 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span className="text-sm font-medium text-white">Переподключение...</span>
+                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
+                      <div className="w-10 h-10 border-3 border-yellow-500/40 border-t-yellow-400 rounded-full animate-spin" />
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-sm font-medium text-white">Переподключение...</span>
+                        {reconnectTimers.has(participant.id) && (
+                          <span className="text-xs text-yellow-300/90 font-mono">
+                            {reconnectTimers.get(participant.id)}с
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ) : null}
                 </div>

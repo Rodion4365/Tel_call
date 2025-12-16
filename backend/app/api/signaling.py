@@ -367,7 +367,12 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
 
     # Отправляем разные события в зависимости от того, это переподключение или новое подключение
     if is_reconnecting:
-        await room.broadcast({"type": "user_reconnected", "user": serialized_user}, sender_id=user.id)
+        reconnected_at = datetime.now(tz=timezone.utc)
+        await room.broadcast({
+            "type": "user_reconnected",
+            "user": serialized_user,
+            "reconnected_at": reconnected_at.isoformat(),
+        }, sender_id=user.id)
         logger.info("User %s reconnected to call %s", user.id, call_id)
     else:
         await room.broadcast({"type": "user_joined", "user": serialized_user}, sender_id=user.id)
@@ -482,7 +487,13 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
 
         # Помечаем участника как отключенного и запускаем grace period
         await room.mark_disconnected(user.id)
-        await room.broadcast({"type": "user_disconnected", "user": serialized_user}, sender_id=user.id)
+        disconnected_at = datetime.now(tz=timezone.utc)
+        await room.broadcast({
+            "type": "user_disconnected",
+            "user": serialized_user,
+            "disconnected_at": disconnected_at.isoformat(),
+            "grace_period_sec": settings.reconnect_grace_period_seconds,
+        }, sender_id=user.id)
         logger.info(
             "User %s disconnected from call %s, starting %s second grace period",
             user.id,
@@ -524,7 +535,13 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
                                 )
 
                     await room.remove_participant(user.id)
-                    await room.broadcast({"type": "user_left", "user": serialized_user}, sender_id=user.id)
+                    left_at = datetime.now(tz=timezone.utc)
+                    await room.broadcast({
+                        "type": "user_left",
+                        "user": serialized_user,
+                        "left_at": left_at.isoformat(),
+                        "reason": "grace_timeout",
+                    }, sender_id=user.id)
                     await call_room_manager.cleanup_room(call_id)
                     logger.info("Removed participant %s from call %s after grace period", user.id, call_id)
                 else:
