@@ -68,6 +68,11 @@ class Settings(BaseSettings):
         validation_alias="EMPTY_ROOM_CLEANUP_MINUTES",
         description="Minutes after which empty rooms are automatically cleaned up",
     )
+    reconnect_timeout_seconds: int = Field(
+        30,
+        validation_alias="RECONNECT_TIMEOUT_SECONDS",
+        description="Maximum time in seconds a participant can reconnect before being removed",
+    )
 
     @staticmethod
     def _parse_csv(value: str) -> list[str]:

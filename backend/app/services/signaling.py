@@ -20,6 +20,8 @@ class ParticipantConnection:
 
     websocket: WebSocket
     user: dict[str, Any]
+    reconnect_task: asyncio.Task | None = None
+    is_reconnecting: bool = False
 
 
 class CallRoom:
@@ -69,6 +71,11 @@ class CallRoom:
         """Remove a user from the room if present."""
 
         async with self._lock:
+            # Cancel any reconnect task before removing
+            participant = self._participants.get(user_id)
+            if participant and participant.reconnect_task:
+                participant.reconnect_task.cancel()
+
             self._participants.pop(user_id, None)
             self.last_activity = time.time()
 
@@ -84,6 +91,93 @@ class CallRoom:
 
         async with self._lock:
             return user_id in self._participants
+
+    async def is_participant_reconnecting(self, user_id: int) -> bool:
+        """Return True if the user is in reconnecting state."""
+
+        async with self._lock:
+            participant = self._participants.get(user_id)
+            return participant.is_reconnecting if participant else False
+
+    async def mark_participant_reconnecting(
+        self,
+        user_id: int,
+        participant_db_id: int,
+        call_db_id: int,
+    ) -> None:
+        """Mark a participant as reconnecting and start timeout timer."""
+        settings = get_settings()
+
+        async with self._lock:
+            participant = self._participants.get(user_id)
+            if not participant:
+                return
+
+            participant.is_reconnecting = True
+
+            # Cancel previous reconnect task if exists
+            if participant.reconnect_task:
+                participant.reconnect_task.cancel()
+
+            # Create new reconnect timeout task
+            async def handle_timeout() -> None:
+                try:
+                    await asyncio.sleep(settings.reconnect_timeout_seconds)
+
+                    # Import here to avoid circular import
+                    from datetime import datetime, timezone
+                    from sqlalchemy import select
+                    from app.config.database import session_scope
+                    from app.models import Participant, ParticipantStatus
+
+                    # Update database status to LEFT
+                    async with session_scope() as session:
+                        result = await session.execute(
+                            select(Participant).where(Participant.id == participant_db_id)
+                        )
+                        db_participant = result.scalar_one_or_none()
+                        if db_participant:
+                            db_participant.connection_status = ParticipantStatus.LEFT.value
+                            db_participant.left_at = datetime.now(tz=timezone.utc)
+                            db_participant.reconnect_deadline = None
+                            await session.commit()
+
+                    # Remove from room and broadcast
+                    await self.remove_participant(user_id)
+                    await self.broadcast(
+                        {"type": "user_left", "user": participant.user, "reason": "reconnect_timeout"},
+                        sender_id=user_id,
+                    )
+
+                    logger.info(
+                        "Reconnect timeout for user %s in call %s",
+                        user_id,
+                        self.call_id,
+                    )
+                except asyncio.CancelledError:
+                    logger.debug("Reconnect timer cancelled for user %s in call %s", user_id, self.call_id)
+
+            participant.reconnect_task = asyncio.create_task(handle_timeout())
+
+        logger.info(
+            "User %s marked as reconnecting in call %s (timeout: %s seconds)",
+            user_id,
+            self.call_id,
+            settings.reconnect_timeout_seconds,
+        )
+
+    async def cancel_reconnect_timer(self, user_id: int) -> None:
+        """Cancel reconnect timer for a participant."""
+
+        async with self._lock:
+            participant = self._participants.get(user_id)
+            if participant:
+                if participant.reconnect_task:
+                    participant.reconnect_task.cancel()
+                    participant.reconnect_task = None
+                participant.is_reconnecting = False
+
+        logger.info("Reconnect timer cancelled for user %s in call %s", user_id, self.call_id)
 
     async def list_participants(self, *, exclude_user_id: int | None = None) -> list[dict[str, Any]]:
         """Return serialized user payloads for all connected participants."""

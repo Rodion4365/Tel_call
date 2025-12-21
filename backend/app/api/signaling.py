@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.database import session_scope
 from app.config.settings import get_settings
-from app.models import Call, CallStatus, User
+from app.models import Call, CallStatus, ParticipantStatus, User
 from app.models.friend_link import FriendLink
 from app.models.participant import Participant
 from app.services.auth import get_user_from_token
@@ -271,7 +271,10 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
     await websocket.accept(subprotocol=subprotocol)
     room = await call_room_manager.get_room(call_id)
     serialized_user = _serialize_user(user)
-    await room.add_participant(user.id, websocket, serialized_user)
+
+    # Проверяем, находится ли участник в статусе переподключения
+    is_reconnecting = await room.is_participant_reconnecting(user.id)
+    is_rejoining = False
 
     # Сохраняем участника в БД для истории звонков
     participant_db_id: int | None = None
@@ -288,7 +291,11 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
 
         if not existing_participant:
             # Создаём новую запись
-            participant = Participant(call_id=call.id, user_id=user.id)
+            participant = Participant(
+                call_id=call.id,
+                user_id=user.id,
+                connection_status=ParticipantStatus.CONNECTED.value,
+            )
             session.add(participant)
             await session.commit()
             await session.refresh(participant)
@@ -301,12 +308,26 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
             )
         else:
             participant_db_id = existing_participant.id
-            logger.info(
-                "Reusing existing participant record id=%s for user_id=%s in call_id=%s",
-                existing_participant.id,
-                user.id,
-                call_id,
-            )
+            # Проверяем, был ли участник в статусе RECONNECTING
+            if existing_participant.connection_status == ParticipantStatus.RECONNECTING.value:
+                is_rejoining = True
+                # Восстанавливаем статус на CONNECTED
+                existing_participant.connection_status = ParticipantStatus.CONNECTED.value
+                existing_participant.reconnect_deadline = None
+                await session.commit()
+                logger.info(
+                    "Participant id=%s (user_id=%s) successfully reconnected to call_id=%s",
+                    existing_participant.id,
+                    user.id,
+                    call_id,
+                )
+            else:
+                logger.info(
+                    "Reusing existing participant record id=%s for user_id=%s in call_id=%s",
+                    existing_participant.id,
+                    user.id,
+                    call_id,
+                )
 
     # Создаём/обновляем friend_links между текущим пользователем и другими участниками звонка
     async with session_scope() as session:
@@ -329,6 +350,22 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
                 call_id,
             )
 
+    # Если переподключение, отменяем таймер и обновляем websocket
+    if is_reconnecting or is_rejoining:
+        await room.cancel_reconnect_timer(user.id)
+        # Обновляем websocket в участнике
+        await room.add_participant(user.id, websocket, serialized_user)
+        await room.broadcast({"type": "user_reconnected", "user": serialized_user}, sender_id=user.id)
+        logger.info(
+            "User %s successfully reconnected to call %s",
+            user.id,
+            call_id,
+        )
+    else:
+        # Обычное подключение
+        await room.add_participant(user.id, websocket, serialized_user)
+        await room.broadcast({"type": "user_joined", "user": serialized_user}, sender_id=user.id)
+
     logger.info(
         "WebSocket accepted for call %s; user_id=%s username=%s", call_id, user.id, user.username
     )
@@ -349,12 +386,13 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
             [participant.get("id") for participant in existing_participants],
         )
 
-    await room.broadcast({"type": "user_joined", "user": serialized_user}, sender_id=user.id)
-
     # Таймер максимальной длительности звонка
     settings = get_settings()
     max_call_duration_seconds = settings.max_call_duration_hours * 3600
     call_timeout_task = asyncio.create_task(asyncio.sleep(max_call_duration_seconds))
+
+    # Флаг явного выхода
+    explicit_leave = False
 
     try:
         while True:
@@ -404,6 +442,12 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
                 call_id,
                 message,
             )
+
+            if message_type == "leave":
+                # Явный выход пользователя
+                explicit_leave = True
+                logger.info("User %s explicitly left call %s", user.id, call_id)
+                break
 
             if message_type in {"offer", "answer", "ice_candidate"}:
                 try:
@@ -459,24 +503,71 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
         if not call_timeout_task.done():
             call_timeout_task.cancel()
 
-        # Обновляем время выхода участника из звонка
-        if participant_db_id is not None:
-            async with session_scope() as session:
-                result = await session.execute(
-                    select(Participant).where(Participant.id == participant_db_id)
-                )
-                participant = result.scalar_one_or_none()
-                if participant and participant.left_at is None:
-                    participant.left_at = datetime.now(tz=timezone.utc)
-                    await session.commit()
-                    logger.info(
-                        "Updated participant record id=%s left_at for user_id=%s in call_id=%s",
-                        participant_db_id,
-                        user.id,
-                        call_id,
+        if explicit_leave:
+            # Явный выход - сразу удаляем участника
+            if participant_db_id is not None:
+                async with session_scope() as session:
+                    result = await session.execute(
+                        select(Participant).where(Participant.id == participant_db_id)
                     )
+                    participant = result.scalar_one_or_none()
+                    if participant and participant.left_at is None:
+                        participant.connection_status = ParticipantStatus.LEFT.value
+                        participant.left_at = datetime.now(tz=timezone.utc)
+                        participant.reconnect_deadline = None
+                        await session.commit()
+                        logger.info(
+                            "Updated participant record id=%s as LEFT for user_id=%s in call_id=%s",
+                            participant_db_id,
+                            user.id,
+                            call_id,
+                        )
 
-        await room.remove_participant(user.id)
-        await room.broadcast({"type": "user_left", "user": _serialize_user(user)}, sender_id=user.id)
+            await room.remove_participant(user.id)
+            await room.broadcast({"type": "user_left", "user": serialized_user, "reason": "explicit"}, sender_id=user.id)
+            logger.info("User %s explicitly left call %s", user.id, call_id)
+        else:
+            # Сетевой разрыв - запускаем реконнект
+            if participant_db_id is not None:
+                async with session_scope() as session:
+                    result = await session.execute(
+                        select(Participant).where(Participant.id == participant_db_id)
+                    )
+                    participant = result.scalar_one_or_none()
+                    if participant and participant.left_at is None:
+                        # Устанавливаем статус RECONNECTING и дедлайн
+                        participant.connection_status = ParticipantStatus.RECONNECTING.value
+                        reconnect_deadline = datetime.now(tz=timezone.utc) + timedelta(
+                            seconds=settings.reconnect_timeout_seconds
+                        )
+                        participant.reconnect_deadline = reconnect_deadline
+                        await session.commit()
+                        logger.info(
+                            "Updated participant record id=%s as RECONNECTING for user_id=%s in call_id=%s (deadline: %s)",
+                            participant_db_id,
+                            user.id,
+                            call_id,
+                            reconnect_deadline.isoformat(),
+                        )
+
+            # Запускаем таймер реконнекта в комнате
+            await room.mark_participant_reconnecting(user.id, participant_db_id, call.id)
+
+            # Broadcast что пользователь переподключается
+            await room.broadcast(
+                {
+                    "type": "user_reconnecting",
+                    "user": serialized_user,
+                    "reconnect_timeout_seconds": settings.reconnect_timeout_seconds,
+                },
+                sender_id=user.id,
+            )
+            logger.info(
+                "User %s disconnected from call %s, attempting reconnect (timeout: %s seconds)",
+                user.id,
+                call_id,
+                settings.reconnect_timeout_seconds,
+            )
+
         await call_room_manager.cleanup_room(call_id)
         logger.info("Cleaned up WebSocket session for user %s in call %s", user.id, call_id)

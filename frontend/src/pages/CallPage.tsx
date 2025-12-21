@@ -18,7 +18,9 @@ type SignalingMessage =
   | { type: "call_metadata"; room_start_time: string }
   | { type: "participants_snapshot"; participants: SignalingUser[] }
   | { type: "user_joined"; user: SignalingUser }
-  | { type: "user_left"; user: SignalingUser }
+  | { type: "user_left"; user: SignalingUser; reason?: string }
+  | { type: "user_reconnecting"; user: SignalingUser; reconnect_timeout_seconds: number }
+  | { type: "user_reconnected"; user: SignalingUser }
   | { type: "call_ended"; reason: string }
   | { type: "error"; detail: string }
   | { type: "offer"; payload: RTCSessionDescriptionInit; from_user: SignalingUser }
@@ -28,7 +30,8 @@ type SignalingMessage =
 type OutgoingSignalingMessage =
   | { type: "offer"; payload: RTCSessionDescriptionInit; to_user_id: number }
   | { type: "answer"; payload: RTCSessionDescriptionInit; to_user_id: number }
-  | { type: "ice_candidate"; payload: RTCIceCandidateInit; to_user_id: number };
+  | { type: "ice_candidate"; payload: RTCIceCandidateInit; to_user_id: number }
+  | { type: "leave" };
 
 interface LocationState {
   join_url?: string;
@@ -46,6 +49,7 @@ interface Participant {
   hasRemoteAudio?: boolean;
   iceConnectionState?: RTCPeerConnectionState | null;
   stream?: MediaStream;
+  connectionStatus?: "connected" | "reconnecting" | "disconnected";
 }
 
 const PARTICIPANT_COLORS = [
@@ -87,6 +91,9 @@ const CallPage: React.FC = () => {
   const [callStartTime, setCallStartTime] = useState<number | null>(null);
   const [callDurationMinutes, setCallDurationMinutes] = useState(0);
   const [isConnecting, setIsConnecting] = useState(true);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [reconnectTimeoutSeconds, setReconnectTimeoutSeconds] = useState(30);
 
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
@@ -106,6 +113,7 @@ const CallPage: React.FC = () => {
   const audioContextsRef = useRef<Map<string, { context: AudioContext; analyser: AnalyserNode; dataArray: Uint8Array }>>(new Map());
   const speakingCheckIntervalRef = useRef<number | null>(null);
   const connectionSoundPlayedRef = useRef(false);
+  const leaveCallRef = useRef<(() => void) | null>(null);
 
   // eslint-disable-next-line no-console
   console.log("[CallPage] Rendering", {
@@ -1247,6 +1255,24 @@ const CallPage: React.FC = () => {
         return;
       }
 
+      if (message.type === "user_reconnecting") {
+        // Помечаем участника как переподключающегося
+        updateParticipant({
+          id: String(message.user.id),
+          connectionStatus: "reconnecting",
+        });
+        return;
+      }
+
+      if (message.type === "user_reconnected") {
+        // Восстанавливаем статус участника
+        updateParticipant({
+          id: String(message.user.id),
+          connectionStatus: "connected",
+        });
+        return;
+      }
+
       if (message.type === "call_ended") {
         websocketRef.current?.close();
         handleConnectionError(message.reason, true);
@@ -1391,8 +1417,11 @@ const CallPage: React.FC = () => {
     }
 
     let socket: WebSocket | null = null;
+    let explicitLeave = false;
+    let reconnectTimeoutId: number | null = null;
+    const MAX_RECONNECT_ATTEMPTS = 5;
 
-    const connectWebSocket = async () => {
+    const connectWebSocket = async (attempt = 0) => {
       try {
         // eslint-disable-next-line no-console
         console.log("[CallPage] Getting WebSocket token...");
@@ -1422,6 +1451,9 @@ const CallPage: React.FC = () => {
       // eslint-disable-next-line no-console
       console.log("[WS] signaling socket opened", { url, protocols });
       setCallConnected(true);
+      setIsReconnecting(false);
+      setReconnectAttempts(0);
+      setIsConnecting(false);
     };
 
     socket.onmessage = (event) => {
@@ -1436,9 +1468,10 @@ const CallPage: React.FC = () => {
       }
     };
 
-    socket.onerror = () => {
-      socket.close();
-      handleConnectionErrorRef.current?.("Ошибка соединения с сервером", true);
+    socket.onerror = (error) => {
+      // eslint-disable-next-line no-console
+      console.error("[WS] socket error", error);
+      // Не закрываем сокет здесь, onclose обработает переподключение
     };
 
     socket.onclose = (event) => {
@@ -1447,28 +1480,60 @@ const CallPage: React.FC = () => {
         code: event.code,
         reason: event.reason,
         wasClean: event.wasClean,
+        explicitLeave,
+        attempt,
       });
 
       websocketRef.current = null;
       setCallConnected(false);
 
-      // Проверяем, является ли причина закрытия ошибкой "звонок не найден"
+      // Проверяем, является ли причина закрытия фатальной ошибкой
       const reason = event.reason?.toLowerCase() || "";
       const isCallNotFound =
         reason.includes("call not found") ||
         reason.includes("звонок не найден") ||
         reason.includes("please create a new call") ||
-        event.code === 1008; // Policy Violation code
+        event.code === 4404; // Custom code for call not found
 
-      if (!event.wasClean) {
+      const isAuthError = event.code === 4401 || event.code === 1008;
+
+      // Фатальные ошибки - не переподключаемся
+      if (isCallNotFound || isAuthError) {
         const errorMessage = isCallNotFound
           ? "Звонок завершён"
-          : "Соединение с сервером закрыто";
-        handleConnectionErrorRef.current?.(errorMessage, true, true);
+          : "Ошибка авторизации";
+        setIsReconnecting(false);
+        handleConnectionErrorRef.current?.(errorMessage, true);
         return;
       }
 
-      clearConnectionsRef.current?.();
+      // Если явный выход - не переподключаемся
+      if (explicitLeave) {
+        // eslint-disable-next-line no-console
+        console.log("[Call] explicit leave, not reconnecting");
+        clearConnectionsRef.current?.();
+        return;
+      }
+
+      // Сетевой разрыв - пытаемся переподключиться
+      if (attempt < MAX_RECONNECT_ATTEMPTS) {
+        const nextAttempt = attempt + 1;
+        const delay = Math.min(1000 * Math.pow(2, attempt), 10000); // Exponential backoff, max 10s
+
+        setIsReconnecting(true);
+        setReconnectAttempts(nextAttempt);
+
+        // eslint-disable-next-line no-console
+        console.log(`[Call] reconnecting in ${delay}ms (attempt ${nextAttempt}/${MAX_RECONNECT_ATTEMPTS})`);
+
+        reconnectTimeoutId = window.setTimeout(() => {
+          void connectWebSocket(nextAttempt);
+        }, delay);
+      } else {
+        // Превышено количество попыток
+        setIsReconnecting(false);
+        handleConnectionErrorRef.current?.("Не удалось восстановить соединение", true);
+      }
     };
       } catch (error) {
         // eslint-disable-next-line no-console
@@ -1485,8 +1550,44 @@ const CallPage: React.FC = () => {
     console.log("[CallPage] Starting WebSocket connection...");
     void connectWebSocket();
 
+    // Функция явного выхода
+    const leaveCall = () => {
+      explicitLeave = true;
+
+      if (reconnectTimeoutId !== null) {
+        clearTimeout(reconnectTimeoutId);
+        reconnectTimeoutId = null;
+      }
+
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        // Отправляем сообщение о явном выходе
+        socket.send(JSON.stringify({ type: "leave" }));
+        socket.close();
+      }
+
+      websocketRef.current = null;
+      setCallConnected(false);
+      setIsReconnecting(false);
+
+      clearConnectionsRef.current?.();
+      stopLocalMedia();
+
+      // Редирект на главную
+      navigate("/");
+    };
+
+    // Expose leaveCall to ref and window for cleanup on beforeunload
+    leaveCallRef.current = leaveCall;
+    (window as any).__leaveCall = leaveCall;
+
     return () => {
+      // Cleanup
+      if (reconnectTimeoutId !== null) {
+        clearTimeout(reconnectTimeoutId);
+      }
+
       // ТЗ 2: При переходе в другой звонок по новой ссылке - выходим из текущего
+      explicitLeave = true;
       if (socket) {
         socket.close();
       }
@@ -1501,6 +1602,8 @@ const CallPage: React.FC = () => {
       // Сбрасываем таймер
       setCallStartTime(null);
       setCallDurationMinutes(0);
+
+      delete (window as any).__leaveCall;
     };
   }, [callId, getToken, stopLocalMedia]);
 
@@ -1523,13 +1626,18 @@ const CallPage: React.FC = () => {
   };
 
   const leaveCall = () => {
-    websocketRef.current?.close();
-    clearConnections();
-    stopLocalMedia();
-    setCallStartTime(null);
-    setCallDurationMinutes(0);
-
-    navigate("/");
+    // Вызываем функцию явного выхода из useEffect если доступна
+    if (leaveCallRef.current) {
+      leaveCallRef.current();
+    } else {
+      // Fallback для случая, когда WebSocket ещё не инициализирован
+      websocketRef.current?.close();
+      clearConnections();
+      stopLocalMedia();
+      setCallStartTime(null);
+      setCallDurationMinutes(0);
+      navigate("/");
+    }
   };
 
   return (
@@ -1546,6 +1654,13 @@ const CallPage: React.FC = () => {
           <div className="mx-auto mb-2 px-4 py-2 bg-black/30 backdrop-blur-md rounded-full text-sm font-medium text-white/90 flex items-center gap-2" aria-label="Длительность звонка">
             {isConnecting && <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white/90 rounded-full animate-spin" />}
             {formatCallDuration(callDurationMinutes)}
+          </div>
+        )}
+
+        {isReconnecting && (
+          <div className="mx-auto mb-2 px-4 py-2 bg-yellow-500/20 backdrop-blur-md rounded-full text-sm font-medium text-yellow-200 flex items-center gap-2 border border-yellow-500/30" aria-label="Переподключение">
+            <div className="w-3.5 h-3.5 border-2 border-yellow-300/30 border-t-yellow-300/90 rounded-full animate-spin" />
+            <span>Переподключение... (попытка {reconnectAttempts}/5)</span>
           </div>
         )}
 
@@ -1612,6 +1727,14 @@ const CallPage: React.FC = () => {
                       Вы
                     </span>
                   ) : null}
+
+                  {/* Overlay переподключения */}
+                  {participant.connectionStatus === "reconnecting" && !participant.isCurrentUser && (
+                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center">
+                      <div className="w-10 h-10 border-4 border-yellow-300/30 border-t-yellow-300/90 rounded-full animate-spin mb-3" />
+                      <span className="text-sm font-medium text-yellow-200">Переподключается...</span>
+                    </div>
+                  )}
                 </div>
 
                 {!participant.isCurrentUser && participant.stream ? (

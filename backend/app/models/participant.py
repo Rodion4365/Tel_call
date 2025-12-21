@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import enum
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey
+from sqlalchemy import DateTime, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.config.database import Base
@@ -11,6 +12,15 @@ from app.config.database import Base
 def utc_now() -> datetime:
     """Return current UTC time with timezone awareness."""
     return datetime.now(tz=timezone.utc)
+
+
+class ParticipantStatus(str, enum.Enum):
+    """Participant connection status."""
+
+    CONNECTED = "connected"
+    RECONNECTING = "reconnecting"
+    DISCONNECTED = "disconnected"
+    LEFT = "left"
 
 
 class Participant(Base):
@@ -23,3 +33,9 @@ class Participant(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    connection_status: Mapped[str] = mapped_column(
+        String(20),
+        default=ParticipantStatus.CONNECTED.value,
+        nullable=False,
+    )
+    reconnect_deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
