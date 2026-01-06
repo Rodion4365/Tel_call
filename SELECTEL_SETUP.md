@@ -1,0 +1,153 @@
+# 🚀 Настройка проекта на Selectel с нуля
+
+## 📋 Шаги для развертывания
+
+### 1️⃣ На сервере: Создайте backend/.env
+
+```bash
+cd /opt/app/projects/tel_call
+nano backend/.env
+```
+
+Минимальная конфигурация:
+
+```bash
+# База данных (имя контейнера postgres из docker-compose)
+DATABASE_URL=postgresql://app:apppassword@postgres:5432/app
+
+# Секретный ключ (сгенерируйте случайный!)
+SECRET_KEY=ваш-очень-длинный-случайный-ключ-минимум-32-символа
+
+# Telegram бот (получите от @BotFather)
+BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
+BOT_USERNAME=your_bot_name_bot
+
+# URL для webhook (ваш публичный домен)
+BOT_WEBHOOK_URL=https://ваш-бэкенд-домен.com/api/telegram/webhook
+
+# CORS (ваш фронтенд домен)
+CORS_ALLOW_ORIGINS=https://ваш-фронтенд-домен.com
+
+# Опционально
+DEBUG=false
+STUN_SERVERS=stun:stun.l.google.com:19302
+```
+
+**Генерация SECRET_KEY:**
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+### 2️⃣ Сброс базы данных и применение миграций
+
+```bash
+cd backend
+chmod +x reset_database.sh
+./reset_database.sh
+```
+
+Скрипт автоматически:
+- ✅ Удалит все таблицы
+- ✅ Сбросит историю миграций
+- ✅ Применит все миграции с начала
+- ✅ Создаст все необходимые таблицы
+
+### 3️⃣ Запуск приложения
+
+```bash
+cd /opt/app/projects/tel_call/infra
+docker compose up -d
+```
+
+### 4️⃣ Проверка
+
+```bash
+# Проверка логов бэкенда
+docker compose logs backend
+
+# Проверка таблиц в БД
+docker compose exec postgres psql -U app -d app -c "\dt"
+
+# Проверка версии миграций
+docker compose exec backend alembic current
+```
+
+Должны быть созданы таблицы:
+- ✅ `users`
+- ✅ `calls`
+- ✅ `participants`
+- ✅ `call_stats`
+- ✅ `friend_links`
+- ✅ `alembic_version`
+
+## 🔧 Если что-то пошло не так
+
+### Проблема: "ModuleNotFoundError: No module named 'app'"
+
+```bash
+# Запустите скрипт из директории backend
+cd backend
+./reset_database.sh
+```
+
+### Проблема: "Cannot connect to database"
+
+Проверьте:
+1. PostgreSQL запущен: `docker compose ps postgres`
+2. Переменная DATABASE_URL в backend/.env правильная
+3. Пароль совпадает с docker-compose.yml
+
+```bash
+# Перезапуск PostgreSQL
+docker compose restart postgres
+```
+
+### Проблема: "permission denied: ./reset_database.sh"
+
+```bash
+chmod +x backend/reset_database.sh
+```
+
+## 📝 Переменные окружения
+
+### Обязательные (без них не запустится):
+- `DATABASE_URL` - подключение к PostgreSQL
+- `SECRET_KEY` - секретный ключ для JWT
+- `BOT_TOKEN` - токен Telegram бота
+- `BOT_USERNAME` - имя бота
+
+### Важные для production:
+- `BOT_WEBHOOK_URL` - URL для Telegram webhook
+- `CORS_ALLOW_ORIGINS` - разрешенные домены
+
+### Опциональные (имеют значения по умолчанию):
+- `DEBUG` - режим отладки (default: false)
+- `STUN_SERVERS` - STUN серверы (default: stun.l.google.com:19302)
+- `TURN_SERVERS` - TURN серверы (опционально)
+- `MAX_PARTICIPANTS_PER_CALL` - макс. участников (default: 30)
+- `MAX_ACTIVE_CALLS_PER_USER` - макс. звонков на пользователя (default: 5)
+- `MAX_CALL_DURATION_HOURS` - макс. длительность (default: 12)
+
+Полный список см. в `backend/.env.selectel.example`
+
+## 🎯 Порядок действий при первом развертывании
+
+1. Создать `backend/.env` с обязательными переменными
+2. Запустить PostgreSQL: `docker compose up -d postgres`
+3. Подождать 5-10 секунд, пока PostgreSQL запустится
+4. Запустить скрипт сброса: `./backend/reset_database.sh`
+5. Запустить все сервисы: `docker compose up -d`
+6. Проверить логи: `docker compose logs -f backend`
+
+## 📚 Дополнительная информация
+
+- Миграции: `backend/alembic/versions/`
+- Модели БД: `backend/app/models/`
+- Конфигурация: `backend/app/config/settings.py`
+
+## 🆘 Поддержка
+
+Если возникли проблемы:
+1. Проверьте логи: `docker compose logs backend`
+2. Проверьте подключение к БД: `docker compose exec postgres psql -U app -d app`
+3. Проверьте переменные окружения в `backend/.env`
