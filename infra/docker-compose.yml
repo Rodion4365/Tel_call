@@ -1,6 +1,23 @@
 version: "3.9"
 
 services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-apppassword}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - web
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   reverse-proxy:
     image: traefik:v3.0
     restart: unless-stopped
@@ -46,6 +63,9 @@ services:
       - .env
     networks:
       - web
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   frontend:
     build:
@@ -101,3 +121,7 @@ services:
 networks:
   web:
     driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
