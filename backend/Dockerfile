@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY entrypoint.sh ./entrypoint.sh
 COPY reset_database.sh ./reset_database.sh
+COPY update_webhook.py ./update_webhook.py
 
 RUN chmod +x ./entrypoint.sh ./reset_database.sh
 
