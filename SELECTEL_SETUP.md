@@ -12,9 +12,9 @@ nano infra/.env
 Минимальная конфигурация для Docker Compose:
 
 ```bash
-# Домены (замените на свои)
-BACKEND_HOST=api.ваш-домен.com
-FRONTEND_HOST=app.ваш-домен.com
+# Домены
+BACKEND_HOST=api.callwith.ru
+FRONTEND_HOST=app.callwith.ru
 
 # PostgreSQL (можно оставить по умолчанию или изменить)
 POSTGRES_USER=app
@@ -44,11 +44,11 @@ SECRET_KEY=ваш-очень-длинный-случайный-ключ-мини
 BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
 BOT_USERNAME=your_bot_name_bot
 
-# URL для webhook (ваш публичный домен)
-BOT_WEBHOOK_URL=https://api.ваш-домен.com/api/telegram/webhook
+# URL для webhook
+BOT_WEBHOOK_URL=https://api.callwith.ru/api/telegram/webhook
 
-# CORS (ваш фронтенд домен)
-CORS_ALLOW_ORIGINS=https://app.ваш-домен.com
+# CORS
+CORS_ALLOW_ORIGINS=https://app.callwith.ru
 
 # Опционально
 DEBUG=false
