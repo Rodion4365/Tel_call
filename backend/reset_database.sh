@@ -1,6 +1,6 @@
 #!/bin/bash
 # Полный сброс базы данных и применение миграций с нуля
-# Использовать на новом сервере или когда можно потерять все данные
+# Работает через Docker Compose
 
 set -e
 
@@ -19,94 +19,72 @@ if [ "$confirm" != "yes" ]; then
     exit 0
 fi
 
-echo ""
-echo "1️⃣  Удаление всех таблиц..."
+# Проверяем, что находимся в правильной директории
+if [ ! -f "reset_database.sh" ]; then
+    echo "❌ Ошибка: запустите скрипт из директории backend/"
+    exit 1
+fi
 
-python3 << 'PYTHON_SCRIPT'
-import asyncio
-from sqlalchemy import text
-from app.config.database import engine
-
-async def drop_all_tables():
-    async with engine.begin() as conn:
-        print("   Получение списка всех таблиц...")
-        result = await conn.execute(text("""
-            SELECT tablename
-            FROM pg_tables
-            WHERE schemaname = 'public'
-        """))
-        tables = [row[0] for row in result.fetchall()]
-
-        if not tables:
-            print("   ℹ️  Таблицы не найдены (база уже пустая)")
-            return
-
-        print(f"   Найдено таблиц: {len(tables)}")
-
-        # Удаляем все таблицы одной командой с CASCADE
-        for table in tables:
-            print(f"   Удаление таблицы: {table}")
-
-        await conn.execute(text(f"""
-            DROP TABLE IF EXISTS {', '.join(tables)} CASCADE
-        """))
-
-        print("   ✅ Все таблицы удалены")
-
-try:
-    asyncio.run(drop_all_tables())
-except Exception as e:
-    print(f"   ❌ Ошибка при удалении таблиц: {e}")
-    exit(1)
-PYTHON_SCRIPT
+# Переходим в директорию infra для docker compose команд
+cd ../infra
 
 echo ""
-echo "2️⃣  Применение всех миграций..."
-alembic upgrade head
+echo "1️⃣  Проверка, что PostgreSQL запущен..."
+if ! docker compose ps postgres | grep -q "Up"; then
+    echo "   PostgreSQL не запущен. Запускаю..."
+    docker compose up -d postgres
+    echo "   Ожидание запуска PostgreSQL (10 секунд)..."
+    sleep 10
+else
+    echo "   ✅ PostgreSQL запущен"
+fi
 
 echo ""
-echo "3️⃣  Проверка созданных таблиц..."
+echo "2️⃣  Удаление всех таблиц..."
+docker compose exec -T postgres psql -U app -d app << 'SQL'
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    -- Удаляем все таблицы
+    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
+        EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
+        RAISE NOTICE 'Удалена таблица: %', r.tablename;
+    END LOOP;
+END $$;
+SQL
 
-python3 << 'PYTHON_SCRIPT'
-import asyncio
-from sqlalchemy import text
-from app.config.database import engine
-
-async def check_tables():
-    async with engine.begin() as conn:
-        result = await conn.execute(text("""
-            SELECT tablename
-            FROM pg_tables
-            WHERE schemaname = 'public'
-            ORDER BY tablename
-        """))
-        tables = result.fetchall()
-
-        if not tables:
-            print("   ❌ Таблицы не созданы!")
-            exit(1)
-
-        print("   Созданные таблицы:")
-        for table in tables:
-            print(f"   ✓ {table[0]}")
-
-try:
-    asyncio.run(check_tables())
-except Exception as e:
-    print(f"   ❌ Ошибка при проверке таблиц: {e}")
-    exit(1)
-PYTHON_SCRIPT
+if [ $? -eq 0 ]; then
+    echo "   ✅ Все таблицы удалены"
+else
+    echo "   ❌ Ошибка при удалении таблиц"
+    exit 1
+fi
 
 echo ""
-echo "4️⃣  Проверка версии миграций..."
-alembic current
+echo "3️⃣  Применение всех миграций..."
+docker compose exec -T backend alembic upgrade head
+
+if [ $? -eq 0 ]; then
+    echo "   ✅ Миграции применены успешно"
+else
+    echo "   ❌ Ошибка при применении миграций"
+    exit 1
+fi
+
+echo ""
+echo "4️⃣  Проверка созданных таблиц..."
+docker compose exec -T postgres psql -U app -d app -c "\dt"
+
+echo ""
+echo "5️⃣  Проверка версии миграций..."
+docker compose exec -T backend alembic current
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "✅ ГОТОВО! База данных сброшена и настроена с нуля"
 echo ""
 echo "📋 Следующие шаги:"
-echo "   1. Убедитесь, что backend/.env настроен правильно"
-echo "   2. Запустите бэкенд: docker compose up -d backend"
-echo "   3. Проверьте логи: docker compose logs backend"
+echo "   1. Перезапустите бэкенд: docker compose restart backend"
+echo "   2. Проверьте логи: docker compose logs backend --tail=50"
 echo ""
