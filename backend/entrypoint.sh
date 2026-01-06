@@ -1,33 +1,20 @@
 #!/bin/bash
 set -e
 
-echo "Checking database migration status..."
+echo "Initializing database tables..."
 
-# Check if alembic_version table exists and has a version
-CURRENT_VERSION=$(python3 -c "
+# Create tables if they don't exist
+python3 -c "
 import asyncio
-from sqlalchemy import text
-from app.config.database import async_engine
+from app.config.database import Base, engine
 
-async def check_version():
-    try:
-        async with async_engine.connect() as conn:
-            result = await conn.execute(text('SELECT version_num FROM alembic_version LIMIT 1'))
-            version = result.scalar()
-            print(version if version else '')
-    except Exception:
-        print('')
+async def init_db():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print('Database tables initialized successfully')
 
-asyncio.run(check_version())
-" 2>/dev/null || echo "")
-
-if [ -z "$CURRENT_VERSION" ]; then
-    echo "No alembic version found. Stamping database with c7a3d9e12f8b..."
-    alembic stamp c7a3d9e12f8b
-fi
-
-echo "Running database migrations..."
-alembic upgrade head
+asyncio.run(init_db())
+"
 
 echo "Starting application..."
 exec "$@"
