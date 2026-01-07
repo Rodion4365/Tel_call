@@ -33,18 +33,12 @@ services:
       - --providers.file.directory=/etc/traefik/dynamic
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
-      # ===== HTTPS CONFIGURATION (currently disabled) =====
-      # To enable HTTPS:
-      # 1. Configure DNS A records for your domains
-      # 2. Uncomment the following lines to enable Let's Encrypt
-      # 3. Add tls=true to backend and frontend router labels
-      # 4. Change frontend build args to https:// and wss://
-      #
-      # - --certificatesresolvers.letsencrypt.acme.email=your-email@example.com
-      # - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
-      # - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
-      # - --entrypoints.web.http.redirections.entrypoint.to=websecure
-      # - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      # HTTPS Configuration - Let's Encrypt
+      - --certificatesresolvers.letsencrypt.acme.email=gilmanov.rodion.ai@gmail.com
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
     ports:
       - "80:80"
       - "443:443"
@@ -53,6 +47,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/dynamic:/etc/traefik/dynamic:ro
       - ./traefik/certs:/certs:ro
+      - ./letsencrypt:/letsencrypt
     env_file:
       - .env
     networks:
@@ -71,7 +66,9 @@ services:
     labels:
       - traefik.enable=true
       - traefik.http.routers.backend.rule=Host(`${BACKEND_HOST}`)
-      - traefik.http.routers.backend.entrypoints=web
+      - traefik.http.routers.backend.entrypoints=web,websecure
+      - traefik.http.routers.backend.tls=true
+      - traefik.http.routers.backend.tls.certresolver=letsencrypt
       - traefik.http.services.backend.loadbalancer.server.port=8000
     env_file:
       - ../backend/.env
@@ -87,12 +84,14 @@ services:
       context: ../frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_BASE_URL=http://${BACKEND_HOST}
-        - VITE_WS_BASE_URL=ws://${BACKEND_HOST}
+        - VITE_API_BASE_URL=https://${BACKEND_HOST}
+        - VITE_WS_BASE_URL=wss://${BACKEND_HOST}
     labels:
       - traefik.enable=true
       - traefik.http.routers.frontend.rule=Host(`${FRONTEND_HOST}`)
-      - traefik.http.routers.frontend.entrypoints=web
+      - traefik.http.routers.frontend.entrypoints=web,websecure
+      - traefik.http.routers.frontend.tls=true
+      - traefik.http.routers.frontend.tls.certresolver=letsencrypt
       - traefik.http.services.frontend.loadbalancer.server.port=80
     networks:
       - web

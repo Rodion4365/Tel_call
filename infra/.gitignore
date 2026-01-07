@@ -1,0 +1,12 @@
+# Environment files
+.env
+
+# Let's Encrypt certificates
+letsencrypt/
+
+# Traefik certificates
+traefik/certs/*.crt
+traefik/certs/*.key
+
+# Logs
+*.log
