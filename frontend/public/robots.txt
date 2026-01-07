@@ -1,0 +1,4 @@
+# Tel Call - Telegram MiniApp
+# This app should only be accessed through Telegram
+User-agent: *
+Disallow: /
