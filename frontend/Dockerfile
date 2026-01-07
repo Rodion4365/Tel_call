@@ -3,11 +3,22 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Copy package files and install dependencies
 COPY package.json ./
 RUN npm install
 
+# Copy source code
 COPY . .
 
+# Accept build arguments for Vite
+ARG VITE_API_BASE_URL
+ARG VITE_WS_BASE_URL
+
+# Set environment variables from build args (Vite will embed these at build time)
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_WS_BASE_URL=$VITE_WS_BASE_URL
+
+# Build the application
 RUN npm run build
 
 # Production stage

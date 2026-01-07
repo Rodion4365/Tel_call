@@ -78,17 +78,15 @@ services:
     build:
       context: ../frontend
       dockerfile: Dockerfile
-    environment:
-      - VITE_BACKEND_URL=https://${BACKEND_HOST}
-    command: npm run dev -- --host 0.0.0.0 --port 5173
+      args:
+        - VITE_API_BASE_URL=https://${BACKEND_HOST}
+        - VITE_WS_BASE_URL=wss://${BACKEND_HOST}
     labels:
       - traefik.enable=true
       - traefik.http.routers.frontend.rule=Host(`${FRONTEND_HOST}`)
       - traefik.http.routers.frontend.entrypoints=web,websecure
       - traefik.http.routers.frontend.tls=true
-      - traefik.http.services.frontend.loadbalancer.server.port=5173
-    env_file:
-      - .env
+      - traefik.http.services.frontend.loadbalancer.server.port=80
     networks:
       - web
 
