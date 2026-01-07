@@ -22,8 +22,12 @@ services:
     image: traefik:v2.10
     restart: unless-stopped
     command:
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --log.level=DEBUG
       - --providers.docker.exposedbydefault=false
       - --providers.docker=true
+      - --providers.docker.network=web
       - --providers.file.directory=/etc/traefik/dynamic
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
@@ -32,6 +36,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/dynamic:/etc/traefik/dynamic:ro
@@ -54,10 +59,10 @@ services:
     labels:
       - traefik.enable=true
       - traefik.http.routers.backend.rule=Host(`${BACKEND_HOST}`)
-      - traefik.http.routers.backend.entrypoints=websecure
+      - traefik.http.routers.backend.entrypoints=web,websecure
       - traefik.http.routers.backend.tls=true
-      - traefik.http.routers.backend.middlewares=secure-headers@file
       - traefik.http.services.backend.loadbalancer.server.port=8000
+      - traefik.docker.network=web
     env_file:
       - ../backend/.env
       - .env
@@ -77,10 +82,10 @@ services:
     labels:
       - traefik.enable=true
       - traefik.http.routers.frontend.rule=Host(`${FRONTEND_HOST}`)
-      - traefik.http.routers.frontend.entrypoints=websecure
+      - traefik.http.routers.frontend.entrypoints=web,websecure
       - traefik.http.routers.frontend.tls=true
-      - traefik.http.routers.frontend.middlewares=secure-headers@file
       - traefik.http.services.frontend.loadbalancer.server.port=5173
+      - traefik.docker.network=web
     env_file:
       - .env
     networks:
