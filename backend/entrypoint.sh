@@ -7,6 +7,8 @@ echo "Initializing database tables..."
 python3 -c "
 import asyncio
 from app.config.database import Base, engine
+# Import all models to register them with Base.metadata
+from app.models import User, Call, Participant, CallStats, FriendLink
 
 async def init_db():
     async with engine.begin() as conn:
