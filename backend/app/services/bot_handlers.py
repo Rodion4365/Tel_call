@@ -15,10 +15,30 @@ from app.models import User
 
 logger = logging.getLogger(__name__)
 
-# Создаем экземпляры Bot и Dispatcher
-settings = get_settings()
-bot = Bot(token=settings.bot_token)
-dp = Dispatcher()
+# Lazy initialization для Bot и Dispatcher
+_bot: Bot | None = None
+_dp: Dispatcher | None = None
+
+
+def get_bot() -> Bot:
+    """Get or create Bot instance (lazy initialization)."""
+    global _bot
+    if _bot is None:
+        settings = get_settings()
+        _bot = Bot(token=settings.bot_token)
+    return _bot
+
+
+def get_dispatcher() -> Dispatcher:
+    """Get or create Dispatcher instance (lazy initialization)."""
+    global _dp
+    if _dp is None:
+        _dp = Dispatcher()
+        # Register handlers on first initialization
+        _dp.message.register(cmd_start, Command("start"))
+        _dp.message.register(cmd_help, Command("help"))
+        logger.info("Bot handlers registered: /start, /help")
+    return _dp
 
 
 async def register_or_update_user(telegram_user: types.User) -> None:
@@ -56,7 +76,6 @@ async def register_or_update_user(telegram_user: types.User) -> None:
         await db_session.commit()
 
 
-@dp.message(Command("start"))
 async def cmd_start(message: types.Message) -> None:
     """
     Handler for /start command.
@@ -68,6 +87,7 @@ async def cmd_start(message: types.Message) -> None:
     await register_or_update_user(message.from_user)
 
     # Убираем @ и пробелы из имени бота
+    settings = get_settings()
     bot_username = settings.bot_username.strip().lstrip("@").strip()
 
     if not bot_username:
@@ -97,7 +117,6 @@ async def cmd_start(message: types.Message) -> None:
         logger.exception("[cmd_start] Failed to send welcome message: %s", str(e))
 
 
-@dp.message(Command("help"))
 async def cmd_help(message: types.Message) -> None:
     """
     Handler for /help command.
@@ -117,14 +136,4 @@ async def cmd_help(message: types.Message) -> None:
         logger.exception("[cmd_help] Failed to send help message: %s", str(e))
 
 
-logger.info("Bot handlers module loaded. Registered handlers: /start, /help")
-
-
-def get_bot() -> Bot:
-    """Get bot instance."""
-    return bot
-
-
-def get_dispatcher() -> Dispatcher:
-    """Get dispatcher instance."""
-    return dp
+logger.info("Bot handlers module loaded")
