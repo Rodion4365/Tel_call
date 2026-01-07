@@ -17,7 +17,7 @@ import { NavigationProvider, useNavigation } from "./contexts/NavigationContext"
 function AppContent(): JSX.Element {
   const location = useLocation();
   const { isReady: isTelegramReady, webApp } = useTelegramWebApp();
-  const { user, authError, isAuthorizing, hasTriedAuth, loginWithTelegram } = useAuth();
+  const { user, isAuthorizing, hasTriedAuth, loginWithTelegram } = useAuth();
   const { navigateBack } = useNavigation();
   const handleBack = useCallback(() => navigateBack(), [navigateBack]);
 
