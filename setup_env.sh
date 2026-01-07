@@ -65,10 +65,10 @@ BOT_TOKEN=${BOT_TOKEN}
 BOT_USERNAME=${BOT_USERNAME}
 
 # Webhook URL
-BOT_WEBHOOK_URL=http://api.callwith.ru/api/telegram/webhook
+BOT_WEBHOOK_URL=https://api.callwith.ru/api/telegram/webhook
 
 # CORS
-CORS_ALLOW_ORIGINS=http://app.callwith.ru
+CORS_ALLOW_ORIGINS=https://app.callwith.ru
 
 # === ОПЦИОНАЛЬНЫЕ ПЕРЕМЕННЫЕ ===
 
