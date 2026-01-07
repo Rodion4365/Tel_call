@@ -27,6 +27,9 @@ FROM nginx:alpine
 # Copy built static files to nginx
 COPY --from=builder /app/dist /usr/share/nginx/html
 
+# Copy public files (robots.txt, etc.)
+COPY --from=builder /app/public /usr/share/nginx/html
+
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
