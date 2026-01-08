@@ -74,7 +74,7 @@ CORS_ALLOW_ORIGINS=https://app.callwith.ru
 
 APP_NAME=Tel Call Backend
 DEBUG=false
-ACCESS_TOKEN_EXPIRE_MINUTES=43200
+ACCESS_TOKEN_EXPIRE_MINUTES=43200  # 30 days for Telegram MiniApp
 
 # WebRTC
 STUN_SERVERS=stun:stun.l.google.com:19302
