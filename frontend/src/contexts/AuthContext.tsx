@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { authorizeTelegram } from "../services/auth";
 import { getTelegramWebApp } from "../services/telegram";
+import { setUnauthorizedHandler } from "../services/apiClient";
 import type { AuthUser } from "../types/auth";
 
 export const AUTH_STORAGE_KEY = "telegram-auth-v2";
@@ -96,6 +97,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsAuthorizing(false);
     }
   }, [isAuthorizing]);
+
+  // Register handler for automatic reauth on 401 errors
+  useEffect(() => {
+    setUnauthorizedHandler(async () => {
+      // eslint-disable-next-line no-console
+      console.log("[Auth] Token expired, clearing and re-authorizing");
+      clearAuth();
+      await loginWithTelegram();
+    });
+  }, [clearAuth, loginWithTelegram]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

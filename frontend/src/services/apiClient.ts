@@ -4,6 +4,13 @@ export interface ApiRequestOptions {
   headers?: Record<string, string>;
 }
 
+// Handler for 401 errors - will be set by AuthContext
+let unauthorizedHandler: (() => Promise<void>) | null = null;
+
+export const setUnauthorizedHandler = (handler: () => Promise<void>) => {
+  unauthorizedHandler = handler;
+};
+
 // URL бэкенда по умолчанию
 const DEFAULT_API_BASE_URL = "https://api.callwith.ru";
 
@@ -102,6 +109,14 @@ export const apiClient = {
       });
 
       if (!response.ok) {
+        // Handle 401 Unauthorized - token expired
+        if (response.status === 401 && unauthorizedHandler) {
+          // eslint-disable-next-line no-console
+          console.log("[apiClient.get] Token expired, attempting reauth");
+          await unauthorizedHandler();
+          // After reauth, throw error so caller can retry
+          throw new Error("Token expired - please retry");
+        }
         return logResponseError("get", path, response);
       }
 
@@ -143,6 +158,14 @@ export const apiClient = {
       });
 
       if (!response.ok) {
+        // Handle 401 Unauthorized - token expired
+        if (response.status === 401 && unauthorizedHandler) {
+          // eslint-disable-next-line no-console
+          console.log("[apiClient.post] Token expired, attempting reauth");
+          await unauthorizedHandler();
+          // After reauth, throw error so caller can retry
+          throw new Error("Token expired - please retry");
+        }
         return logResponseError("post", path, response);
       }
 
