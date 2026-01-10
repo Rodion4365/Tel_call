@@ -175,8 +175,28 @@ jobs:
 
       - name: Verify deployment
         run: |
-          sleep 10
-          curl -f https://api.callwith.ru/health || exit 1
+          echo "Waiting for services to start..."
+          MAX_RETRIES=30
+          RETRY_DELAY=5
+
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i/$MAX_RETRIES: Checking health endpoint..."
+
+            if curl -sf --max-time 10 https://api.callwith.ru/health > /dev/null 2>&1; then
+              echo "✅ Health check passed!"
+              exit 0
+            fi
+
+            if [ $i -eq $MAX_RETRIES ]; then
+              echo "❌ Health check failed after $MAX_RETRIES attempts"
+              echo "Checking service status..."
+              curl -v https://api.callwith.ru/health || true
+              exit 1
+            fi
+
+            echo "Waiting ${RETRY_DELAY}s before retry..."
+            sleep $RETRY_DELAY
+          done
 
       - name: Notify on success
         if: success()
