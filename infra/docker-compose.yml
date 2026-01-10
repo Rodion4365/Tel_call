@@ -25,7 +25,7 @@ services:
       - DOCKER_API_VERSION=1.44
     command:
       - --api.dashboard=true
-      - --api.insecure=false
+      - --api.insecure=true
       - --log.level=DEBUG
       - --providers.docker.exposedbydefault=false
       - --providers.docker=true
@@ -34,7 +34,7 @@ services:
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
       # HTTPS Configuration - Let's Encrypt
-      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.email=gilmanov.rodion.ai@gmail.com
       - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
       - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
@@ -101,20 +101,28 @@ services:
     restart: unless-stopped
     command: >-
       turnserver -n --log-file=stdout
-      --external-ip=88.218.68.63/192.168.0.142
       --realm=${TURN_REALM}
+      --server-name=${TURN_SERVER_NAME:-${TURN_REALM}}
       --listening-port=3478
+      --tls-listening-port=5349
       --fingerprint
       --lt-cred-mech
       --user=${TURN_USERNAME}:${TURN_PASSWORD}
+      --cert=/etc/turn/certs/turn.crt
+      --pkey=/etc/turn/certs/turn.key
       --no-cli
+      --no-loopback-peers
+      --no-multicast-peers
       --min-port=49160
       --max-port=49200
-      --verbose
+      ${TURN_EXTRA_OPTS:-}
     ports:
       - "3478:3478/udp"
       - "3478:3478/tcp"
-      - "49160-49200:49160-49200/udp"
+      - "5349:5349/udp"
+      - "5349:5349/tcp"
+    volumes:
+      - ./turn/certs:/etc/turn/certs:ro
     env_file:
       - .env
     networks:
