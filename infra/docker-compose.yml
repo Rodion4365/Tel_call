@@ -25,7 +25,7 @@ services:
       - DOCKER_API_VERSION=1.44
     command:
       - --api.dashboard=true
-      - --api.insecure=false
+      - --api.insecure=true
       - --log.level=DEBUG
       - --providers.docker.exposedbydefault=false
       - --providers.docker=true
@@ -34,7 +34,7 @@ services:
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
       # HTTPS Configuration - Let's Encrypt
-      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.email=gilmanov.rodion.ai@gmail.com
       - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
       - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
