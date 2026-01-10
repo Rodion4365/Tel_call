@@ -176,9 +176,11 @@ app.add_middleware(
     max_age=600,  # Cache preflight requests for 10 minutes
 )
 
-# Security Headers
-app.add_middleware(SecurityHeadersMiddleware)
-logger.info("Security headers middleware enabled")
+# TEMPORARILY DISABLED: Security Headers
+# TODO: Move CSP to frontend nginx config, backend API doesn't need CSP
+# Problem: frame-ancestors 'none' blocks Telegram Mini App which runs in iframe
+# app.add_middleware(SecurityHeadersMiddleware)
+# logger.info("Security headers middleware enabled")
 
 # Routers
 app.include_router(get_api_router())
