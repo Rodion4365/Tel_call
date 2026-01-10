@@ -18,6 +18,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.settings import get_settings
 from app.config.database import get_session
 from app.models import User
+from app.utils.security_logging import (
+    log_auth_failure,
+    log_token_validation_failure,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -44,6 +48,10 @@ def _validate_signature(init_data: str, bot_token: str) -> dict[str, str]:
 
     if not hmac.compare_digest(calculated_hash, hash_from_client):
         logger.warning("Telegram initData signature validation failed")
+        log_auth_failure(
+            reason="Invalid Telegram initData signature",
+            endpoint="/auth/telegram",
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid initData hash")
 
     return data
@@ -78,6 +86,11 @@ def validate_init_data(init_data: str, *, bot_token: str, max_age_seconds: int =
         timestamp = datetime.fromtimestamp(int(auth_date), tz=timezone.utc)
         if datetime.now(tz=timezone.utc) - timestamp > timedelta(seconds=max_age_seconds):
             logger.warning("Received expired initData payload: auth_date=%s", auth_date)
+            log_auth_failure(
+                reason="Expired Telegram initData",
+                endpoint="/auth/telegram",
+                auth_date=auth_date,
+            )
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="initData is too old")
 
     user_payload = data.get("user")
@@ -173,13 +186,14 @@ def build_init_data_fingerprint(init_data: str) -> str:
 
 
 def create_access_token(subject: str, *, fingerprint: str | None = None) -> str:
+    """Create short-lived access token (60 minutes)."""
     settings = get_settings()
     if not settings.secret_key:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="SECRET_KEY is not configured")
 
     expires_delta = timedelta(minutes=settings.access_token_expire_minutes)
     expire = datetime.now(tz=timezone.utc) + expires_delta
-    to_encode = {"sub": subject, "exp": expire}
+    to_encode = {"sub": subject, "exp": expire, "type": "access"}
     if fingerprint:
         to_encode["fp"] = fingerprint
     token = jwt.encode(to_encode, settings.secret_key, algorithm="HS256")
@@ -188,6 +202,24 @@ def create_access_token(subject: str, *, fingerprint: str | None = None) -> str:
         subject,
         settings.access_token_expire_minutes,
         fingerprint or "<none>",
+    )
+    return token
+
+
+def create_refresh_token(subject: str) -> str:
+    """Create long-lived refresh token (30 days)."""
+    settings = get_settings()
+    if not settings.secret_key:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="SECRET_KEY is not configured")
+
+    expires_delta = timedelta(days=settings.refresh_token_expire_days)
+    expire = datetime.now(tz=timezone.utc) + expires_delta
+    to_encode = {"sub": subject, "exp": expire, "type": "refresh"}
+    token = jwt.encode(to_encode, settings.secret_key, algorithm="HS256")
+    logger.info(
+        "Issued refresh token for user_id=%s with ttl_days=%s",
+        subject,
+        settings.refresh_token_expire_days,
     )
     return token
 
@@ -208,17 +240,43 @@ def authenticate_user_from_init_data(init_data: str) -> dict[str, Any]:
     return user_data
 
 
-def _decode_user_id_from_token(token: str, secret_key: str) -> int:
+def _decode_user_id_from_token(token: str, secret_key: str, *, expected_type: str = "access") -> int:
+    """Decode and validate JWT token, checking token type."""
     try:
         payload = jwt.decode(token, secret_key, algorithms=["HS256"])
         user_id = payload.get("sub")
+        token_type = payload.get("type", "access")  # Default to "access" for backward compatibility
     except jwt.ExpiredSignatureError as exc:  # pragma: no cover - expiry path
+        log_token_validation_failure(
+            reason="expired",
+            token_type=expected_type,
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired") from exc
     except jwt.InvalidTokenError as exc:
+        log_token_validation_failure(
+            reason="invalid_signature",
+            token_type=expected_type,
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
 
     if not user_id:
+        log_token_validation_failure(
+            reason="missing_subject",
+            token_type=expected_type,
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
+
+    # Verify token type matches expected type
+    if token_type != expected_type:
+        log_token_validation_failure(
+            reason="type_mismatch",
+            token_type=expected_type,
+            actual_type=token_type,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token type: expected {expected_type}, got {token_type}"
+        )
 
     return int(user_id)
 

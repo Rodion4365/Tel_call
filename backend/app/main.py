@@ -4,7 +4,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from fastapi.responses import JSONResponse
+from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from sqlalchemy import text
@@ -18,6 +19,7 @@ from app.config.settings import get_settings
 import app.models  # noqa: F401  # Ensure models are registered with metadata
 import app.services.bot_handlers  # noqa: F401  # Register bot handlers on startup
 from app.services.telegram_bot import log_webhook_status
+from app.utils.security_logging import log_rate_limit_exceeded
 
 
 settings = get_settings()
@@ -65,6 +67,27 @@ async def lifespan(app: FastAPI):
 
 
 settings.log_status(logger)
+
+
+async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    """Custom rate limit exceeded handler with security logging."""
+    # Extract client info
+    ip_address = get_remote_address(request)
+    endpoint = request.url.path
+
+    # Log security event
+    log_rate_limit_exceeded(
+        ip_address=ip_address,
+        endpoint=endpoint,
+        limit=str(exc.detail) if hasattr(exc, 'detail') else None,
+    )
+
+    # Return rate limit response
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Rate limit exceeded"},
+        headers={"Retry-After": "60"},
+    )
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -118,7 +141,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 # CORS
 allowed_origins = settings.allowed_origins
