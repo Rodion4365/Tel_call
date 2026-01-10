@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.database import session_scope
 from app.config.settings import get_settings
 from app.models import User
+from app.services.auth import _is_username_valid
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,16 @@ async def register_or_update_user(telegram_user: types.User) -> None:
     username = telegram_user.username
     first_name = telegram_user.first_name
     last_name = telegram_user.last_name
+
+    # Validate username using the same rules as in auth.py
+    # Note: username is optional in Telegram, so None is acceptable
+    if username and not _is_username_valid(username):
+        logger.warning(
+            "Invalid username '%s' for telegram_user_id=%s, setting to None",
+            username,
+            telegram_user_id,
+        )
+        username = None
 
     async with session_scope() as db_session:
         # Проверяем, существует ли пользователь
