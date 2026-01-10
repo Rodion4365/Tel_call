@@ -99,20 +99,27 @@ services:
   turn:
     image: coturn/coturn:4.6.3
     restart: unless-stopped
-    command: >-
-      turnserver -n --log-file=stdout
-      --realm=${TURN_REALM}
-      --server-name=${TURN_SERVER_NAME:-${TURN_REALM}}
-      --listening-port=3478
-      --fingerprint
-      --lt-cred-mech
-      --user=${TURN_USERNAME}:${TURN_PASSWORD}
-      --no-cli
-      --no-loopback-peers
-      --no-multicast-peers
-      --min-port=49160
-      --max-port=49200
-      ${TURN_EXTRA_OPTS:-}
+    command:
+      - turnserver
+      - -n
+      - --log-file=stdout
+      - --realm=${TURN_REALM}
+      - --server-name=${TURN_SERVER_NAME:-${TURN_REALM}}
+      - --listening-port=3478
+      - --fingerprint
+      - --lt-cred-mech
+      - --user=${TURN_USERNAME}:${TURN_PASSWORD}
+      - --no-cli
+      - --no-loopback-peers
+      - --no-multicast-peers
+      - --min-port=49160
+      - --max-port=49200
+    environment:
+      - TURN_REALM=${TURN_REALM}
+      - TURN_SERVER_NAME=${TURN_SERVER_NAME}
+      - TURN_USERNAME=${TURN_USERNAME}
+      - TURN_PASSWORD=${TURN_PASSWORD}
+      - TURN_EXTRA_OPTS=${TURN_EXTRA_OPTS}
     ports:
       - "3478:3478/udp"
       - "3478:3478/tcp"
