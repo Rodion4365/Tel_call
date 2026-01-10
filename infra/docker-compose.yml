@@ -99,9 +99,11 @@ services:
   turn:
     image: coturn/coturn:4.6.3
     restart: unless-stopped
+    network_mode: "host"
     command: >-
       turnserver -n --log-file=stdout
-      --external-ip=88.218.68.63/192.168.0.142
+      --listening-ip=0.0.0.0
+      --external-ip=88.218.68.63
       --realm=${TURN_REALM}
       --listening-port=3478
       --fingerprint
@@ -111,14 +113,8 @@ services:
       --min-port=49160
       --max-port=49200
       --verbose
-    ports:
-      - "3478:3478/udp"
-      - "3478:3478/tcp"
-      - "49160-49200:49160-49200/udp"
     env_file:
       - .env
-    networks:
-      - web
 
 networks:
   web:
