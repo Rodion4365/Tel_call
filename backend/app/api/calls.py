@@ -72,7 +72,8 @@ def _build_join_url(call_id: str) -> str:
 
 
 @router.post("/", response_model=CallResponse, status_code=status.HTTP_201_CREATED)
-@limiter.limit("10/minute")
+@limiter.limit("5/minute")
+@limiter.limit("30/hour")
 async def create_call(
     request: Request,
     payload: CallCreateRequest,
@@ -304,7 +305,8 @@ async def join_call_by_code(
 
 
 @router.post("/friend", response_model=CallResponse, status_code=status.HTTP_201_CREATED)
-@limiter.limit("10/minute")
+@limiter.limit("5/minute")
+@limiter.limit("30/hour")
 async def call_friend(
     request: Request,
     payload: CallFriendRequest,

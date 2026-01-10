@@ -13,8 +13,11 @@ from app.services.auth import (
     authenticate_user_from_init_data,
     build_init_data_fingerprint,
     create_access_token,
+    create_refresh_token,
     get_or_create_user,
     get_user_from_token,
+    _decode_user_id_from_token,
+    _get_user_by_id,
 )
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -41,11 +44,16 @@ class AuthResponse(BaseModel):
     user: UserResponse
     expires_in: int
     access_token: str  # For Telegram Mini Apps where cookies may not work
+    refresh_token: str  # Long-lived token to obtain new access tokens
     token_type: str = "bearer"
 
 
 class WebSocketTokenResponse(BaseModel):
     token: str
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str | None = Field(None, description="Refresh token to obtain new access token")
 
 
 @router.get("/ws-token", response_model=WebSocketTokenResponse)
@@ -99,7 +107,8 @@ async def get_websocket_token(
 
 
 @router.post("/telegram", response_model=AuthResponse, status_code=status.HTTP_200_OK)
-@limiter.limit("5/minute")
+@limiter.limit("3/minute")
+@limiter.limit("20/hour")
 async def authorize_telegram(
     request: Request,
     response: Response,
@@ -112,23 +121,38 @@ async def authorize_telegram(
     telegram_user = authenticate_user_from_init_data(payload.init_data)
     user = await get_or_create_user(session, telegram_user)
     fingerprint = build_init_data_fingerprint(payload.init_data)
-    token = create_access_token(str(user.id), fingerprint=fingerprint)
+
+    # Create both access and refresh tokens
+    access_token = create_access_token(str(user.id), fingerprint=fingerprint)
+    refresh_token = create_refresh_token(str(user.id))
+
     logger.info(
-        "[authorize_telegram] issued token for user_id=%s, fp=%s",
+        "[authorize_telegram] issued tokens for user_id=%s, fp=%s",
         user.id,
         fingerprint,
     )
     settings = get_settings()
 
-    # Set httpOnly cookie with JWT token (for browsers that support it)
-    # Also return token in body for Telegram Mini Apps where cookies may be blocked
+    # Set httpOnly cookies for both tokens (for browsers that support it)
+    # Access token - short-lived (60 minutes)
     response.set_cookie(
         key="access_token",
-        value=token,
+        value=access_token,
         httponly=True,
         secure=True,  # Only sent over HTTPS
         samesite="none",  # Allow in iframe (Telegram Mini App)
         max_age=settings.access_token_expire_minutes * 60,
+        path="/",
+    )
+
+    # Refresh token - long-lived (30 days)
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
         path="/",
     )
 
@@ -137,5 +161,106 @@ async def authorize_telegram(
     return AuthResponse(
         expires_in=settings.access_token_expire_minutes * 60,
         user=user,
-        access_token=token,
+        access_token=access_token,
+        refresh_token=refresh_token,
+    )
+
+
+@router.post("/refresh", response_model=AuthResponse, status_code=status.HTTP_200_OK)
+@limiter.limit("10/minute")
+@limiter.limit("60/hour")
+async def refresh_access_token(
+    request: Request,
+    response: Response,
+    payload: RefreshTokenRequest | None = None,
+    session: AsyncSession = Depends(get_session),
+) -> AuthResponse:
+    """Use refresh token to obtain new access and refresh tokens.
+
+    Implements token rotation: when a refresh token is used, both a new access token
+    and a new refresh token are issued. This improves security by limiting the lifetime
+    of refresh tokens.
+
+    The refresh token can be provided either:
+    - In the request body (for Telegram Mini Apps where cookies may not work)
+    - As an httpOnly cookie (for regular browser usage)
+    """
+    settings = get_settings()
+
+    # Try to get refresh token from cookie first, then from request body
+    refresh_token_value = request.cookies.get("refresh_token")
+    if not refresh_token_value and payload and payload.refresh_token:
+        refresh_token_value = payload.refresh_token
+
+    if not refresh_token_value:
+        logger.warning("[refresh_access_token] no refresh token provided")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token is required"
+        )
+
+    # Validate refresh token and get user_id (will check token type)
+    if not settings.secret_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="SECRET_KEY is not configured"
+        )
+
+    try:
+        user_id = _decode_user_id_from_token(
+            refresh_token_value,
+            settings.secret_key,
+            expected_type="refresh"
+        )
+    except HTTPException as exc:
+        logger.warning("[refresh_access_token] invalid refresh token: %s", exc.detail)
+        raise
+
+    # Get user from database
+    user = await _get_user_by_id(session, user_id)
+    if not user:
+        logger.warning("[refresh_access_token] user_id=%s not found", user_id)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+
+    # Generate new tokens (token rotation for better security)
+    # Note: We don't include fingerprint for refresh tokens since we don't have initData
+    new_access_token = create_access_token(str(user.id))
+    new_refresh_token = create_refresh_token(str(user.id))
+
+    logger.info(
+        "[refresh_access_token] issued new tokens for user_id=%s",
+        user.id,
+    )
+
+    # Set httpOnly cookies for both tokens
+    # Access token - short-lived (60 minutes)
+    response.set_cookie(
+        key="access_token",
+        value=new_access_token,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        max_age=settings.access_token_expire_minutes * 60,
+        path="/",
+    )
+
+    # Refresh token - long-lived (30 days)
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
+        path="/",
+    )
+
+    return AuthResponse(
+        expires_in=settings.access_token_expire_minutes * 60,
+        user=user,
+        access_token=new_access_token,
+        refresh_token=new_refresh_token,
     )
