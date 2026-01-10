@@ -104,12 +104,9 @@ services:
       --realm=${TURN_REALM}
       --server-name=${TURN_SERVER_NAME:-${TURN_REALM}}
       --listening-port=3478
-      --tls-listening-port=5349
       --fingerprint
       --lt-cred-mech
       --user=${TURN_USERNAME}:${TURN_PASSWORD}
-      --cert=/etc/turn/certs/turn.crt
-      --pkey=/etc/turn/certs/turn.key
       --no-cli
       --no-loopback-peers
       --no-multicast-peers
@@ -119,10 +116,7 @@ services:
     ports:
       - "3478:3478/udp"
       - "3478:3478/tcp"
-      - "5349:5349/udp"
-      - "5349:5349/tcp"
-    volumes:
-      - ./turn/certs:/etc/turn/certs:ro
+      - "49160-49200:49160-49200/udp"
     env_file:
       - .env
     networks:
