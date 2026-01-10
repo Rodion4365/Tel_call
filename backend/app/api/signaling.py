@@ -292,23 +292,22 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
         "Incoming WebSocket connection for call %s from %s", call_id, websocket.client
     )
 
-    # TEMPORARILY DISABLED: Validate Origin header to prevent CSRF attacks
-    # TODO: Re-enable after debugging WebRTC issues
-    # is_origin_valid, origin = _validate_websocket_origin(websocket)
-    # if not is_origin_valid:
-    #     await websocket.close(code=4403, reason="Origin not allowed")
-    #     logger.warning(
-    #         "Rejected WebSocket connection for call %s from origin %s: Origin not in allowed list",
-    #         call_id,
-    #         origin,
-    #     )
-    #     log_access_denied(
-    #         reason="WebSocket Origin not in allowed list",
-    #         endpoint=f"/ws/calls/{call_id}",
-    #         resource=call_id,
-    #         origin=origin,
-    #     )
-    #     return
+    # Validate Origin header to prevent CSRF attacks
+    is_origin_valid, origin = _validate_websocket_origin(websocket)
+    if not is_origin_valid:
+        await websocket.close(code=4403, reason="Origin not allowed")
+        logger.warning(
+            "Rejected WebSocket connection for call %s from origin %s: Origin not in allowed list",
+            call_id,
+            origin,
+        )
+        log_access_denied(
+            reason="WebSocket Origin not in allowed list",
+            endpoint=f"/ws/calls/{call_id}",
+            resource=call_id,
+            origin=origin,
+        )
+        return
 
     token, subprotocol = _extract_token(websocket)
     if not token:
