@@ -31,9 +31,14 @@ class Settings(BaseSettings):
     )
     secret_key: Optional[str] = Field(None, validation_alias="SECRET_KEY")
     access_token_expire_minutes: int = Field(
-        60 * 24 * 30,
+        60 * 4,  # 4 hours - optimal for Telegram Mini App
         validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES",
-        description="JWT access token lifetime in minutes (defaults to 30 days)",
+        description="JWT access token lifetime in minutes (defaults to 4 hours for Mini App)",
+    )
+    refresh_token_expire_days: int = Field(
+        30,
+        validation_alias="REFRESH_TOKEN_EXPIRE_DAYS",
+        description="JWT refresh token lifetime in days (defaults to 30 days)",
     )
     # Store as strings to avoid pydantic-settings automatic JSON parsing for list[str] types
     stun_servers_str: str = Field("", validation_alias="STUN_SERVERS")
