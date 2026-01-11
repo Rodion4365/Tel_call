@@ -99,7 +99,7 @@ async def get_websocket_token(
 
 
 @router.post("/telegram", response_model=AuthResponse, status_code=status.HTTP_200_OK)
-@limiter.limit("5/minute")
+@limiter.limit("3/minute; 20/hour")  # ✅ Усиленный rate limit для защиты от брутфорса
 async def authorize_telegram(
     request: Request,
     response: Response,

@@ -23,5 +23,8 @@ def test_settings_defaults():
     settings = Settings()
 
     assert settings.app_name == "Tel Call API"
-    assert settings.debug is False
-    assert settings.access_token_expire_minutes == 43200
+    # Note: debug is True in test environment (set in conftest.py)
+    assert settings.debug is True
+    # Note: access_token_expire_minutes changed to 4 hours (240 min) for Telegram Mini App
+    assert settings.access_token_expire_minutes == 240
+    assert settings.refresh_token_expire_days == 30

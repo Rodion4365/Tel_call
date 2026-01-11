@@ -99,34 +99,22 @@ services:
   turn:
     image: coturn/coturn:4.6.3
     restart: unless-stopped
+    network_mode: "host"
     command: >-
       turnserver -n --log-file=stdout
+      --listening-ip=0.0.0.0
+      --external-ip=88.218.68.63
       --realm=${TURN_REALM}
-      --server-name=${TURN_SERVER_NAME:-${TURN_REALM}}
       --listening-port=3478
-      --tls-listening-port=5349
       --fingerprint
       --lt-cred-mech
       --user=${TURN_USERNAME}:${TURN_PASSWORD}
-      --cert=/etc/turn/certs/turn.crt
-      --pkey=/etc/turn/certs/turn.key
       --no-cli
-      --no-loopback-peers
-      --no-multicast-peers
       --min-port=49160
       --max-port=49200
-      ${TURN_EXTRA_OPTS:-}
-    ports:
-      - "3478:3478/udp"
-      - "3478:3478/tcp"
-      - "5349:5349/udp"
-      - "5349:5349/tcp"
-    volumes:
-      - ./turn/certs:/etc/turn/certs:ro
+      --verbose
     env_file:
       - .env
-    networks:
-      - web
 
 networks:
   web:
