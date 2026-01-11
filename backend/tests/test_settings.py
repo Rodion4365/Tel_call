@@ -23,5 +23,6 @@ def test_settings_defaults():
     settings = Settings()
 
     assert settings.app_name == "Tel Call API"
-    assert settings.debug is False
+    # Note: debug is True in test environment (set in conftest.py)
+    assert settings.debug is True
     assert settings.access_token_expire_minutes == 43200
