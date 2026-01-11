@@ -23,6 +23,64 @@ router = APIRouter()
 logger = logging.getLogger("app.webrtc")
 
 
+def _validate_websocket_origin(websocket: WebSocket) -> tuple[bool, str | None]:
+    """Validate Origin header for WebSocket connections to prevent CSRF attacks.
+
+    Returns:
+        tuple: (is_valid, origin_value)
+            - is_valid: True if origin is allowed or missing (some clients don't send Origin)
+            - origin_value: The origin value from the header or None
+
+    Security: Validates Origin header against CORS_ALLOW_ORIGINS to prevent unauthorized
+    cross-origin WebSocket connections. Telegram Mini Apps origins are automatically allowed.
+    """
+    origin = websocket.headers.get("origin") or websocket.headers.get("Origin")
+
+    # If no Origin header, allow connection (native apps and some clients don't send Origin)
+    if not origin:
+        logger.debug("WebSocket connection without Origin header (likely native app)")
+        return True, None
+
+    settings = get_settings()
+    allowed_origins = settings.allowed_origins
+
+    # In debug mode, allow all origins (for development)
+    if settings.debug:
+        logger.debug("WebSocket Origin check: allowing %s in debug mode", origin)
+        return True, origin
+
+    # Check if origin matches allowed origins
+    # Handle wildcard case (though it should not happen in production due to validation in main.py)
+    if "*" in allowed_origins:
+        logger.debug("WebSocket Origin check: allowing %s (wildcard configured)", origin)
+        return True, origin
+
+    # Telegram Mini Apps origins - automatically allow these
+    telegram_origins = [
+        "https://web.telegram.org",
+        "https://k.web.telegram.org",
+        "https://a.web.telegram.org",
+        "https://z.web.telegram.org",
+    ]
+
+    if origin in telegram_origins:
+        logger.debug("WebSocket Origin check: allowing Telegram Mini App origin %s", origin)
+        return True, origin
+
+    # Check against configured allowed origins
+    if origin in allowed_origins:
+        logger.debug("WebSocket Origin check: allowing configured origin %s", origin)
+        return True, origin
+
+    # Origin not allowed
+    logger.warning(
+        "WebSocket Origin check failed: origin %s not in allowed origins %s",
+        origin,
+        allowed_origins,
+    )
+    return False, origin
+
+
 def _extract_token(websocket: WebSocket) -> tuple[str | None, str | None]:
     """Extract authentication token from WebSocket headers.
 
@@ -232,6 +290,17 @@ async def call_signaling(websocket: WebSocket, call_id: str) -> None:
     logger.info(
         "Incoming WebSocket connection for call %s from %s", call_id, websocket.client
     )
+
+    # Validate Origin header to prevent CSRF attacks
+    is_origin_valid, origin = _validate_websocket_origin(websocket)
+    if not is_origin_valid:
+        await websocket.close(code=4403, reason="Origin not allowed")
+        logger.warning(
+            "Rejected WebSocket connection for call %s from origin %s: Origin not in allowed list",
+            call_id,
+            origin,
+        )
+        return
 
     token, subprotocol = _extract_token(websocket)
     if not token:
