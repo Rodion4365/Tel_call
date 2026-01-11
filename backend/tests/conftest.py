@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 os.environ.setdefault("BOT_TOKEN", "123456:TESTTOKEN")
 os.environ.setdefault("BOT_USERNAME", "test_bot")
 os.environ.setdefault("SECRET_KEY", "test-secret")
+os.environ.setdefault("CORS_ALLOW_ORIGINS", "*")  # Allow all origins in tests
 
 from app.main import app
 from app.config.database import Base, get_session
