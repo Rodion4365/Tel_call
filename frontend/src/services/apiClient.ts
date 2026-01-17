@@ -90,7 +90,7 @@ const getAuthHeaders = (): Record<string, string> => {
 };
 
 export const apiClient = {
-  async get<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+  async get<T>(path: string, options: ApiRequestOptions = {}, isRetry = false): Promise<T> {
     const authHeaders = getAuthHeaders();
     const headers = {
       "Content-Type": "application/json",
@@ -100,7 +100,7 @@ export const apiClient = {
 
     const fullUrl = `${API_BASE_URL}${path}`;
     // eslint-disable-next-line no-console
-    console.log("[apiClient.get]", fullUrl, "- hasAuth:", !!authHeaders.Authorization);
+    console.log("[apiClient.get]", fullUrl, "- hasAuth:", !!authHeaders.Authorization, "- isRetry:", isRetry);
 
     try {
       const response = await fetch(fullUrl, {
@@ -110,12 +110,12 @@ export const apiClient = {
 
       if (!response.ok) {
         // Handle 401 Unauthorized - token expired
-        if (response.status === 401 && unauthorizedHandler) {
+        if (response.status === 401 && unauthorizedHandler && !isRetry) {
           // eslint-disable-next-line no-console
-          console.log("[apiClient.get] Token expired, attempting reauth");
+          console.log("[apiClient.get] Token expired, attempting reauth and retry");
           await unauthorizedHandler();
-          // After reauth, throw error so caller can retry
-          throw new Error("Token expired - please retry");
+          // After reauth, automatically retry the request once
+          return apiClient.get<T>(path, options, true);
         }
         return logResponseError("get", path, response);
       }
@@ -137,7 +137,7 @@ export const apiClient = {
     }
   },
 
-  async post<T>(path: string, body: unknown, options: ApiRequestOptions = {}): Promise<T> {
+  async post<T>(path: string, body: unknown, options: ApiRequestOptions = {}, isRetry = false): Promise<T> {
     const authHeaders = getAuthHeaders();
     const headers = {
       "Content-Type": "application/json",
@@ -147,7 +147,7 @@ export const apiClient = {
 
     const fullUrl = `${API_BASE_URL}${path}`;
     // eslint-disable-next-line no-console
-    console.log("[apiClient.post]", fullUrl, "- hasAuth:", !!authHeaders.Authorization);
+    console.log("[apiClient.post]", fullUrl, "- hasAuth:", !!authHeaders.Authorization, "- isRetry:", isRetry);
 
     try {
       const response = await fetch(fullUrl, {
@@ -159,12 +159,12 @@ export const apiClient = {
 
       if (!response.ok) {
         // Handle 401 Unauthorized - token expired
-        if (response.status === 401 && unauthorizedHandler) {
+        if (response.status === 401 && unauthorizedHandler && !isRetry) {
           // eslint-disable-next-line no-console
-          console.log("[apiClient.post] Token expired, attempting reauth");
+          console.log("[apiClient.post] Token expired, attempting reauth and retry");
           await unauthorizedHandler();
-          // After reauth, throw error so caller can retry
-          throw new Error("Token expired - please retry");
+          // After reauth, automatically retry the request once
+          return apiClient.post<T>(path, body, options, true);
         }
         return logResponseError("post", path, response);
       }
